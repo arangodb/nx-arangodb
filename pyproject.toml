@@ -121,6 +121,7 @@ python_functions = [
     "test_*",
 ]
 addopts = [
+    "-s -vv",
     "--strict-config",  # Force error if config is mispelled
     "--strict-markers",  # Force error if marker is mispelled (must be defined in config)
     # "-ra",  # Print summary of all fails/errors

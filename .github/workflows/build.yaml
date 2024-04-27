@@ -11,17 +11,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     continue-on-error: true
-    strategy:
-      matrix:
-        python: ["3.10"]
-    name: Python ${{ matrix.python }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python ${{ matrix.python }}
+      - name: Setup Python 3.10
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python }}
+          python-version: "3.10"
           cache: 'pip'
           cache-dependency-path: setup.py
 
@@ -35,7 +31,7 @@ jobs:
         run: python -m pip install --upgrade pip setuptools wheel
 
       - name: Install packages
-        run: pip install .[dev] pytest
+        run: pip install .[test]
 
       # - name: Run black
       #   run: black --check --verbose --diff --color ${{env.PACKAGE_DIR}} ${{env.TESTS_DIR}}
@@ -53,4 +49,4 @@ jobs:
         run: pytest tests/test.py
 
       - name: Run NetworkX tests
-        run: pytest -s --pyargs networkx.classes networkx.algorithms.centrality
+        run: pytest --pyargs networkx.classes networkx.algorithms.centrality

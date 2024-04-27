@@ -4,8 +4,7 @@ NETWORKX_GRAPH_CONVERT=arangodb \
 NETWORKX_TEST_BACKEND=arangodb \
 NETWORKX_FALLBACK_TO_NX=True \
     pytest \
-    --pyargs networkx \
-    --config-file=$(dirname $0)/pyproject.toml \
+    --pyargs networkx.classes networkx.algorithms.centrality \
     --cov-config=$(dirname $0)/pyproject.toml \
     --cov=nx_arangodb \
     --cov-report= \

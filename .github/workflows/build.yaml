@@ -50,4 +50,4 @@ jobs:
         run: pytest tests/test.py
 
       - name: Run NetworkX tests
-        run: pytest --pyargs networkx.classes networkx.algorithms.centrality
+        run: ./run_nx_tests.sh

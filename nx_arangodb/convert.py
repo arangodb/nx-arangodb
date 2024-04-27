@@ -130,7 +130,7 @@ def from_networkx(
         else:
             klass = nxadb.Graph
 
-    print(f"ANTHONY: Called from_networkx with graph_name={graph_name}")
+    print(f"ANTHONY: Called from_networkx for {graph.__class__.__name__}")
     return klass(incoming_graph_data=graph)
 
 
@@ -160,11 +160,10 @@ def to_networkx(G: nxadb.Graph, *, sort_edges: bool = False) -> nx.Graph:
     --------
     from_networkx : The opposite; convert networkx graph to nx_cugraph graph
     """
-    print(f"ANTHONY: Called to_networkx")
-
     if not isinstance(G, nxadb.Graph):
         raise TypeError(f"Expected nx_arangodb.Graph; got {type(G)}")
 
+    print(f"ANTHONY: Called to_networkx for {G.__class__.__name__}")
     return G.to_networkx_class()(incoming_graph_data=G)
 
 

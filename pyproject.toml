@@ -31,10 +31,8 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    # "cupy-cuda11x>=12.0.0", # TODO Anthony: Re-introduce when ready
     "networkx>=3.0",
     "numpy>=1.23,<2.0a0",
-    # "pylibcugraph==24.6.*", # TODO Anthony: Re-introduce when ready
     "python-arango",
     "adbnx-adapter"
 ]
@@ -49,6 +47,9 @@ test = [
     "pytest-mpl",
     "pytest-xdist",
     "scipy",
+]
+gpu = [
+    "nx-cugraph-cu12 @ https://pypi.nvidia.com"
 ]
 
 [project.urls]

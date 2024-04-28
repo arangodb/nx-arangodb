@@ -1,5 +1,3 @@
-import os
-
 from networkx.algorithms.centrality import betweenness as nx_betweenness
 
 from nx_arangodb.convert import _to_graph as _to_nx_arangodb_graph
@@ -29,14 +27,12 @@ __all__ = ["betweenness_centrality"]
     _plc="betweenness_centrality",
 )
 def betweenness_centrality(
-    G, k=None, normalized=True, weight=None, endpoints=False, seed=None
+    G, k=None, normalized=True, weight=None, endpoints=False, seed=None, run_on_gpu=True
 ):
     print("ANTHONY: Calling betweenness_centrality from nx_arangodb")
 
-    run_on_gpu = os.environ.get("RUN_ON_GPU", "false").lower()
-
     # 1.
-    if GPU_ENABLED and run_on_gpu == "true":
+    if GPU_ENABLED and run_on_gpu:
         print("ANTHONY: GPU is enabled. Using nx-cugraph bc()")
 
         if weight is not None:

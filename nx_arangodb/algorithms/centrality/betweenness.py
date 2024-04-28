@@ -27,12 +27,12 @@ __all__ = ["betweenness_centrality"]
     _plc="betweenness_centrality",
 )
 def betweenness_centrality(
-    G, k=None, normalized=True, weight=None, endpoints=False, seed=None
+    G, k=None, normalized=True, weight=None, endpoints=False, seed=None, run_on_gpu=True
 ):
     print("ANTHONY: Calling betweenness_centrality from nx_arangodb")
 
     # 1.
-    if GPU_ENABLED:
+    if GPU_ENABLED and run_on_gpu:
         print("ANTHONY: GPU is enabled. Using nx-cugraph bc()")
 
         if weight is not None:

@@ -27,3 +27,7 @@ class DiGraph(nx.DiGraph, Graph):
         self.set_db()
         if self.__db is not None:
             self.set_graph_name()
+
+    @property
+    def graph_exists(self) -> bool:
+        return self.__graph_exists

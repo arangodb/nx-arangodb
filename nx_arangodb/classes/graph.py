@@ -27,9 +27,11 @@ class Graph(nx.Graph):
     ):
         super().__init__(*args, **kwargs)
 
-        self.set_db()
-
+        self.__db = None
+        self.__graph_name = None
         self.__graph_exists = False
+
+        self.set_db()
         if self.__db is not None:
             self.set_graph_name()
 
@@ -88,13 +90,13 @@ class Graph(nx.Graph):
             self.__graph_name = graph_name
 
         if self.__graph_name is None:
-            self.graph_exists = False
+            self.__graph_exists = False
             print("DATABASE_GRAPH_NAME environment variable not set")
 
         elif not self.db.has_graph(self.__graph_name):
-            self.graph_exists = False
+            self.__graph_exists = False
             print(f"Graph '{self.__graph_name}' does not exist in the database")
 
         else:
-            self.graph_exists = True
+            self.__graph_exists = True
             print(f"Found graph '{self.__graph_name}' in the database")

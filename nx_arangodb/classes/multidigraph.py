@@ -21,8 +21,10 @@ class MultiDiGraph(nx.MultiDiGraph, MultiGraph, DiGraph):
     ):
         super().__init__(*args, **kwargs)
 
-        self.set_db()
-
+        self.__db = None
+        self.__graph_name = None
         self.__graph_exists = False
+
+        self.set_db()
         if self.__db is not None:
             self.set_graph_name()

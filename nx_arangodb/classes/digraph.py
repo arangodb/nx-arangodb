@@ -12,3 +12,16 @@ class DiGraph(nx.DiGraph, Graph):
     @classmethod
     def to_networkx_class(cls) -> type[nx.DiGraph]:
         return nx.DiGraph
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+        self.set_db()
+
+        self.__graph_exists = False
+        if self.__db is not None:
+            self.set_graph_name()

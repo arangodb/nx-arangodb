@@ -1,11 +1,10 @@
 from networkx.algorithms.centrality import betweenness as nx_betweenness
 
-from nx_arangodb.convert import _to_graph as _to_nx_arangodb_graph
+from nx_arangodb.convert import _to_nxadb_graph, _to_nxcg_graph
 from nx_arangodb.utils import networkx_algorithm
 
 try:
     import pylibcugraph as plc
-    from nx_cugraph.convert import _to_graph as _to_nx_cugraph_graph
     from nx_cugraph.utils import _seed_to_int
 
     GPU_ENABLED = True
@@ -15,9 +14,9 @@ except ModuleNotFoundError:
 
 __all__ = ["betweenness_centrality"]
 
-# 1. If GPU is enabled, call nx-cugraph bc() after converting to a nx_cugraph graph (in-memory graph)
-# 2. If GPU is not enabled, call networkx bc() after converting to a networkx graph (in-memory graph)
-# 3. If GPU is not enabled, call networkx bc() **without** converting to a networkx graph (remote graph)
+# 1. If GPU is enabled, call nx-cugraph bc() after converting to an ncxg graph (in-memory graph)
+# 2. If GPU is not enabled, call networkx bc() after converting to an nxadb graph (in-memory graph)
+# 3. If GPU is not enabled, call networkx bc() **without** converting to a nxadb graph (remote graph)
 
 
 @networkx_algorithm(
@@ -41,7 +40,7 @@ def betweenness_centrality(
             )
 
         seed = _seed_to_int(seed)
-        G = _to_nx_cugraph_graph(G, weight)
+        G = _to_nxcg_graph(G, weight)
         node_ids, values = plc.betweenness_centrality(
             resource_handle=plc.ResourceHandle(),
             graph=G._get_plc_graph(),
@@ -58,7 +57,7 @@ def betweenness_centrality(
     else:
         print("ANTHONY: GPU is disabled. Using nx bc()")
 
-        G = _to_nx_arangodb_graph(G)
+        G = _to_nxadb_graph(G)
 
         betweenness = dict.fromkeys(G, 0.0)  # b[v]=0 for v in G
         if k is None:

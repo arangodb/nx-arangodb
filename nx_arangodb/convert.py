@@ -167,7 +167,7 @@ def to_networkx(G: nxadb.Graph, *, sort_edges: bool = False) -> nx.Graph:
     return G.to_networkx_class()(incoming_graph_data=G)
 
 
-def _to_graph(
+def _to_nxadb_graph(
     G,
     edge_attr: AttrKey | None = None,
     edge_default: EdgeValue | None = 1,
@@ -188,7 +188,7 @@ def _to_graph(
     raise TypeError
 
 
-def _to_directed_graph(
+def _to_nxadb_directed_graph(
     G,
     edge_attr: AttrKey | None = None,
     edge_default: EdgeValue | None = 1,
@@ -214,7 +214,7 @@ def _to_directed_graph(
     raise TypeError
 
 
-def _to_undirected_graph(
+def _to_nxadb_undirected_graph(
     G,
     edge_attr: AttrKey | None = None,
     edge_default: EdgeValue | None = 1,
@@ -235,3 +235,66 @@ def _to_undirected_graph(
         )
     # TODO: handle cugraph.Graph
     raise TypeError
+
+
+try:
+    import nx_cugraph as nxcg
+    from adbnx_adapter import ADBNX_Adapter
+
+    def _to_nxcg_graph(
+        G,
+        edge_attr: AttrKey | None = None,
+        edge_default: EdgeValue | None = 1,
+        edge_dtype: Dtype | None = None,
+    ) -> nxcg.Graph | nxcg.DiGraph:
+        """Ensure that input type is a nx_cugraph graph, and convert if necessary.
+
+        Directed and undirected graphs are both allowed.
+        This is an internal utility function and may change or be removed.
+        """
+        if isinstance(G, nxcg.Graph):
+            return G
+        if isinstance(G, nxadb.Graph):
+            # Assumption: G.adb_graph_name points to an existing graph in ArangoDB
+            # Therefore, the user wants us to pull the graph from ArangoDB,
+            # and convert it to an nx_cugraph graph.
+            # We currently accomplish this by using the NetworkX adapter for ArangoDB,
+            # which converts the ArangoDB graph to a NetworkX graph, and then we convert
+            # the NetworkX graph to an nx_cugraph graph.
+            # TODO: Implement a direct conversion from ArangoDB to nx_cugraph
+            if G.graph_exists:
+                adapter = ADBNX_Adapter(G.db)
+                nx_g = adapter.arangodb_graph_to_networkx(
+                    G.graph_name, G.to_networkx_class()()
+                )
+
+                return nxcg.convert.from_networkx(
+                    nx_g,
+                    {edge_attr: edge_default} if edge_attr is not None else None,
+                    edge_dtype,
+                )
+
+        # If G is a networkx graph, or is a nxadb graph that doesn't point to an "existing"
+        # ArangoDB graph, then we just treat it as a normal networkx graph &
+        # convert it to nx_cugraph.
+        # TODO: Need to revisit the "existing" ArangoDB graph condition...
+        if isinstance(G, nx.Graph):
+            return nxcg.convert.from_networkx(
+                G,
+                {edge_attr: edge_default} if edge_attr is not None else None,
+                edge_dtype,
+            )
+
+        # TODO: handle cugraph.Graph
+        raise TypeError
+
+except ModuleNotFoundError:
+
+    def _to_nxcg_graph(
+        G,
+        edge_attr: AttrKey | None = None,
+        edge_default: EdgeValue | None = 1,
+        edge_dtype: Dtype | None = None,
+    ) -> nxadb.Graph:
+        m = "nx-cugraph is not installed; cannot convert to nx-cugraph graph"
+        raise NotImplementedError(m)

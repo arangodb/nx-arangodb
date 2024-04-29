@@ -72,7 +72,7 @@ class Graph(nx.Graph):
             self.__db = None
             return
 
-        self.__db = ArangoClient(host=host, request_timeout=None).db(
+        self.__db = ArangoClient(hosts=host, request_timeout=None).db(
             db_name, username, password, verify=True
         )
 

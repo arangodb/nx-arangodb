@@ -244,6 +244,7 @@ try:
         edge_attr: AttrKey | None = None,
         edge_default: EdgeValue | None = 1,
         edge_dtype: Dtype | None = None,
+        as_directed: bool = False,
     ) -> nxcg.Graph | nxcg.DiGraph:
         """Ensure that input type is a nx_cugraph graph, and convert if necessary.
 
@@ -262,11 +263,7 @@ try:
             # TODO: Implement a direct conversion from ArangoDB to nx_cugraph
             if G.graph_exists:
                 print("ANTHONY: Graph exists! Running _from_networkx_arangodb()")
-                return _from_networkx_arangodb(
-                    G,
-                    {edge_attr: edge_default} if edge_attr is not None else None,
-                    edge_dtype,
-                )
+                return _from_networkx_arangodb(G, as_directed=as_directed)
 
         # If G is a networkx graph, or is a nxadb graph that doesn't point to an "existing"
         # ArangoDB graph, then we just treat it as a normal networkx graph &
@@ -277,6 +274,7 @@ try:
                 G,
                 {edge_attr: edge_default} if edge_attr is not None else None,
                 edge_dtype,
+                as_directed=as_directed,
             )
 
         # TODO: handle cugraph.Graph
@@ -351,6 +349,7 @@ except ModuleNotFoundError as e:
         edge_attr: AttrKey | None = None,
         edge_default: EdgeValue | None = 1,
         edge_dtype: Dtype | None = None,
+        as_directed: bool = False,
     ) -> nxadb.Graph:
         m = "nx-cugraph is not installed; cannot convert to nx-cugraph graph"
         raise NotImplementedError(m)

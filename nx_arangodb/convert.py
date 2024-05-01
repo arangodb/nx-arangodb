@@ -286,8 +286,11 @@ try:
         if G.is_multigraph():
             raise NotImplementedError("Multigraphs not yet supported")
 
-        if G.coo_use_cache and all(
-            [G.src_indices, G.dst_indices, G.vertex_ids_to_index]
+        if (
+            G.coo_use_cache
+            and G.src_indices is not None
+            and G.dst_indices is not None
+            and G.vertex_ids_to_index is not None
         ):
             src_indices = G.src_indices
             dst_indices = G.dst_indices

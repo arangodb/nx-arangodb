@@ -346,7 +346,7 @@ try:
 except ModuleNotFoundError as e:
     print(f"ANTHONY: {e}")
 
-    def _from_networkx_arangodb(
+    def _to_nxcg_graph(
         G,
         edge_attr: AttrKey | None = None,
         edge_default: EdgeValue | None = 1,

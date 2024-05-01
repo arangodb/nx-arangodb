@@ -232,6 +232,7 @@ def _to_nxadb_undirected_graph(
 
 try:
     import os
+    import time
 
     import cupy as cp
     import numpy as np
@@ -260,6 +261,7 @@ try:
             # the NetworkX graph to an nx_cugraph graph.
             # TODO: Implement a direct conversion from ArangoDB to nx_cugraph
             if G.graph_exists:
+                print("ANTHONY: Graph exists! Running _from_networkx_arangodb()")
                 return _from_networkx_arangodb(
                     G,
                     {edge_attr: edge_default} if edge_attr is not None else None,
@@ -286,6 +288,7 @@ try:
         if G.is_multigraph():
             raise NotImplementedError("Multigraphs not yet supported")
 
+        print("ANTHONY: Building metagraph...")
         adb_graph = G.db.graph(G.graph_name)
 
         v_cols = adb_graph.vertex_collections()
@@ -297,6 +300,10 @@ try:
             "edgeCollections": {col: {} for col in e_cols},
         }
 
+        print("ANTHONY: Running COO Loader...")
+
+        start_time = time.time()
+
         src_indices, dst_indices, vertex_ids = CooLoader.load_coo(
             G.db.name,
             metagraph,
@@ -306,6 +313,12 @@ try:
             # parallelism=,
             # batch_size=
         )
+
+        end_time = time.time()
+
+        print("ANTHONY: COO Load took:", end_time - start_time)
+
+        print("ANTHONY: Converting to cupy arrays...")
 
         src_indices = cp.array(src_indices)
         dst_indices = cp.array(dst_indices)
@@ -317,11 +330,15 @@ try:
         else:
             klass = nxcg.Graph
 
+        print("ANTHONY: Running nx_cugraph.from_coo()...")
+
+        key_to_id = {k: i for i, k in enumerate(vertex_ids)}
+
         rv = klass.from_coo(
             N,
             src_indices,
             dst_indices,
-            key_to_id={k: i for i, k in enumerate(vertex_ids)},
+            key_to_id=key_to_id,
         )
 
         return rv

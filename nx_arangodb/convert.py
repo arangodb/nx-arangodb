@@ -286,7 +286,6 @@ try:
         if G.is_multigraph():
             raise NotImplementedError("Multigraphs not yet supported")
 
-        print("ANTHONY: Building metagraph...")
         adb_graph = G.db.graph(G.graph_name)
 
         v_cols = adb_graph.vertex_collections()
@@ -297,8 +296,6 @@ try:
             "vertexCollections": {col: {} for col in v_cols},
             "edgeCollections": {col: {} for col in e_cols},
         }
-
-        print("ANTHONY: Running COO Loader...")
 
         start_time = time.time()
 
@@ -316,10 +313,14 @@ try:
 
         print("ANTHONY: COO Load took:", end_time - start_time)
 
-        print("ANTHONY: Converting to cupy arrays...")
+        start_time = time.time()
 
         src_indices = cp.array(src_indices)
         dst_indices = cp.array(dst_indices)
+
+        end_time = time.time()
+
+        print("ANTHONY:  cupy arrays took:", end_time - start_time)
 
         N = len(vertex_ids)
 
@@ -328,9 +329,15 @@ try:
         else:
             klass = nxcg.Graph
 
-        print("ANTHONY: Running nx_cugraph.from_coo()...")
+        start_time = time.time()
 
         key_to_id = {k: i for i, k in enumerate(vertex_ids)}
+
+        end_time = time.time()
+
+        print("ANTHONY: key_to_id took:", end_time - start_time)
+
+        start_time = time.time()
 
         rv = klass.from_coo(
             N,
@@ -338,6 +345,9 @@ try:
             dst_indices,
             key_to_id=key_to_id,
         )
+        end_time = time.time()
+
+        print("ANTHONY: from_coo took:", end_time - start_time)
 
         return rv
 

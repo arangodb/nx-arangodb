@@ -38,7 +38,7 @@ def louvain_communities(
         G = _to_nxcg_graph(G, weight)
 
         print("ANTHONY: Using nxcg louvain()")
-        return nxcg._louvain_communities(
+        return nxcg.algorithms.community.louvain._louvain_communities(
             G,
             weight=weight,
             resolution=resolution,

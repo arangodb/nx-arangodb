@@ -292,6 +292,7 @@ try:
             and G.dst_indices is not None
             and G.vertex_ids_to_index is not None
         ):
+            print("ANTHONY: Using cached COO")
             src_indices = G.src_indices
             dst_indices = G.dst_indices
             vertex_ids_to_index = G.vertex_ids_to_index

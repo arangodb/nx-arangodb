@@ -31,6 +31,7 @@ __all__ = [
     "index_dtype",
     "_seed_to_int",
     "_get_int_dtype",
+    "_dtype_param",
 ]
 
 # This may switch to np.uint32 at some point

@@ -24,8 +24,12 @@ class DiGraph(nx.DiGraph, Graph):
         self.__graph_name = None
         self.__graph_exists = False
 
+        self.coo_use_cache = False
         self.coo_load_parallelism = None
         self.coo_load_batch_size = None
+        self.src_indices = None
+        self.dst_indices = None
+        self.vertex_ids_to_index = None
 
         self.set_db()
         if self.__db is not None:

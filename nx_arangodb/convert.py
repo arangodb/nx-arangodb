@@ -286,46 +286,59 @@ try:
         if G.is_multigraph():
             raise NotImplementedError("Multigraphs not yet supported")
 
-        adb_graph = G.db.graph(G.graph_name)
+        if G.coo_use_cache and all(
+            [G.src_indices, G.dst_indices, G.vertex_ids_to_index]
+        ):
+            src_indices = G.src_indices
+            dst_indices = G.dst_indices
+            vertex_ids_to_index = G.vertex_ids_to_index
 
-        v_cols = adb_graph.vertex_collections()
-        edge_definitions = adb_graph.edge_definitions()
-        e_cols = {c["edge_collection"] for c in edge_definitions}
+        else:
+            adb_graph = G.db.graph(G.graph_name)
 
-        metagraph = {
-            "vertexCollections": {col: {} for col in v_cols},
-            "edgeCollections": {col: {} for col in e_cols},
-        }
+            v_cols = adb_graph.vertex_collections()
+            edge_definitions = adb_graph.edge_definitions()
+            e_cols = {c["edge_collection"] for c in edge_definitions}
 
-        start_time = time.time()
+            metagraph = {
+                "vertexCollections": {col: {} for col in v_cols},
+                "edgeCollections": {col: {} for col in e_cols},
+            }
 
-        kwargs = {}
-        if G.coo_load_parallelism is not None:
-            kwargs["parallelism"] = G.coo_load_parallelism
-        if G.coo_load_batch_size is not None:
-            kwargs["batch_size"] = G.coo_load_batch_size
+            start_time = time.time()
 
-        src_indices, dst_indices, vertex_ids_to_index = CooLoader.load_coo(
-            G.db.name,
-            metagraph,
-            [os.environ["DATABASE_HOST"]],
-            username=os.environ["DATABASE_USERNAME"],
-            password=os.environ["DATABASE_PASSWORD"],
-            **kwargs,
-        )
+            kwargs = {}
+            if G.coo_load_parallelism is not None:
+                kwargs["parallelism"] = G.coo_load_parallelism
+            if G.coo_load_batch_size is not None:
+                kwargs["batch_size"] = G.coo_load_batch_size
 
-        end_time = time.time()
+            src_indices, dst_indices, vertex_ids_to_index = CooLoader.load_coo(
+                G.db.name,
+                metagraph,
+                [os.environ["DATABASE_HOST"]],
+                username=os.environ["DATABASE_USERNAME"],
+                password=os.environ["DATABASE_PASSWORD"],
+                **kwargs,
+            )
 
-        print("ANTHONY: COO Load took:", end_time - start_time)
+            end_time = time.time()
 
-        start_time = time.time()
+            print("ANTHONY: COO Load took:", end_time - start_time)
 
-        src_indices = cp.array(src_indices)
-        dst_indices = cp.array(dst_indices)
+            start_time = time.time()
 
-        end_time = time.time()
+            src_indices = cp.array(src_indices)
+            dst_indices = cp.array(dst_indices)
 
-        print("ANTHONY:  cupy arrays took:", end_time - start_time)
+            end_time = time.time()
+
+            print("ANTHONY:  cupy arrays took:", end_time - start_time)
+
+            if G.coo_use_cache:
+                G.src_indices = src_indices
+                G.dst_indices = dst_indices
+                G.vertex_ids_to_index = vertex_ids_to_index
 
         N = len(vertex_ids_to_index)
 

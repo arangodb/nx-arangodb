@@ -299,7 +299,7 @@ try:
 
         start_time = time.time()
 
-        src_indices, dst_indices, vertex_ids = CooLoader.load_coo(
+        src_indices, dst_indices, vertex_ids_to_index = CooLoader.load_coo(
             G.db.name,
             metagraph,
             [os.environ["DATABASE_HOST"]],
@@ -322,7 +322,7 @@ try:
 
         print("ANTHONY:  cupy arrays took:", end_time - start_time)
 
-        N = len(vertex_ids)
+        N = len(vertex_ids_to_index)
 
         if G.is_directed() or as_directed:
             klass = nxcg.DiGraph
@@ -331,19 +331,11 @@ try:
 
         start_time = time.time()
 
-        key_to_id = {k: i for i, k in enumerate(vertex_ids)}
-
-        end_time = time.time()
-
-        print("ANTHONY: key_to_id took:", end_time - start_time)
-
-        start_time = time.time()
-
         rv = klass.from_coo(
             N,
             src_indices,
             dst_indices,
-            key_to_id=key_to_id,
+            key_to_id=vertex_ids_to_index,
         )
         end_time = time.time()
 

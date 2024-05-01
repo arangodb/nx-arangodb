@@ -4,12 +4,13 @@ from nx_arangodb.convert import _to_nxadb_graph, _to_nxcg_graph
 from nx_arangodb.utils import networkx_algorithm
 
 try:
-    import pylibcugraph as plc
-    from nx_cugraph.utils import _seed_to_int
+    import nx_cugraph as nxcg
 
     GPU_ENABLED = True
+    print("ANTHONY: GPU is enabled")
 except ModuleNotFoundError:
     GPU_ENABLED = False
+    print("ANTHONY: GPU is disabled")
 
 
 __all__ = ["betweenness_centrality"]
@@ -32,32 +33,19 @@ def betweenness_centrality(
 
     # 1.
     if GPU_ENABLED and run_on_gpu:
-        print("ANTHONY: GPU is enabled. Using nx-cugraph bc()")
-
-        if weight is not None:
-            raise NotImplementedError(
-                "Weighted implementation of betweenness centrality not currently supported"
-            )
-
-        seed = _seed_to_int(seed)
+        print("ANTHONY: to_nxcg")
         G = _to_nxcg_graph(G, weight)
-        node_ids, values = plc.betweenness_centrality(
-            resource_handle=plc.ResourceHandle(),
-            graph=G._get_plc_graph(),
-            k=k,
-            random_state=seed,
-            normalized=normalized,
-            include_endpoints=endpoints,
-            do_expensive_check=False,
-        )
 
-        return G._nodearrays_to_dict(node_ids, values)
+        print("ANTHONY: Using nxcg bc()")
+        return nxcg.betweenness_centrality(G, k=k, normalized=normalized, weight=weight)
 
     # 2.
     else:
-        print("ANTHONY: GPU is disabled. Using nx bc()")
 
+        print("ANTHONY: to_nxadb")
         G = _to_nxadb_graph(G)
+
+        print("ANTHONY: Using nx bc()")
 
         betweenness = dict.fromkeys(G, 0.0)  # b[v]=0 for v in G
         if k is None:
@@ -92,5 +80,3 @@ def betweenness_centrality(
         )
 
         return betweenness
-
-    # 3. TODO

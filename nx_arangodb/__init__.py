@@ -10,10 +10,6 @@ from .classes import *
 from . import convert
 from .convert import *
 
-# TODO Anthony: Do we need this?
-# from . import convert_matrix
-# from .convert_matrix import *
-
 from . import algorithms
 from .algorithms import *
 

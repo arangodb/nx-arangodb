@@ -24,6 +24,9 @@ class MultiGraph(nx.MultiGraph, Graph):
         self.__graph_name = None
         self.__graph_exists = False
 
+        self.coo_load_parallelism = None
+        self.coo_load_batch_size = None
+
         self.set_db()
         if self.__db is not None:
             self.set_graph_name()

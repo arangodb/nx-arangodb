@@ -299,14 +299,19 @@ try:
 
         start_time = time.time()
 
+        kwargs = {}
+        if G.coo_load_parallelism is not None:
+            kwargs["parallelism"] = G.coo_load_parallelism
+        if G.coo_load_batch_size is not None:
+            kwargs["batch_size"] = G.coo_load_batch_size
+
         src_indices, dst_indices, vertex_ids_to_index = CooLoader.load_coo(
             G.db.name,
             metagraph,
             [os.environ["DATABASE_HOST"]],
             username=os.environ["DATABASE_USERNAME"],
             password=os.environ["DATABASE_PASSWORD"],
-            # parallelism=,
-            # batch_size=
+            **kwargs,
         )
 
         end_time = time.time()

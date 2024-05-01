@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 import itertools
-import operator as op
-from collections import Counter
-from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
-# import cupy as cp
 import networkx as nx
-import numpy as np
 
 import nx_arangodb as nxadb
 
-from .utils import index_dtype
-
 if TYPE_CHECKING:  # pragma: no cover
-    from nx_arangodb.typing import AttrKey, Dtype, EdgeValue, NodeValue, any_ndarray
+    from nx_arangodb.typing import AttrKey, Dtype, EdgeValue, NodeValue
 
 __all__ = [
     "from_networkx",
@@ -238,8 +231,12 @@ def _to_nxadb_undirected_graph(
 
 
 try:
+    import os
+
+    import cupy as cp
+    import numpy as np
     import nx_cugraph as nxcg
-    from adbnx_adapter import ADBNX_Adapter
+    from phenolrs.coo_loader import CooLoader
 
     def _to_nxcg_graph(
         G,
@@ -263,13 +260,8 @@ try:
             # the NetworkX graph to an nx_cugraph graph.
             # TODO: Implement a direct conversion from ArangoDB to nx_cugraph
             if G.graph_exists:
-                adapter = ADBNX_Adapter(G.db)
-                nx_g = adapter.arangodb_graph_to_networkx(
-                    G.graph_name, G.to_networkx_class()()
-                )
-
-                return nxcg.convert.from_networkx(
-                    nx_g,
+                return _from_networkx_arangodb(
+                    G,
                     {edge_attr: edge_default} if edge_attr is not None else None,
                     edge_dtype,
                 )
@@ -288,9 +280,56 @@ try:
         # TODO: handle cugraph.Graph
         raise TypeError
 
-except ModuleNotFoundError:
+    def _from_networkx_arangodb(
+        G: nxadb.Graph, as_directed: bool = False
+    ) -> nxcg.Graph | nxcg.DiGraph:
+        if G.is_multigraph():
+            raise NotImplementedError("Multigraphs not yet supported")
 
-    def _to_nxcg_graph(
+        adb_graph = G.db.graph(G.graph_name)
+
+        v_cols = adb_graph.vertex_collections()
+        edge_definitions = adb_graph.edge_definitions()
+        e_cols = {c["edge_collection"] for c in edge_definitions}
+
+        metagraph = {
+            "vertexCollections": {col: {} for col in v_cols},
+            "edgeCollections": {col: {} for col in e_cols},
+        }
+
+        src_indices, dst_indices, vertex_ids = CooLoader.load_coo(
+            G.db.name,
+            metagraph,
+            [os.environ["DATABASE_HOST"]],
+            username=os.environ["DATABASE_USERNAME"],
+            password=os.environ["DATABASE_PASSWORD"],
+            # parallelism=,
+            # batch_size=
+        )
+
+        src_indices = cp.array(src_indices)
+        dst_indices = cp.array(dst_indices)
+
+        N = len(vertex_ids)
+
+        if G.is_directed() or as_directed:
+            klass = nxcg.DiGraph
+        else:
+            klass = nxcg.Graph
+
+        rv = klass.from_coo(
+            N,
+            src_indices,
+            dst_indices,
+            key_to_id={k: i for i, k in enumerate(vertex_ids)},
+        )
+
+        return rv
+
+except ModuleNotFoundError as e:
+    print(f"ANTHONY: {e}")
+
+    def _from_networkx_arangodb(
         G,
         edge_attr: AttrKey | None = None,
         edge_default: EdgeValue | None = 1,

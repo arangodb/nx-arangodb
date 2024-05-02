@@ -1,4 +1,5 @@
 import networkx as nx
+from arango.database import StandardDatabase
 
 import nx_arangodb as nxadb
 from nx_arangodb.classes.graph import Graph
@@ -24,9 +25,12 @@ class DiGraph(nx.DiGraph, Graph):
         self.__graph_name = None
         self.__graph_exists = False
 
-        self.coo_use_cache = False
-        self.coo_load_parallelism = None
-        self.coo_load_batch_size = None
+        self.graph_loader_parallelism = None
+        self.graph_loader_batch_size = None
+
+        self.use_node_and_adj_dict_cache = False
+        self.use_coo_cache = False
+
         self.src_indices = None
         self.dst_indices = None
         self.vertex_ids_to_index = None
@@ -34,6 +38,20 @@ class DiGraph(nx.DiGraph, Graph):
         self.set_db()
         if self.__db is not None:
             self.set_graph_name()
+
+    @property
+    def db(self) -> StandardDatabase:
+        if self.__db is None:
+            raise ValueError("Database not set")
+
+        return self.__db
+
+    @property
+    def graph_name(self) -> str:
+        if self.__graph_name is None:
+            raise ValueError("Graph name not set")
+
+        return self.__graph_name
 
     @property
     def graph_exists(self) -> bool:

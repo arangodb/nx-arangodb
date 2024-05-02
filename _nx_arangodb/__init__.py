@@ -31,6 +31,11 @@ _info = {
     "functions": {
         # BEGIN: functions
         "betweenness_centrality",
+        "louvain_communities",
+        "louvain_partitions",
+        "modularity",
+        "pagerank",
+        "to_scipy_sparse_array",
         # END: functions
     },
     "additional_docs": {
@@ -40,7 +45,21 @@ _info = {
     },
     "additional_parameters": {
         # BEGIN: additional_parameters
-
+        "louvain_communities": {
+            "dtype : dtype or None, optional": "The data type (np.float32, np.float64, or None) to use for the edge weights in the algorithm. If None, then dtype is determined by the edge values.",
+        },
+        "louvain_partitions": {
+            "dtype : dtype or None, optional": "The data type (np.float32, np.float64, or None) to use for the edge weights in the algorithm. If None, then dtype is determined by the edge values.",
+        },
+        "modularity": {
+            "dtype : dtype or None, optional": "The data type (np.float32, np.float64, or None) to use for the edge weights in the algorithm. If None, then dtype is determined by the edge values.",
+        },
+        "pagerank": {
+            "dtype : dtype or None, optional": "The data type (np.float32, np.float64, or None) to use for the edge weights in the algorithm. If None, then dtype is determined by the edge values.",
+        },
+        "to_scipy_sparse_array": {
+            "dtype : dtype or None, optional": "The data type (np.float32, np.float64, or None) to use for the edge weights in the algorithm. If None, then dtype is determined by the edge values.",
+        },
         # END: additional_parameters
     },
 }
@@ -91,8 +110,7 @@ if __name__ == "__main__":
 
     sys.modules["cupy"] = Stub()
     sys.modules["numpy"] = Stub()
-    # sys.modules["pylibcugraph"] = Stub() # TODO Anthony: re-introduce when ready
-    sys.modules["python-arango"] = Stub() # TODO Anthony: Double check
+    sys.modules["python-arango"] = Stub()
 
     from _nx_arangodb.core import main
 

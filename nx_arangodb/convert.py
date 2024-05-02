@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 import itertools
-import operator as op
-from collections import Counter
-from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
-# import cupy as cp
 import networkx as nx
-import numpy as np
 
 import nx_arangodb as nxadb
 
-from .utils import index_dtype
-
 if TYPE_CHECKING:  # pragma: no cover
-    from nx_arangodb.typing import AttrKey, Dtype, EdgeValue, NodeValue, any_ndarray
+    from nx_arangodb.typing import AttrKey, Dtype, EdgeValue, NodeValue
 
 __all__ = [
     "from_networkx",
@@ -167,19 +160,34 @@ def to_networkx(G: nxadb.Graph, *, sort_edges: bool = False) -> nx.Graph:
     return G.to_networkx_class()(incoming_graph_data=G)
 
 
-def _to_graph(
+def from_networkx_arangodb(G: nxadb.Graph) -> nxadb.Graph:
+    if not G.graph_exists:
+        print("ANTHONY: Graph does not exist, nothing to pull")
+        return G
+
+    if G.use_node_and_adj_dict_cache and len(G.nodes) > 0 and len(G.adj) > 0:
+        print("ANTHONY: Using cached node and adj dict")
+        return G
+
+    start_time = time.time()
+    G.pull(load_coo=False)
+    end_time = time.time()
+
+    print("ANTHONY: Node & Adj Load took:", end_time - start_time)
+
+    return G
+
+
+def _to_nxadb_graph(
     G,
     edge_attr: AttrKey | None = None,
     edge_default: EdgeValue | None = 1,
     edge_dtype: Dtype | None = None,
 ) -> nxadb.Graph | nxadb.DiGraph:
-    """Ensure that input type is a nx_arangodb graph, and convert if necessary.
-
-    Directed and undirected graphs are both allowed.
-    This is an internal utility function and may change or be removed.
-    """
+    """Ensure that input type is a nx_arangodb graph, and convert if necessary."""
     if isinstance(G, nxadb.Graph):
-        return G
+        return from_networkx_arangodb(G)
+
     if isinstance(G, nx.Graph):
         return from_networkx(
             G, {edge_attr: edge_default} if edge_attr is not None else None, edge_dtype
@@ -188,50 +196,102 @@ def _to_graph(
     raise TypeError
 
 
-def _to_directed_graph(
-    G,
-    edge_attr: AttrKey | None = None,
-    edge_default: EdgeValue | None = 1,
-    edge_dtype: Dtype | None = None,
-) -> nxadb.DiGraph:
-    """Ensure that input type is a nx_arangodb DiGraph, and convert if necessary.
+try:
+    import os
+    import time
 
-    Undirected graphs will be converted to directed.
-    This is an internal utility function and may change or be removed.
-    """
-    if isinstance(G, nxadb.DiGraph):
-        return G
-    if isinstance(G, nxadb.Graph):
-        return G.to_directed()
-    if isinstance(G, nx.Graph):
-        return from_networkx(
-            G,
-            {edge_attr: edge_default} if edge_attr is not None else None,
-            edge_dtype,
-            as_directed=True,
+    import cupy as cp
+    import numpy as np
+    import nx_cugraph as nxcg
+
+    def _to_nxcg_graph(
+        G,
+        edge_attr: AttrKey | None = None,
+        edge_default: EdgeValue | None = 1,
+        edge_dtype: Dtype | None = None,
+        as_directed: bool = False,
+    ) -> nxcg.Graph | nxcg.DiGraph:
+        """Ensure that input type is a nx_cugraph graph, and convert if necessary."""
+        if isinstance(G, nxcg.Graph):
+            return G
+        if isinstance(G, nxadb.Graph):
+            # Assumption: G.adb_graph_name points to an existing graph in ArangoDB
+            # Therefore, the user wants us to pull the graph from ArangoDB,
+            # and convert it to an nx_cugraph graph.
+            # We currently accomplish this by using the NetworkX adapter for ArangoDB,
+            # which converts the ArangoDB graph to a NetworkX graph, and then we convert
+            # the NetworkX graph to an nx_cugraph graph.
+            # TODO: Implement a direct conversion from ArangoDB to nx_cugraph
+            if G.graph_exists:
+                print("ANTHONY: Graph exists, running _nxadb_to_nxcg()")
+                return _nxadb_to_nxcg(G, as_directed=as_directed)
+
+        # If G is a networkx graph, or is a nxadb graph that doesn't point to an "existing"
+        # ArangoDB graph, then we just treat it as a normal networkx graph &
+        # convert it to nx_cugraph.
+        # TODO: Need to revisit the "existing" ArangoDB graph condition...
+        if isinstance(G, nx.Graph):
+            return nxcg.convert.from_networkx(
+                G,
+                {edge_attr: edge_default} if edge_attr is not None else None,
+                edge_dtype,
+                as_directed=as_directed,
+            )
+
+        # TODO: handle cugraph.Graph
+        raise TypeError
+
+    def _nxadb_to_nxcg(
+        G: nxadb.Graph, as_directed: bool = False
+    ) -> nxcg.Graph | nxcg.DiGraph:
+        if G.is_multigraph():
+            raise NotImplementedError("Multigraphs not yet supported")
+
+        if (
+            G.use_coo_cache
+            and G.src_indices is not None
+            and G.dst_indices is not None
+            and G.vertex_ids_to_index is not None
+        ):
+            print("ANTHONY: Using cached COO")
+
+        else:
+            start_time = time.time()
+            G.pull(load_node_and_adj_dict=False)
+            end_time = time.time()
+
+            print("ANTHONY: COO Load took:", end_time - start_time)
+
+        N = len(G.vertex_ids_to_index)
+
+        if G.is_directed() or as_directed:
+            klass = nxcg.DiGraph
+        else:
+            klass = nxcg.Graph
+
+        start_time = time.time()
+
+        rv = klass.from_coo(
+            N,
+            cp.array(G.src_indices),
+            cp.array(G.dst_indices),
+            key_to_id=G.vertex_ids_to_index,
         )
-    # TODO: handle cugraph.Graph
-    raise TypeError
+        end_time = time.time()
 
+        print("ANTHONY: from_coo took:", end_time - start_time)
 
-def _to_undirected_graph(
-    G,
-    edge_attr: AttrKey | None = None,
-    edge_default: EdgeValue | None = 1,
-    edge_dtype: Dtype | None = None,
-) -> nxadb.Graph:
-    """Ensure that input type is a nx_arangodb Graph, and convert if necessary.
+        return rv
 
-    Only undirected graphs are allowed. Directed graphs will raise ValueError.
-    This is an internal utility function and may change or be removed.
-    """
-    if isinstance(G, nxadb.Graph):
-        if G.is_directed():
-            raise ValueError("Only undirected graphs supported; got a directed graph")
-        return G
-    if isinstance(G, nx.Graph):
-        return from_networkx(
-            G, {edge_attr: edge_default} if edge_attr is not None else None, edge_dtype
-        )
-    # TODO: handle cugraph.Graph
-    raise TypeError
+except ModuleNotFoundError as e:
+    print(f"ANTHONY: {e}")
+
+    def _to_nxcg_graph(
+        G,
+        edge_attr: AttrKey | None = None,
+        edge_default: EdgeValue | None = 1,
+        edge_dtype: Dtype | None = None,
+        as_directed: bool = False,
+    ) -> nxadb.Graph:
+        m = "nx-cugraph is not installed; cannot convert to nx-cugraph graph"
+        raise NotImplementedError(m)

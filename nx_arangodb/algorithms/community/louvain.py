@@ -32,8 +32,9 @@ def louvain_communities(
     threshold=0.0000001,
     max_level=None,
     seed=None,
+    run_on_gpu=True,
 ):
-    if GPU_ENABLED:
+    if GPU_ENABLED and run_on_gpu:
         print("ANTHONY: to_nxcg")
         G = _to_nxcg_graph(G, weight)
 

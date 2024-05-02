@@ -160,68 +160,34 @@ def to_networkx(G: nxadb.Graph, *, sort_edges: bool = False) -> nx.Graph:
     return G.to_networkx_class()(incoming_graph_data=G)
 
 
+def from_networkx_arangodb(G: nxadb.Graph) -> nxadb.Graph:
+    if not G.graph_exists:
+        print("ANTHONY: Graph does not exist, nothing to pull")
+        return G
+
+    if G.use_node_and_adj_dict_cache and len(G.nodes) > 0 and len(G.adj) > 0:
+        print("ANTHONY: Using cached node and adj dict")
+        return G
+
+    start_time = time.time()
+    G.pull(load_coo=False)
+    end_time = time.time()
+
+    print("ANTHONY: Node & Adj Load took:", end_time - start_time)
+
+    return G
+
+
 def _to_nxadb_graph(
     G,
     edge_attr: AttrKey | None = None,
     edge_default: EdgeValue | None = 1,
     edge_dtype: Dtype | None = None,
 ) -> nxadb.Graph | nxadb.DiGraph:
-    """Ensure that input type is a nx_arangodb graph, and convert if necessary.
-
-    Directed and undirected graphs are both allowed.
-    This is an internal utility function and may change or be removed.
-    """
+    """Ensure that input type is a nx_arangodb graph, and convert if necessary."""
     if isinstance(G, nxadb.Graph):
-        return G
-    if isinstance(G, nx.Graph):
-        return from_networkx(
-            G, {edge_attr: edge_default} if edge_attr is not None else None, edge_dtype
-        )
-    # TODO: handle cugraph.Graph
-    raise TypeError
+        return from_networkx_arangodb(G)
 
-
-def _to_nxadb_directed_graph(
-    G,
-    edge_attr: AttrKey | None = None,
-    edge_default: EdgeValue | None = 1,
-    edge_dtype: Dtype | None = None,
-) -> nxadb.DiGraph:
-    """Ensure that input type is a nx_arangodb DiGraph, and convert if necessary.
-
-    Undirected graphs will be converted to directed.
-    This is an internal utility function and may change or be removed.
-    """
-    if isinstance(G, nxadb.DiGraph):
-        return G
-    if isinstance(G, nxadb.Graph):
-        return G.to_directed()
-    if isinstance(G, nx.Graph):
-        return from_networkx(
-            G,
-            {edge_attr: edge_default} if edge_attr is not None else None,
-            edge_dtype,
-            as_directed=True,
-        )
-    # TODO: handle cugraph.Graph
-    raise TypeError
-
-
-def _to_nxadb_undirected_graph(
-    G,
-    edge_attr: AttrKey | None = None,
-    edge_default: EdgeValue | None = 1,
-    edge_dtype: Dtype | None = None,
-) -> nxadb.Graph:
-    """Ensure that input type is a nx_arangodb Graph, and convert if necessary.
-
-    Only undirected graphs are allowed. Directed graphs will raise ValueError.
-    This is an internal utility function and may change or be removed.
-    """
-    if isinstance(G, nxadb.Graph):
-        if G.is_directed():
-            raise ValueError("Only undirected graphs supported; got a directed graph")
-        return G
     if isinstance(G, nx.Graph):
         return from_networkx(
             G, {edge_attr: edge_default} if edge_attr is not None else None, edge_dtype
@@ -237,7 +203,6 @@ try:
     import cupy as cp
     import numpy as np
     import nx_cugraph as nxcg
-    from phenolrs.coo_loader import CooLoader
 
     def _to_nxcg_graph(
         G,
@@ -246,11 +211,7 @@ try:
         edge_dtype: Dtype | None = None,
         as_directed: bool = False,
     ) -> nxcg.Graph | nxcg.DiGraph:
-        """Ensure that input type is a nx_cugraph graph, and convert if necessary.
-
-        Directed and undirected graphs are both allowed.
-        This is an internal utility function and may change or be removed.
-        """
+        """Ensure that input type is a nx_cugraph graph, and convert if necessary."""
         if isinstance(G, nxcg.Graph):
             return G
         if isinstance(G, nxadb.Graph):
@@ -262,8 +223,8 @@ try:
             # the NetworkX graph to an nx_cugraph graph.
             # TODO: Implement a direct conversion from ArangoDB to nx_cugraph
             if G.graph_exists:
-                print("ANTHONY: Graph exists! Running _from_networkx_arangodb()")
-                return _from_networkx_arangodb(G, as_directed=as_directed)
+                print("ANTHONY: Graph exists, running _nxadb_to_nxcg()")
+                return _nxadb_to_nxcg(G, as_directed=as_directed)
 
         # If G is a networkx graph, or is a nxadb graph that doesn't point to an "existing"
         # ArangoDB graph, then we just treat it as a normal networkx graph &
@@ -280,71 +241,28 @@ try:
         # TODO: handle cugraph.Graph
         raise TypeError
 
-    def _from_networkx_arangodb(
+    def _nxadb_to_nxcg(
         G: nxadb.Graph, as_directed: bool = False
     ) -> nxcg.Graph | nxcg.DiGraph:
         if G.is_multigraph():
             raise NotImplementedError("Multigraphs not yet supported")
 
         if (
-            G.coo_use_cache
+            G.use_coo_cache
             and G.src_indices is not None
             and G.dst_indices is not None
             and G.vertex_ids_to_index is not None
         ):
             print("ANTHONY: Using cached COO")
-            src_indices = G.src_indices
-            dst_indices = G.dst_indices
-            vertex_ids_to_index = G.vertex_ids_to_index
 
         else:
-            adb_graph = G.db.graph(G.graph_name)
-
-            v_cols = adb_graph.vertex_collections()
-            edge_definitions = adb_graph.edge_definitions()
-            e_cols = {c["edge_collection"] for c in edge_definitions}
-
-            metagraph = {
-                "vertexCollections": {col: {} for col in v_cols},
-                "edgeCollections": {col: {} for col in e_cols},
-            }
-
             start_time = time.time()
-
-            kwargs = {}
-            if G.coo_load_parallelism is not None:
-                kwargs["parallelism"] = G.coo_load_parallelism
-            if G.coo_load_batch_size is not None:
-                kwargs["batch_size"] = G.coo_load_batch_size
-
-            src_indices, dst_indices, vertex_ids_to_index = CooLoader.load_coo(
-                G.db.name,
-                metagraph,
-                [os.environ["DATABASE_HOST"]],
-                username=os.environ["DATABASE_USERNAME"],
-                password=os.environ["DATABASE_PASSWORD"],
-                **kwargs,
-            )
-
+            G.pull(load_node_and_adj_dict=False)
             end_time = time.time()
 
             print("ANTHONY: COO Load took:", end_time - start_time)
 
-            start_time = time.time()
-
-            src_indices = cp.array(src_indices)
-            dst_indices = cp.array(dst_indices)
-
-            end_time = time.time()
-
-            print("ANTHONY:  cupy arrays took:", end_time - start_time)
-
-            if G.coo_use_cache:
-                G.src_indices = src_indices
-                G.dst_indices = dst_indices
-                G.vertex_ids_to_index = vertex_ids_to_index
-
-        N = len(vertex_ids_to_index)
+        N = len(G.vertex_ids_to_index)
 
         if G.is_directed() or as_directed:
             klass = nxcg.DiGraph
@@ -355,9 +273,9 @@ try:
 
         rv = klass.from_coo(
             N,
-            src_indices,
-            dst_indices,
-            key_to_id=vertex_ids_to_index,
+            cp.array(G.src_indices),
+            cp.array(G.dst_indices),
+            key_to_id=G.vertex_ids_to_index,
         )
         end_time = time.time()
 

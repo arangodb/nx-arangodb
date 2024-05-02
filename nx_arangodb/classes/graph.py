@@ -142,11 +142,12 @@ class Graph(nx.Graph):
         result = GraphLoader.load(
             self.db.name,
             metagraph,
-            [os.environ["DATABASE_HOST"]],
-            username=os.environ["DATABASE_USERNAME"],
-            password=os.environ["DATABASE_PASSWORD"],
+            [self.__host],
+            username=self.__username,
+            password=self.__password,
             load_node_dict=load_node_and_adj_dict,
             load_adj_dict=load_node_and_adj_dict,
+            load_adj_dict_as_undirected=True,
             load_coo=load_coo,
             **kwargs,
         )

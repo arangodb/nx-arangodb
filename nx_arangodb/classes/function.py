@@ -64,16 +64,31 @@ def pull(
     )
 
     if load_node_and_adj_dict:
-        # hacky, i don't like this
-        # need to revisit...
-        # consider using nx.convert.from_dict_of_dicts instead
+        # TODO: I need to revisit this monster
 
         G._node.clear()
         for node_id, node_data in result[0].items():
-            node_attr_dict = nxadb.classes.dict.NodeAttrDict(G.db, G.adb_graph)
+            node_attr_dict = G.node_attr_dict_factory()
             node_attr_dict.node_id = node_id
             node_attr_dict.data = node_data
             G._node.data[node_id] = node_attr_dict
+
+        # G._adj.clear()
+        # for src_node_id, dst_dict in result[1].items():
+        #     src_node_type = src_node_id.split("/")[0]
+
+        #     adjlist_inner_dict = G.adjlist_inner_dict_factory()
+        #     adjlist_inner_dict.src_node_id = src_node_id
+        #     adjlist_inner_dict.src_node_type = src_node_type
+
+        #     G._adj.data[src_node_id] = adjlist_inner_dict
+
+        #     for dst_id, edge_data in dst_dict.items():
+        #         edge_attr_dict = G.edge_attr_dict_factory()
+        #         edge_attr_dict.edge_id = edge_data["_id"]
+        #         edge_attr_dict.data = edge_data
+
+        #         adjlist_inner_dict.data[dst_id] = edge_attr_dict
 
         # G._node = result[0]
         # TODO: fix this hack
@@ -207,6 +222,40 @@ def aql_doc_get_length(db: StandardDatabase, id: str) -> int:
     return aql_single(db, query, bind_vars)
 
 
+def aql_edge_get(
+    db: StandardDatabase,
+    src_node_id: str,
+    dst_node_id: str,
+    graph_name: str,
+    direction: str,
+    return_bool: bool,
+):
+    if direction == "INBOUND":
+        filter_clause = f"e._from == @dst_node_id"
+    elif direction == "OUTBOUND":
+        filter_clause = f"e._to == @dst_node_id"
+    elif direction == "ANY":
+        filter_clause = f"e._from == @dst_node_id OR e._to == @dst_node_id"
+    else:
+        raise ValueError(f"Invalid direction: {direction}")
+
+    return_clause = "true" if return_bool else "e"
+
+    query = f"""
+        FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
+            FILTER {filter_clause}
+            RETURN {return_clause}
+    """
+
+    bind_vars = {
+        "src_node_id": src_node_id,
+        "dst_node_id": dst_node_id,
+        "graph_name": graph_name,
+    }
+
+    return aql_single(db, query, bind_vars)
+
+
 def doc_update(db: StandardDatabase, id: str, data: dict[str, Any], **kwargs) -> None:
     """Updates a document in the collection."""
     db.update_document({**data, "_id": id}, keep_none=False, silent=True, **kwargs)
@@ -232,3 +281,16 @@ def doc_get_or_insert(
         return db.document(id)
 
     return doc_insert(db, collection, id, **kwargs)
+
+
+def get_node_id(key: str, default_node_type: str) -> str:
+    """Gets the node ID."""
+    return key if "/" in key else f"{default_node_type}/{key}"
+
+
+def get_node_type_and_id(key: str, default_node_type: str) -> tuple[str, str]:
+    """Gets the node type and ID."""
+    if "/" in key:
+        return key.split("/")[0], key
+
+    return default_node_type, f"{default_node_type}/{key}"

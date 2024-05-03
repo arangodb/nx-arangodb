@@ -19,6 +19,8 @@ from .function import (
     doc_get_or_insert,
     doc_insert,
     doc_update,
+    get_node_id,
+    get_node_type_and_id,
     key_is_not_reserved,
     key_is_string,
     keys_are_not_reserved,
@@ -153,19 +155,10 @@ class NodeDict(UserDict):
         self.default_node_type = default_node_type
         self.node_attr_dict_factory = node_attr_dict_factory(self.db, self.graph)
 
-    def __get_node_id(self, key: str) -> str:
-        return key if "/" in key else f"{self.default_node_type}/{key}"
-
-    def __get_node_type_and_id(self, key: str) -> tuple[str, str]:
-        if "/" in key:
-            return key.split("/")[0], key
-
-        return self.default_node_type, f"{self.default_node_type}/{key}"
-
     @key_is_string
     def __contains__(self, key: str) -> bool:
         """'node/1' in G._node"""
-        node_id = self.__get_node_id(key)
+        node_id = get_node_id(key, self.default_node_type)
 
         if node_id in self.data:
             return True
@@ -175,7 +168,7 @@ class NodeDict(UserDict):
     @key_is_string
     def __getitem__(self, key: str) -> NodeAttrDict:
         """G._node['node/1']"""
-        node_id = self.__get_node_id(key)
+        node_id = get_node_id(key, self.default_node_type)
 
         if value := self.data.get(node_id):
             return value
@@ -192,17 +185,17 @@ class NodeDict(UserDict):
         raise KeyError(key)
 
     @key_is_string
-    def __setitem__(self, key: str, value: dict | NodeAttrDict):
+    def __setitem__(self, key: str, value: NodeAttrDict):
         """G._node['node/1'] = {'foo': 'bar'}
 
         Not to be confused with:
         - G.add_node('node/1', foo='bar')
         """
-        node_type, node_id = self.__get_node_type_and_id(key)
+        assert isinstance(value, NodeAttrDict)
 
-        data = value.data if isinstance(value, NodeAttrDict) else value
+        node_type, node_id = get_node_type_and_id(key, self.default_node_type)
 
-        result = doc_insert(self.db, node_type, node_id, data)
+        result = doc_insert(self.db, node_type, node_id, value.data)
 
         node_attr_dict = self.node_attr_dict_factory()
         node_attr_dict.node_id = node_id
@@ -213,7 +206,7 @@ class NodeDict(UserDict):
     @key_is_string
     def __delitem__(self, key: Any) -> None:
         """del g._node['node/1']"""
-        node_id = self.__get_node_id(key)
+        node_id = get_node_id(key, self.default_node_type)
 
         del self.data[node_id]
         doc_delete(self.db, node_id)
@@ -241,12 +234,20 @@ class NodeDict(UserDict):
             for collection in self.graph.vertex_collections():
                 self.graph.vertex_collection(collection).truncate()
 
-    # TODO: Revisit this, not efficient at all
     @keys_are_strings
     def update(self, nodes: dict[str, dict[str, Any]]):
         """g._node.update({'node/1': {'foo': 'bar'}, 'node/2': {'baz': 'qux'}})"""
-        for node_id, attrs in nodes.items():
-            self[node_id] = attrs
+        raise NotImplementedError("NodeDict.update()")
+        # for node_id, attrs in nodes.items():
+        #     node_id = get_node_id(node_id, self.default_node_type)
+
+        #     result = doc_update(self.db, node_id, attrs)
+
+        #     node_attr_dict = self.node_attr_dict_factory()
+        #     node_attr_dict.node_id = node_id
+        #     node_attr_dict.data = result
+
+        #     self.data[node_id] = node_attr_dict
 
     def keys(self):
         """g._node.keys()"""

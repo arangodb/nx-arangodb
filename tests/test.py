@@ -22,6 +22,18 @@ def test_bc():
 
     assert r_1 and r_2 and r_3 and r_4
 
+def test_bc_no_pull():
+    try:
+        import phenolrs
+    except ModuleNotFoundError:
+        pytest.skip("phenolrs not installed")
+
+    G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
+
+    res = nxadb.betweenness_centrality(G_1, pull_graph_on_cpu=False)
+
+    assert len(res) == len(G_1)
+
 
 def test_pagerank():
     G_1 = nx.karate_club_graph()
@@ -35,6 +47,17 @@ def test_pagerank():
 
     assert r_1 and r_2 and r_3 and r_4
 
+def test_pagerank_no_pull():
+    try:
+        import phenolrs
+    except ModuleNotFoundError:
+        pytest.skip("phenolrs not installed")
+
+    G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
+
+    res = nxadb.pagerank(G_1, pull_graph_on_cpu=False)
+
+    assert len(res) == len(G_1)
 
 def test_louvain():
     G_1 = nx.karate_club_graph()
@@ -48,23 +71,26 @@ def test_louvain():
 
     assert r_1 and r_2 and r_3 and r_4
 
+def test_louvain_no_pull():
+    try:
+        import phenolrs
+    except ModuleNotFoundError:
+        pytest.skip("phenolrs not installed")
+
+    G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
+
+    res = nxadb.louvain_communities(G_1, pull_graph_on_cpu=False)
+
+    assert res
+
 
 def test_crud():
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
     G_2 = nx.Graph(nx.karate_club_graph())
 
-    try:
-        import phenolrs
-        nxadb.pagerank(G_1, pull_graph_on_cpu=False)
-        # TODO: Experiment with algorithm, but turn off CPU pull()!
-    except ModuleNotFoundError:
-        pass
-
     #########
     # NODES #
     #########
-
-    G_1.clear()
 
     assert G_1.graph_name == "KarateGraph"
     assert G_1.graph["foo"] == "bar"
@@ -96,30 +122,37 @@ def test_crud():
     for k, v in G_1.nodes.items():
         assert k == v["_id"]
 
-    G_1._node.clear(clear_remote=True)
-
-    assert len(G_1.nodes) == 0
-
     with pytest.raises(KeyError):
-        G_1.nodes["person/1"]
+        G_1.nodes["person/unknown"]
 
-    G_1.add_node("person/1", club="Mr. Hi")
-    G_1._node.clear()
-    assert len(G_1.nodes) == 1
     assert G_1.nodes["person/1"]["club"] == "Mr. Hi"
+    G_1.add_node("person/1", club="updated value")
+    assert G_1.nodes["person/1"]["club"] == "updated value"
+    len(G_1.nodes) == len(G_2.nodes)
+
+    G_1.add_node("person/35", foo={'bar': 'baz'})
+    len(G_1.nodes) == len(G_2.nodes) + 1
+    G_1.clear()
+    assert G_1.nodes["person/35"]["foo"] == {'bar': 'baz'}
+    # TODO: Support this use case:
+    # G_1.nodes["person/35"]["foo"]["bar"] = "baz2"
 
     G_1.add_nodes_from(['1', '2', '3'], foo='bar')
-
-    assert len(G_1.nodes) == 4
+    G_1.clear()
     assert G_1.nodes["1"]["foo"] == "bar"
     assert G_1.nodes["2"]["foo"] == "bar"
     assert G_1.nodes["3"]["foo"] == "bar"
+
+    assert db.collection(G_1.default_node_type).count() == 3
+    assert db.collection(G_1.default_node_type).has("1")
+    assert db.collection(G_1.default_node_type).has("2")
+    assert db.collection(G_1.default_node_type).has("3")
 
     #########
     # EDGES #
     #########
 
-    # breakpoint()
+    # breakpoint() 
 
     # assert len(G_1.edges) == len(G_2.edges)
     # assert len(G_1.adj) == len(G_2.adj)

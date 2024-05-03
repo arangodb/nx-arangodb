@@ -1,14 +1,12 @@
 import os
-
 from typing import ClassVar
 
 import networkx as nx
 from arango import ArangoClient
-from arango.exceptions import ServerConnectionError
 from arango.database import StandardDatabase
+from arango.exceptions import ServerConnectionError
 
 import nx_arangodb as nxadb
-from nx_arangodb.classes.graph import Graph
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.DiGraph)
 
@@ -101,7 +99,6 @@ class DiGraph(nx.DiGraph):
             self.__db = None
             print(f"Could not connect to the database: {e}")
 
-
     def set_graph_name(self, graph_name: str | None = None):
         if self.__db is None:
             raise ValueError("Cannot set graph name without setting the database first")
@@ -118,51 +115,12 @@ class DiGraph(nx.DiGraph):
         print(f"Graph '{graph_name}' exists: {self.__graph_exists}")
 
     def pull(self, load_node_and_adj_dict=True, load_coo=True):
-        if not self.graph_exists:
-            raise ValueError("Graph does not exist in the database")
-
-        adb_graph = self.db.graph(self.graph_name)
-        v_cols = adb_graph.vertex_collections()
-        edge_definitions = adb_graph.edge_definitions()
-        e_cols = {c["edge_collection"] for c in edge_definitions}
-
-        metagraph = {
-            "vertexCollections": {col: {} for col in v_cols},
-            "edgeCollections": {col: {} for col in e_cols},
-        }
-
-        from phenolrs.graph_loader import GraphLoader
-
-        kwargs = {}
-        if self.graph_loader_parallelism is not None:
-            kwargs["parallelism"] = self.graph_loader_parallelism
-        if self.graph_loader_batch_size is not None:
-            kwargs["batch_size"] = self.graph_loader_batch_size
-
-        result = GraphLoader.load(
-            self.db.name,
-            metagraph,
-            [self.__host],
-            username=self.__username,
-            password=self.__password,
-            load_node_dict=load_node_and_adj_dict,
-            load_adj_dict=load_node_and_adj_dict,
+        nxadb.classes.function.pull(
+            self,
+            load_node_and_adj_dict=load_node_and_adj_dict,
             load_adj_dict_as_undirected=False,
             load_coo=load_coo,
-            **kwargs,
         )
-
-        if load_node_and_adj_dict:
-            # hacky, i don't like this
-            # need to revisit...
-            # consider using nx.convert.from_dict_of_dicts instead
-            self._node = result[0]
-            self._adj = result[1]
-
-        if load_coo:
-            self.src_indices = result[2]
-            self.dst_indices = result[3]
-            self.vertex_ids_to_index = result[4]
 
     def push(self):
         raise NotImplementedError("What would this look like?")

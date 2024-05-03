@@ -53,8 +53,12 @@ def test_crud():
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
     G_2 = nx.Graph(nx.karate_club_graph())
 
-    nx.pagerank(G_1, backend="arangodb")
-    # TODO: Experiment with algorithm, but turn off CPU pull()!
+    try:
+        import phenolrs
+        nx.pagerank(G_1, backend="arangodb")
+        # TODO: Experiment with algorithm, but turn off CPU pull()!
+    except ModuleNotFoundError:
+        pass
 
     #########
     # NODES #

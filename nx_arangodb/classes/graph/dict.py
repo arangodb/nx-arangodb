@@ -36,12 +36,7 @@ def adjlist_outer_dict_factory(
     default_node_type: str,
     edge_type_func: Callable[[str, str], str],
 ) -> Callable[..., AdjListOuterDict]:
-    return lambda: AdjListOuterDict(
-        db,
-        graph,
-        default_node_type,
-        edge_type_func,
-    )
+    return lambda: AdjListOuterDict(db, graph, default_node_type, edge_type_func)
 
 
 def adjlist_inner_dict_factory(
@@ -230,32 +225,34 @@ class AdjListOuterDict(UserDict):
         """g._adj.values()"""
         raise NotImplementedError("AdjListOuterDict.values()")
 
-    def items(self):
-        """g._adj.items()"""
-        raise NotImplementedError("AdjListOuterDict.items()")
-        # for ed in self.graph.edge_definitions():
-        #     collection = ed["edge_collection"]
+    # def items(self, cache: bool = True):
+    #     """g._adj.items()"""
+    #     # raise NotImplementedError("AdjListOuterDict.items()")
+    #     for ed in self.graph.edge_definitions():
+    #         collection = ed["edge_collection"]
 
-        #     for edge in self.graph.edge_collection(collection):
-        #         src_node_id = edge["_from"]
-        #         dst_node_id = edge["_to"]
+    #         for edge in self.graph.edge_collection(collection):
+    #             src_node_id = edge["_from"]
+    #             dst_node_id = edge["_to"]
 
-        #         adjlist_inner_dict = self.adjlist_inner_dict_factory()
-        #         adjlist_inner_dict.src_node_id = src_node_id
-        #         adjlist_inner_dict.src_node_type = src_node_id.split("/")[0]
+    #             adjlist_inner_dict = self.adjlist_inner_dict_factory()
+    #             adjlist_inner_dict.src_node_id = src_node_id
+    #             adjlist_inner_dict.src_node_type = src_node_id.split("/")[0]
 
-        #         edge_attr_dict = adjlist_inner_dict.edge_attr_dict_factory()
-        #         edge_attr_dict.edge_id = edge["_id"]
-        #         edge_attr_dict.data = edge
+    #             edge_attr_dict = adjlist_inner_dict.edge_attr_dict_factory()
+    #             edge_attr_dict.edge_id = edge["_id"]
+    #             edge_attr_dict.data = edge
 
-        #         adjlist_inner_dict.data[dst_node_id] = edge_attr_dict
+    #             adjlist_inner_dict.data[dst_node_id] = edge_attr_dict
 
-        #         if src_node_id not in self.data:
-        #             self.data[src_node_id] = adjlist_inner_dict
-        #         else:
-        #             self.data[src_node_id].update(adjlist_inner_dict)
+    #             breakpoint()
 
-        #         yield src_node_id, adjlist_inner_dict
+    #             if src_node_id not in self.data:
+    #                 self.data[src_node_id] = adjlist_inner_dict
+    #             else:
+    #                 self.data[src_node_id].update(adjlist_inner_dict)
+
+    #             yield src_node_id, adjlist_inner_dict
 
 
 class AdjListInnerDict(UserDict):
@@ -352,11 +349,12 @@ class AdjListInnerDict(UserDict):
         if edge_type is None:
             edge_type = self.edge_type_func(self.src_node_type, dst_node_type)
 
-        edge = self.graph.link(edge_type, self.src_node_id, dst_node_id, value.data)
+        data = value.data
+        edge = self.graph.link(edge_type, self.src_node_id, dst_node_id, data)
 
         edge_attr_dict = self.edge_attr_dict_factory()
         edge_attr_dict.edge_id = edge["_id"]
-        edge_attr_dict.data = edge
+        edge_attr_dict.data = {**data, **edge}
 
         self.data[dst_node_id] = edge_attr_dict
 
@@ -438,14 +436,13 @@ class AdjListInnerDict(UserDict):
 
             yield dst_node_id, edge
 
-    def update(self, edges: dict[str, dict[str, Any]]):
-        """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
-        raise NotImplementedError("AdjListInnerDict.update()")
-        if isinstance(edges, AdjListInnerDict):
-            self.data.update(edges.data)
-        else:
-            for key, value in edges.items():
-                self[key] = value
+    # def update(self, edges: dict[str, dict[str, Any]]):
+    #     """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
+    #     if isinstance(edges, AdjListInnerDict):
+    #         self.data.update(edges.data)
+    #     else:
+    #         for key, value in edges.items():
+    #             self[key] = value
 
 
 class EdgeAttrDict(UserDict):

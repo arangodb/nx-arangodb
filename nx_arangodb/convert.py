@@ -160,20 +160,25 @@ def to_networkx(G: nxadb.Graph, *, sort_edges: bool = False) -> nx.Graph:
     return G.to_networkx_class()(incoming_graph_data=G)
 
 
-def from_networkx_arangodb(G: nxadb.Graph) -> nxadb.Graph:
+def from_networkx_arangodb(G: nxadb.Graph, pull_graph: bool) -> nxadb.Graph:
     if not G.graph_exists:
         print("ANTHONY: Graph does not exist, nothing to pull")
         return G
 
-    if G.use_node_and_adj_dict_cache and len(G.nodes) > 0 and len(G.adj) > 0:
+    if (
+        G.use_node_and_adj_dict_cache_for_algorithms
+        and len(G.nodes) > 0
+        and len(G.adj) > 0
+    ):
         print("ANTHONY: Using cached node and adj dict")
         return G
 
-    start_time = time.time()
-    G.pull(load_coo=False)
-    end_time = time.time()
+    if pull_graph:
+        start_time = time.time()
+        G.pull(load_coo=False)
+        end_time = time.time()
 
-    print("ANTHONY: Node & Adj Load took:", end_time - start_time)
+        print("ANTHONY: Node & Adj Load took:", end_time - start_time)
 
     return G
 
@@ -183,10 +188,11 @@ def _to_nxadb_graph(
     edge_attr: AttrKey | None = None,
     edge_default: EdgeValue | None = 1,
     edge_dtype: Dtype | None = None,
+    pull_graph: bool = True,
 ) -> nxadb.Graph | nxadb.DiGraph:
     """Ensure that input type is a nx_arangodb graph, and convert if necessary."""
     if isinstance(G, nxadb.Graph):
-        return from_networkx_arangodb(G)
+        return from_networkx_arangodb(G, pull_graph)
 
     if isinstance(G, nx.Graph):
         return from_networkx(
@@ -248,7 +254,7 @@ try:
             raise NotImplementedError("Multigraphs not yet supported")
 
         if (
-            G.use_coo_cache
+            G.use_coo_cache_for_algorithms
             and G.src_indices is not None
             and G.dst_indices is not None
             and G.vertex_ids_to_index is not None

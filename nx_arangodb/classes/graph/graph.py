@@ -53,8 +53,11 @@ class Graph(nx.Graph):
         self.graph_loader_parallelism = None
         self.graph_loader_batch_size = None
 
-        self.use_node_and_adj_dict_cache = False
-        self.use_coo_cache = False
+        # NOTE: Need to revisit these...
+        # self.maintain_node_dict_cache = False
+        # self.maintain_adj_dict_cache = False
+        self.use_node_and_adj_dict_cache_for_algorithms = False
+        self.use_coo_cache_for_algorithms = False
 
         self.src_indices = None
         self.dst_indices = None
@@ -191,3 +194,31 @@ class Graph(nx.Graph):
 
     def push(self):
         raise NotImplementedError("What would this look like?")
+
+    def add_node(self, node_for_adding, **attr):
+        if node_for_adding not in self._node:
+            if node_for_adding is None:
+                raise ValueError("None cannot be a node")
+            self._adj[node_for_adding] = self.adjlist_inner_dict_factory()
+
+            ######################
+            # NOTE: monkey patch #
+            ######################
+
+            # Old:
+            # attr_dict = self._node[node_for_adding] = self.node_attr_dict_factory()
+            # attr_dict.update(attr)
+
+            # New:
+            self._node[node_for_adding] = self.node_attr_dict_factory()
+            self._node[node_for_adding].update(attr)
+
+            # Reason:
+            # Invoking `update` on the `attr_dict` without `attr_dict.node_id` being set
+            # i.e trying to update a node's attributes before we know _which_ node it is
+
+            ###########################
+
+        else:  # update attr even if node already exists
+            self._node[node_for_adding].update(attr)
+        nx._clear_cache(self)

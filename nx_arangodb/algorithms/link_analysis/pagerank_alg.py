@@ -30,11 +30,11 @@ def pagerank(
     dangling=None,
     *,
     dtype=None,
+    pull_graph_on_cpu=True,
     run_on_gpu=True,
 ):
     print("ANTHONY: Calling pagerank from nx_arangodb")
 
-    # 1.
     if GPU_ENABLED and run_on_gpu:
         print("ANTHONY: to_nxcg")
         G = _to_nxcg_graph(G, weight)
@@ -52,22 +52,20 @@ def pagerank(
             dtype=dtype,
         )
 
-    # 2.
-    else:
-        print("ANTHONY: to_nxadb")
-        G = _to_nxadb_graph(G)
+    print("ANTHONY: to_nxadb")
+    G = _to_nxadb_graph(G, pull_graph=pull_graph_on_cpu)
 
-        print("ANTHONY: Using nx pagerank()")
-        return nx.algorithms.link_analysis.pagerank_alg._pagerank_scipy(
-            G,
-            alpha=alpha,
-            personalization=personalization,
-            max_iter=max_iter,
-            tol=tol,
-            nstart=nstart,
-            weight=weight,
-            dangling=dangling,
-        )
+    print("ANTHONY: Using nx pagerank()")
+    return nx.algorithms.link_analysis.pagerank_alg._pagerank_scipy(
+        G,
+        alpha=alpha,
+        personalization=personalization,
+        max_iter=max_iter,
+        tol=tol,
+        nstart=nstart,
+        weight=weight,
+        dangling=dangling,
+    )
 
 
 @networkx_algorithm(

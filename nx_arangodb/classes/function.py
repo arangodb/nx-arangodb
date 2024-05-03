@@ -164,25 +164,15 @@ def create_collection(
 def aql(
     db: StandardDatabase, query: str, bind_vars: dict[str, Any], **kwargs
 ) -> Cursor:
-    """Executes an AQL query and returns the cursor. Stream is enabled."""
+    """Executes an AQL query and returns the cursor."""
     return db.aql.execute(query, bind_vars=bind_vars, stream=True, **kwargs)
 
 
 def aql_as_list(
-    db: StandardDatabase, query: str, bind_vars: dict[str, Any]
+    db: StandardDatabase, query: str, bind_vars: dict[str, Any], **kwargs
 ) -> list[Any]:
     """Executes an AQL query and returns the results as a list."""
-    result = []
-
-    cursor = aql(db, query, bind_vars)
-    while not cursor.empty():
-        result.extend(cursor.batch())
-
-        cursor.batch().clear()
-        if cursor.has_more():
-            cursor.fetch()
-
-    return result
+    return list(aql(db, query, bind_vars, **kwargs))
 
 
 def aql_single(db: StandardDatabase, query: str, bind_vars: dict[str, Any]) -> Any:

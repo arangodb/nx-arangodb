@@ -3,6 +3,7 @@ from typing import Callable, ClassVar
 
 import networkx as nx
 from arango import ArangoClient
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from arango.exceptions import ServerConnectionError
 
@@ -44,9 +45,9 @@ class Graph(nx.Graph):
         self.__graph_name = None
         self.__graph_exists = False
 
-        self.set_db()
+        self.__set_db()
         if self.__db is not None:
-            self.set_graph_name(graph_name)
+            self.__set_graph_name(graph_name)
 
         self.auto_sync = True
 
@@ -74,7 +75,23 @@ class Graph(nx.Graph):
 
         super().__init__(*args, **kwargs)
 
+    #######################
+    # Init helper methods #
+    #######################
+
     def __set_factory_methods(self) -> None:
+        """Set the factory methods for the graph, _node, and _adj dictionaries.
+
+        The ArangoDB CRUD operations are handled by the modified dictionaries.
+
+        Handles the creation of the following dictionaries:
+        - graph_attr_dict_factory (graph-level attributes)
+        - node_dict_factory (nodes in the graph)
+        - node_attr_dict_factory (attributes of the nodes in the graph)
+        - adjlist_outer_dict_factory (outer dictionary for the adjacency list)
+        - adjlist_inner_dict_factory (inner dictionary for the adjacency list)
+        - edge_attr_dict_factory (attributes of the edges in the graph)
+        """
         self.graph_attr_dict_factory = graph_dict_factory(self.db, self.graph_name)
 
         self.node_dict_factory = node_dict_factory(
@@ -102,6 +119,10 @@ class Graph(nx.Graph):
                 to_vertex_collections=[self.default_node_type],
             )
 
+    ###########
+    # Getters #
+    ###########
+
     @property
     def db(self) -> StandardDatabase:
         if self.__db is None:
@@ -120,26 +141,11 @@ class Graph(nx.Graph):
     def graph_exists(self) -> bool:
         return self.__graph_exists
 
-    # TODO: Revisit. Causing some issues with incoming_graph_data=...
-    # def clear(self, clear_remote: bool | None = None):
-    #     """Clears the _adj, _node, and graph dictionaries, as well as
-    #     the COO representation of the graph (if any).
+    ###########
+    # Setters #
+    ###########
 
-    #     :param clear_remote: If True, the graph will also be cleared from the database.
-    #         Defaults to False.
-    #     :type clear_remote: bool
-    #     """
-    #     # self._adj.clear(clear_remote)
-    #     self._node.clear(clear_remote)
-    #     self.graph.clear(clear_remote)
-
-    #     self.src_indices = None
-    #     self.dst_indices = None
-    #     self.vertex_ids_to_index = None
-
-    #     nx._clear_cache(self)
-
-    def set_db(self, db: StandardDatabase | None = None):
+    def __set_db(self, db: StandardDatabase | None = None):
         if db is not None:
             if not isinstance(db, StandardDatabase):
                 m = "arango.database.StandardDatabase"
@@ -168,7 +174,7 @@ class Graph(nx.Graph):
             self.__db = None
             print(f"Could not connect to the database: {e}")
 
-    def set_graph_name(self, graph_name: str | None = None):
+    def __set_graph_name(self, graph_name: str | None = None):
         if self.__db is None:
             raise ValueError("Cannot set graph name without setting the database first")
 
@@ -182,9 +188,17 @@ class Graph(nx.Graph):
 
         self.__graph_name = graph_name
         self.__graph_exists = self.db.has_graph(graph_name)
+
         print(f"Graph '{graph_name}' exists: {self.__graph_exists}")
 
+    ####################
+    # ArangoDB Methods #
+    ####################
+
     def pull(self, load_node_and_adj_dict=True, load_coo=True):
+        if not self.__graph_exists:
+            raise ValueError("Graph does not exist")
+
         nxadb.classes.function.pull(
             self,
             load_node_and_adj_dict=load_node_and_adj_dict,
@@ -194,6 +208,14 @@ class Graph(nx.Graph):
 
     def push(self):
         raise NotImplementedError("What would this look like?")
+
+    # TODO: proper subgraphing!
+    def query(self, query: str, bind_vars: dict | None = None, **kwargs) -> Cursor:
+        return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
+
+    #####################
+    # nx.Graph Overides #
+    #####################
 
     def add_node(self, node_for_adding, **attr):
         if node_for_adding not in self._node:

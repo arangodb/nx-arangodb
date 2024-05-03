@@ -30,8 +30,8 @@ def pagerank(
     dangling=None,
     *,
     dtype=None,
-    pull_graph_on_cpu=True,
     run_on_gpu=True,
+    pull_graph_on_cpu=True,
 ):
     print("ANTHONY: Calling pagerank from nx_arangodb")
 

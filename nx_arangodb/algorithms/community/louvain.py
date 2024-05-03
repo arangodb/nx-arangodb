@@ -33,6 +33,7 @@ def louvain_communities(
     max_level=None,
     seed=None,
     run_on_gpu=True,
+    pull_graph_on_cpu=True,
 ):
     if GPU_ENABLED and run_on_gpu:
         print("ANTHONY: to_nxcg")
@@ -48,16 +49,15 @@ def louvain_communities(
             seed=seed,
         )
 
-    else:
-        print("ANTHONY: to_nxadb")
-        G = _to_nxadb_graph(G)
+    print("ANTHONY: to_nxadb")
+    G = _to_nxadb_graph(G, pull_graph=pull_graph_on_cpu)
 
-        print("ANTHONY: Using nx pagerank()")
-        import random
+    print("ANTHONY: Using nx pagerank()")
+    import random
 
-        d = louvain_partitions(G, weight, resolution, threshold, random.Random())
-        q = deque(d, maxlen=1)
-        return q.pop()
+    d = louvain_partitions(G, weight, resolution, threshold, random.Random())
+    q = deque(d, maxlen=1)
+    return q.pop()
 
 
 @networkx_algorithm(

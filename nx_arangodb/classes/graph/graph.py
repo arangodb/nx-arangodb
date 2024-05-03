@@ -1,5 +1,5 @@
 import os
-from typing import ClassVar
+from typing import Callable, ClassVar
 
 import networkx as nx
 from arango import ArangoClient
@@ -11,6 +11,12 @@ from nx_arangodb.classes.dict import (
     graph_dict_factory,
     node_attr_dict_factory,
     node_dict_factory,
+)
+
+from .dict import (
+    adjlist_inner_dict_factory,
+    adjlist_outer_dict_factory,
+    edge_attr_dict_factory,
 )
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.Graph)
@@ -29,7 +35,8 @@ class Graph(nx.Graph):
     def __init__(
         self,
         graph_name: str | None = None,
-        default_node_type: str = "NODES",
+        default_node_type: str = "NXADB_NODES",
+        edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
         *args,
         **kwargs,
     ):
@@ -54,6 +61,8 @@ class Graph(nx.Graph):
         self.vertex_ids_to_index = None
 
         self.default_node_type = default_node_type
+        self.edge_type_func = edge_type_func
+        self.default_edge_type = edge_type_func(default_node_type, default_node_type)
 
         if self.__graph_exists:
             self.adb_graph = self.db.graph(graph_name)
@@ -83,12 +92,12 @@ class Graph(nx.Graph):
         if self.default_node_type not in self.adb_graph.vertex_collections():
             self.adb_graph.create_vertex_collection(self.default_node_type)
 
-        # if not self.adb_graph.has_edge_definition(self.default_edge_type):
-        #     self.adb_graph.create_edge_definition(
-        #         edge_collection=self.default_edge_type,
-        #         from_vertex_collections=[self.default_node_type],
-        #         to_vertex_collections=[self.default_node_type],
-        #     )
+        if not self.adb_graph.has_edge_definition(self.default_edge_type):
+            self.adb_graph.create_edge_definition(
+                edge_collection=self.default_edge_type,
+                from_vertex_collections=[self.default_node_type],
+                to_vertex_collections=[self.default_node_type],
+            )
 
     @property
     def db(self) -> StandardDatabase:

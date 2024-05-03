@@ -379,4 +379,9 @@ class NodeAttrDict(UserDict):
     def update(self, attrs: dict[str, Any]):
         """G._node['node/1'].update({'foo': 'bar'})"""
         self.data.update(attrs)
+
+        if not self.node_id:
+            print("Silent Error: Node ID not set, cannot invoke NodeAttrDict.update()")
+            return
+
         doc_update(self.db, self.node_id, attrs)

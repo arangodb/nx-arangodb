@@ -80,13 +80,13 @@ class Graph(nx.Graph):
 
         self.node_attr_dict_factory = node_attr_dict_factory(self.db, self.adb_graph)
 
-        # self.adjlist_outer_dict_factory = adjlist_outer_dict_factory(
-        #     self.db, self.adb_graph, self.default_node_type, self.edge_type_func
-        # )
-        # self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(
-        #     self.db, self.adb_graph, self.default_node_type, self.edge_type_func
-        # )
-        # self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.adb_graph)
+        self.adjlist_outer_dict_factory = adjlist_outer_dict_factory(
+            self.db, self.adb_graph, self.default_node_type, self.edge_type_func
+        )
+        self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(
+            self.db, self.adb_graph, self.default_node_type, self.edge_type_func
+        )
+        self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.adb_graph)
 
     def __create_default_collections(self) -> None:
         if self.default_node_type not in self.adb_graph.vertex_collections():

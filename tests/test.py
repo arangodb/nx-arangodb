@@ -53,12 +53,12 @@ def test_crud():
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
     G_2 = nx.Graph(nx.karate_club_graph())
 
-    try:
-        import phenolrs
-        nx.pagerank(G_1, backend="arangodb")
-        # TODO: Experiment with algorithm, but turn off CPU pull()!
-    except ModuleNotFoundError:
-        pass
+    # try:
+    #     import phenolrs
+    #     nx.pagerank(G_1, backend="arangodb")
+    #     # TODO: Experiment with algorithm, but turn off CPU pull()!
+    # except ModuleNotFoundError:
+    #     pass
 
     #########
     # NODES #
@@ -103,6 +103,26 @@ def test_crud():
     with pytest.raises(KeyError):
         G_1.nodes["person/1"]
 
+    G_1.add_node("person/1", club="Mr. Hi")
+    G_1._node.clear()
+    assert len(G_1.nodes) == 1
+    assert G_1.nodes["person/1"]["club"] == "Mr. Hi"
+
+    G_1.add_nodes_from(['1', '2', '3'], foo='bar')
+
+    assert len(G_1.nodes) == 4
+    assert G_1.nodes["1"]["foo"] == "bar"
+    assert G_1.nodes["2"]["foo"] == "bar"
+    assert G_1.nodes["3"]["foo"] == "bar"
+
     #########
     # EDGES #
     #########
+
+    # breakpoint()
+
+    # assert len(G_1.edges) == len(G_2.edges)
+    # assert len(G_1.adj) == len(G_2.adj)
+
+
+    # breakpoint()

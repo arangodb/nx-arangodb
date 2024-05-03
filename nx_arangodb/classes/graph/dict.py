@@ -96,7 +96,7 @@ class AdjListOuterDict(UserDict):
     @key_is_string
     def __contains__(self, key) -> bool:
         """'node/1' in G.adj"""
-        node_id = get_node_id(key)
+        node_id = get_node_id(key, self.default_node_type)
 
         if node_id in self.data:
             return True
@@ -106,7 +106,7 @@ class AdjListOuterDict(UserDict):
     @key_is_string
     def __getitem__(self, key) -> AdjListInnerDict:
         """G.adj["node/1"]"""
-        node_type, node_id = get_node_type_and_id(key)
+        node_type, node_id = get_node_type_and_id(key, self.default_node_type)
 
         if value := self.data.get(node_id):
             return value
@@ -131,20 +131,24 @@ class AdjListOuterDict(UserDict):
         assert not adjlist_inner_dict.src_node_id
         assert not adjlist_inner_dict.src_node_type
 
-        src_node_type, src_node_id = get_node_type_and_id(src_key)
+        src_node_type, src_node_id = get_node_type_and_id(
+            src_key, self.default_node_type
+        )
 
         # NOTE: this might not actually be needed...
-        edge_dict: dict[str, Any]
         results = {}
-        for dst_key, v in adjlist_inner_dict.data.items():
-            dst_node_type, dst_node_id = get_node_type_and_id(dst_key)
+        edge_dict: dict[str, Any]
+        for dst_key, edge_dict in adjlist_inner_dict.data.items():
+            dst_node_type, dst_node_id = get_node_type_and_id(
+                dst_key, self.default_node_type
+            )
 
-            edge_type = edge_dict.get("_edge_type")
+            edge_type = edge_dict.get("_edge_type")  # pop?
             if edge_type is None:
                 edge_type = self.edge_type_func(src_node_type, dst_node_type)
 
             results[dst_key] = self.graph.link(
-                edge_type, src_node_id, dst_node_id, v, silent=True
+                edge_type, src_node_id, dst_node_id, edge_dict, silent=True
             )
 
         adjlist_inner_dict.src_node_id = src_node_id
@@ -203,7 +207,7 @@ class AdjListOuterDict(UserDict):
             for dst_key, edge_dict in dst_dict.items():
                 dst_node_type, dst_node_id = get_node_type_and_id(dst_key)
 
-                edge_type = edge_dict.get("_edge_type")
+                edge_type = edge_dict.get("_edge_type")  # pop?
                 if edge_type is None:
                     edge_type = self.edge_type_func(src_node_type, dst_node_type)
 
@@ -229,6 +233,29 @@ class AdjListOuterDict(UserDict):
     def items(self):
         """g._adj.items()"""
         raise NotImplementedError("AdjListOuterDict.items()")
+        # for ed in self.graph.edge_definitions():
+        #     collection = ed["edge_collection"]
+
+        #     for edge in self.graph.edge_collection(collection):
+        #         src_node_id = edge["_from"]
+        #         dst_node_id = edge["_to"]
+
+        #         adjlist_inner_dict = self.adjlist_inner_dict_factory()
+        #         adjlist_inner_dict.src_node_id = src_node_id
+        #         adjlist_inner_dict.src_node_type = src_node_id.split("/")[0]
+
+        #         edge_attr_dict = adjlist_inner_dict.edge_attr_dict_factory()
+        #         edge_attr_dict.edge_id = edge["_id"]
+        #         edge_attr_dict.data = edge
+
+        #         adjlist_inner_dict.data[dst_node_id] = edge_attr_dict
+
+        #         if src_node_id not in self.data:
+        #             self.data[src_node_id] = adjlist_inner_dict
+        #         else:
+        #             self.data[src_node_id].update(adjlist_inner_dict)
+
+        #         yield src_node_id, adjlist_inner_dict
 
 
 class AdjListInnerDict(UserDict):
@@ -265,10 +292,12 @@ class AdjListInnerDict(UserDict):
         self.src_node_id = None
         self.src_node_type = None
 
+        self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
+
     @key_is_string
     def __contains__(self, key) -> bool:
         """'node/2' in G.adj['node/1']"""
-        dst_node_id = get_node_id(key)
+        dst_node_id = get_node_id(key, self.default_node_type)
 
         if dst_node_id in self.data:
             return True
@@ -287,7 +316,7 @@ class AdjListInnerDict(UserDict):
     @key_is_string
     def __getitem__(self, key) -> dict[str, Any]:
         """g._adj['node/1']['node/2']"""
-        dst_node_id = get_node_id(key)
+        dst_node_id = get_node_id(key, self.default_node_type)
 
         if value := self.data.get(dst_node_id):
             return value
@@ -317,13 +346,13 @@ class AdjListInnerDict(UserDict):
         """g._adj['node/1']['node/2'] = {'foo': 'bar'}"""
         assert isinstance(value, EdgeAttrDict)
 
-        dst_node_type, dst_node_id = get_node_type_and_id(key)
+        dst_node_type, dst_node_id = get_node_type_and_id(key, self.default_node_type)
 
-        edge_type = value.data.get("_edge_type")
+        edge_type = value.data.get("_edge_type")  # pop?
         if edge_type is None:
             edge_type = self.edge_type_func(self.src_node_type, dst_node_type)
 
-        edge = self.graph.link(edge_type, self.src_node_id, dst_node_id, value)
+        edge = self.graph.link(edge_type, self.src_node_id, dst_node_id, value.data)
 
         edge_attr_dict = self.edge_attr_dict_factory()
         edge_attr_dict.edge_id = edge["_id"]
@@ -407,7 +436,16 @@ class AdjListInnerDict(UserDict):
             if cache:
                 self.data[dst_node_id] = edge_attr_dict
 
-            yield dst_node_id, edge_attr_dict
+            yield dst_node_id, edge
+
+    def update(self, edges: dict[str, dict[str, Any]]):
+        """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
+        raise NotImplementedError("AdjListInnerDict.update()")
+        if isinstance(edges, AdjListInnerDict):
+            self.data.update(edges.data)
+        else:
+            for key, value in edges.items():
+                self[key] = value
 
 
 class EdgeAttrDict(UserDict):
@@ -510,4 +548,8 @@ class EdgeAttrDict(UserDict):
     def update(self, attrs: dict[str, Any]):
         """G._adj['node/1']['node/'2].update({'foo': 'bar'})"""
         self.data.update(attrs)
+        if not self.edge_id:
+            print("Silent Error: Edge ID not set, cannot invoke EdgeAttrDict.update()")
+            return
+
         doc_update(self.db, self.edge_id, attrs)

@@ -73,26 +73,26 @@ def pull(
             node_attr_dict.data = node_data
             G._node.data[node_id] = node_attr_dict
 
-        # G._adj.clear()
-        # for src_node_id, dst_dict in result[1].items():
-        #     src_node_type = src_node_id.split("/")[0]
+        G._adj.clear()
+        for src_node_id, dst_dict in result[1].items():
+            src_node_type = src_node_id.split("/")[0]
 
-        #     adjlist_inner_dict = G.adjlist_inner_dict_factory()
-        #     adjlist_inner_dict.src_node_id = src_node_id
-        #     adjlist_inner_dict.src_node_type = src_node_type
+            adjlist_inner_dict = G.adjlist_inner_dict_factory()
+            adjlist_inner_dict.src_node_id = src_node_id
+            adjlist_inner_dict.src_node_type = src_node_type
 
-        #     G._adj.data[src_node_id] = adjlist_inner_dict
+            G._adj.data[src_node_id] = adjlist_inner_dict
 
-        #     for dst_id, edge_data in dst_dict.items():
-        #         edge_attr_dict = G.edge_attr_dict_factory()
-        #         edge_attr_dict.edge_id = edge_data["_id"]
-        #         edge_attr_dict.data = edge_data
+            for dst_id, edge_data in dst_dict.items():
+                edge_attr_dict = G.edge_attr_dict_factory()
+                edge_attr_dict.edge_id = edge_data["_id"]
+                edge_attr_dict.data = edge_data
 
-        #         adjlist_inner_dict.data[dst_id] = edge_attr_dict
+                adjlist_inner_dict.data[dst_id] = edge_attr_dict
 
         # G._node = result[0]
         # TODO: fix this hack
-        G._adj = result[1]
+        # G._adj = result[1]
 
     if load_coo:
         G.src_indices = result[2]

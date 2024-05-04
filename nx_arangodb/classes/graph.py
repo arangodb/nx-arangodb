@@ -43,6 +43,11 @@ class Graph(nx.Graph):
         *args,
         **kwargs,
     ):
+        if kwargs.get("incoming_graph_data") is not None and graph_name is not None:
+            raise ValueError(
+                "Cannot pass both 'incoming_graph_data' and 'graph_name' yet"
+            )
+
         self.__db = None
         self.__graph_name = None
         self.__graph_exists = False

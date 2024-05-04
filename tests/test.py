@@ -83,6 +83,14 @@ def test_louvain_no_pull():
 
     assert res
 
+def test_shortest_path():
+    G_1 = nxadb.Graph(graph_name="KarateGraph")
+
+    r_1 = nx.shortest_path(G_1, source="person/1", target="person/34")
+    r_2 = nx.shortest_path(G_1, source="person/1", target="person/34", weight="weight")
+
+    assert len(r_1) == len(r_2) == 3
+    assert r_1 != r_2
 
 def test_crud():
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")

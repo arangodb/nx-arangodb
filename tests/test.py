@@ -28,7 +28,7 @@ def test_bc_no_pull(load_graph):
     except ModuleNotFoundError:
         pytest.skip("phenolrs not installed")
 
-    G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
+    G_1 = nxadb.Graph(graph_name="KarateGraph")
 
     res = nxadb.betweenness_centrality(G_1, pull_graph_on_cpu=False)
 
@@ -53,7 +53,7 @@ def test_pagerank_no_pull(load_graph):
     except ModuleNotFoundError:
         pytest.skip("phenolrs not installed")
 
-    G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
+    G_1 = nxadb.Graph(graph_name="KarateGraph")
 
     res = nxadb.pagerank(G_1, pull_graph_on_cpu=False)
 
@@ -77,7 +77,7 @@ def test_louvain_no_pull(load_graph):
     except ModuleNotFoundError:
         pytest.skip("phenolrs not installed")
 
-    G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
+    G_1 = nxadb.Graph(graph_name="KarateGraph")
 
     res = nxadb.louvain_communities(G_1, pull_graph_on_cpu=False)
 

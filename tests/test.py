@@ -12,7 +12,6 @@ def test_db(load_graph):
 
 def test_bc(load_graph):
     G_1 = nx.karate_club_graph()
-
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
 
     r_1 = nx.betweenness_centrality(G_1)
@@ -20,19 +19,20 @@ def test_bc(load_graph):
     r_3 = nx.betweenness_centrality(G_1, backend="arangodb")
     r_4 = nx.betweenness_centrality(G_2, backend="arangodb")
 
-    assert r_1 and r_2 and r_3 and r_4
+    assert len(r_1) == len(r_2) == len(r_3) == len(r_4) > 0
 
-def test_bc_no_pull(load_graph):
     try:
         import phenolrs
     except ModuleNotFoundError:
-        pytest.skip("phenolrs not installed")
+        return
 
-    G_1 = nxadb.Graph(graph_name="KarateGraph")
+    G_3 = nxadb.Graph(graph_name="KarateGraph")
+    r_5 = nx.betweenness_centrality(G_3)
 
-    res = nxadb.betweenness_centrality(G_1, pull_graph_on_cpu=False)
+    G_4 = nxadb.Graph(graph_name="KarateGraph")
+    r_6 = nxadb.betweenness_centrality(G_4, pull_graph_on_cpu=False)
 
-    assert len(res) == len(G_1)
+    assert r_5 == r_6
 
 
 def test_pagerank(load_graph):
@@ -45,19 +45,21 @@ def test_pagerank(load_graph):
     r_3 = nx.pagerank(G_1, backend="arangodb")
     r_4 = nx.pagerank(G_2, backend="arangodb")
 
-    assert r_1 and r_2 and r_3 and r_4
+    assert len(r_1) == len(r_2) == len(r_3) == len(r_4) > 0
 
-def test_pagerank_no_pull(load_graph):
     try:
         import phenolrs
     except ModuleNotFoundError:
-        pytest.skip("phenolrs not installed")
+        return
 
-    G_1 = nxadb.Graph(graph_name="KarateGraph")
+    G_3 = nxadb.Graph(graph_name="KarateGraph")
+    r_5 = nx.pagerank(G_3)
 
-    res = nxadb.pagerank(G_1, pull_graph_on_cpu=False)
+    G_4 = nxadb.Graph(graph_name="KarateGraph")
+    r_6 = nxadb.pagerank(G_4, pull_graph_on_cpu=False)
 
-    assert len(res) == len(G_1)
+    assert len(r_5) == len(r_6) == len(G_4)
+
 
 def test_louvain(load_graph):
     G_1 = nx.karate_club_graph()
@@ -69,19 +71,24 @@ def test_louvain(load_graph):
     r_3 = nx.community.louvain_communities(G_1, backend="arangodb")
     r_4 = nx.community.louvain_communities(G_2, backend="arangodb")
 
-    assert r_1 and r_2 and r_3 and r_4
+    assert len(r_1) > 0
+    assert len(r_2) > 0
+    assert len(r_3) > 0
+    assert len(r_4) > 0
 
-def test_louvain_no_pull(load_graph):
     try:
         import phenolrs
     except ModuleNotFoundError:
-        pytest.skip("phenolrs not installed")
+        return
 
-    G_1 = nxadb.Graph(graph_name="KarateGraph")
+    G_3 = nxadb.Graph(graph_name="KarateGraph")
+    r_5 = nx.pagerank(G_3)
 
-    res = nxadb.louvain_communities(G_1, pull_graph_on_cpu=False)
+    G_4 = nxadb.Graph(graph_name="KarateGraph")
+    r_6 = nxadb.pagerank(G_4, pull_graph_on_cpu=False)
 
-    assert res
+    assert len(r_5) == len(r_6) > 0
+
 
 def test_shortest_path(load_graph):
     G_1 = nxadb.Graph(graph_name="KarateGraph")
@@ -91,6 +98,7 @@ def test_shortest_path(load_graph):
 
     assert len(r_1) == len(r_2) == 3
     assert r_1 != r_2
+
 
 def test_nodes_crud(load_graph):
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
@@ -112,7 +120,7 @@ def test_nodes_crud(load_graph):
         assert "bad_key" not in doc
         assert v == "boom!"
 
-    G_1.clear() # clear cache
+    G_1.clear()  # clear cache
 
     person_1 = G_1.nodes["person/1"]
     assert person_1["_key"] == "1"
@@ -148,14 +156,14 @@ def test_nodes_crud(load_graph):
     assert G_1.nodes["person/1"]["club"] == "updated value"
     len(G_1.nodes) == len(G_2.nodes)
 
-    G_1.add_node("person/35", foo={'bar': 'baz'})
+    G_1.add_node("person/35", foo={"bar": "baz"})
     len(G_1.nodes) == len(G_2.nodes) + 1
     G_1.clear()
-    assert G_1.nodes["person/35"]["foo"] == {'bar': 'baz'}
+    assert G_1.nodes["person/35"]["foo"] == {"bar": "baz"}
     # TODO: Support this use case:
     # G_1.nodes["person/35"]["foo"]["bar"] = "baz2"
 
-    G_1.add_nodes_from(['1', '2', '3'], foo='bar')
+    G_1.add_nodes_from(["1", "2", "3"], foo="bar")
     G_1.clear()
     assert G_1.nodes["1"]["foo"] == "bar"
     assert G_1.nodes["2"]["foo"] == "bar"
@@ -177,7 +185,7 @@ def test_nodes_crud(load_graph):
     G_1.remove_nodes_from(["2", "3"])
     assert not db.collection(G_1.default_node_type).has("2")
     assert not db.collection(G_1.default_node_type).has("3")
-    
+
     with pytest.raises(KeyError):
         G_1.nodes["2"]
 
@@ -190,6 +198,7 @@ def test_nodes_crud(load_graph):
     G_1.remove_node("person/1")
     assert not db.has_document("person/1")
     assert not db.has_document(edge_id)
+
 
 def test_edges_crud(load_graph):
     G_1 = nxadb.Graph(graph_name="KarateGraph")
@@ -243,7 +252,9 @@ def test_edges_crud(load_graph):
     assert "new_node_2" in G_1
     assert "new_node_2" not in G_1.adj["new_node_1"]
 
-    G_1.add_edges_from([("new_node_1", "new_node_2"), ("new_node_1", "new_node_3")], foo="bar")
+    G_1.add_edges_from(
+        [("new_node_1", "new_node_2"), ("new_node_1", "new_node_3")], foo="bar"
+    )
     G_1.clear()
     assert "new_node_1" in G_1
     assert "new_node_2" in G_1

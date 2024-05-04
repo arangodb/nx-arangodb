@@ -1,11 +1,15 @@
-import pytest
-
+import logging
 import os
 from typing import Any
 
 import networkx as nx
+import pytest
 from adbnx_adapter import ADBNX_Adapter
 from arango import ArangoClient
+
+from nx_arangodb.logger import logger
+
+logger.setLevel(logging.DEBUG)
 
 
 def pytest_addoption(parser: Any) -> None:

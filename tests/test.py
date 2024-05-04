@@ -108,6 +108,7 @@ def test_nodes_crud(load_graph):
     assert G_1.graph["foo"] == "bar"
 
     assert len(G_1.nodes) == len(G_2.nodes)
+    assert len(G_1.adj) == len(G_2.adj)
 
     for k, v in G_1.nodes(data=True):
         assert db.document(k) == v

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import UserDict
+from collections import UserDict, defaultdict
 from collections.abc import Iterator
 from typing import Any, Callable
 
@@ -300,8 +300,35 @@ class NodeDict(UserDict):
         """g._node.keys()"""
         return self.__iter__()
 
-    def values(self, cache: bool = True):
+    def values(self):
         """g._node.values()"""
+        self.__fetch_all()
+        return self.data.values()
+
+    def items(
+        self, key: str | None = None, default: Any | None = None, cache: bool = True
+    ):
+        """g._node.items() or G._node.items(data='foo')"""
+        if key is None:
+            self.__fetch_all()
+            return self.data.items()
+
+        v_cols = list(self.graph.vertex_collections())
+        items = {}
+        for collection in v_cols:
+            query = f"""
+                FOR v IN `{collection}`
+                    RETURN [v._id, v.@key or @default]
+            """
+
+            bind_vars = {"key": key, "default": default}
+
+            items.update({k: v for k, v in aql(self.db, query, bind_vars)})
+
+        return items.items()
+
+    def __fetch_all(self):
+        self.data.clear()
         for collection in self.graph.vertex_collections():
             for doc in self.graph.vertex_collection(collection).all():
                 node_id = doc["_id"]
@@ -310,42 +337,7 @@ class NodeDict(UserDict):
                 node_attr_dict.node_id = node_id
                 node_attr_dict.data = doc
 
-                if cache:
-                    self.data[node_id] = node_attr_dict
-
-                yield node_attr_dict
-
-    def items(
-        self, key: str | None = None, default: Any | None = None, cache: bool = True
-    ):
-        """g._node.items()"""
-        v_cols = list(self.graph.vertex_collections())
-
-        if key is not None:
-            """G._node.items(data='foo')"""
-            for collection in v_cols:
-                query = f"""
-                    FOR v IN `{collection}`
-                        RETURN [v._id, v.@key or @default]
-                """
-
-                bind_vars = {"key": key, "default": default}
-
-                yield from aql(self.db, query, bind_vars)
-
-        else:
-            for collection in v_cols:
-                for doc in self.graph.vertex_collection(collection).all():
-                    node_id = doc["_id"]
-
-                    node_attr_dict = self.node_attr_dict_factory()
-                    node_attr_dict.node_id = node_id
-                    node_attr_dict.data = doc
-
-                    if cache:
-                        self.data[node_id] = node_attr_dict
-
-                    yield node_id, node_attr_dict
+                self.data[node_id] = node_attr_dict
 
 
 class NodeAttrDict(UserDict):
@@ -424,14 +416,11 @@ class NodeAttrDict(UserDict):
 
         yield from doc.values()
 
-    def items(self, cache: bool = True):
+    def items(self):
         """G._node['node/1'].items()"""
         doc = self.db.document(self.node_id)
-
-        if cache:
-            self.data = doc
-
-        yield from doc.items()
+        self.data = doc
+        return doc.items()
 
     def clear(self):
         """G._node['node/1'].clear()"""
@@ -485,11 +474,11 @@ class AdjListOuterDict(UserDict):
             db, graph, default_node_type, edge_type_func
         )
 
-    def __repr__(self) -> str:
-        return f"'{self.graph.name}'"
+    # def __repr__(self) -> str:
+    #     return f"'{self.graph.name}'"
 
-    def __str__(self) -> str:
-        return f"'{self.graph.name}'"
+    # def __str__(self) -> str:
+    #     return f"'{self.graph.name}'"
 
     @key_is_string
     def __contains__(self, key) -> bool:
@@ -570,8 +559,8 @@ class AdjListOuterDict(UserDict):
         """len(g._adj)"""
         return sum(
             [
-                self.graph.edge_collection(ed["edge_collection"]).count()
-                for ed in self.graph.edge_definitions()
+                self.graph.vertex_collection(c).count()
+                for c in self.graph.vertex_collections()
             ]
         )
 
@@ -600,49 +589,50 @@ class AdjListOuterDict(UserDict):
 
     def values(self):
         """g._adj.values()"""
-        for ed in self.graph.edge_definitions():
-            collection = ed["edge_collection"]
+        self.__fetch_all()
+        return self.data.values()
 
-            for edge in self.graph.edge_collection(collection):
-                src_node_id = edge["_from"]
-
-                if src_node_id in self.data:
-                    adjlist_inner_dict = self.data[src_node_id]
-                else:
-                    adjlist_inner_dict = self.adjlist_inner_dict_factory()
-                    adjlist_inner_dict.src_node_id = src_node_id
-                    adjlist_inner_dict.src_node_type = src_node_id.split("/")[0]
-                    self.data[src_node_id] = adjlist_inner_dict
-
-                edge_attr_dict = adjlist_inner_dict.edge_attr_dict_factory()
-                edge_attr_dict.edge_id = edge["_id"]
-                edge_attr_dict.data = edge
-                adjlist_inner_dict.data[edge["_to"]] = edge_attr_dict
-
-        yield from self.data.values()
-
-    def items(self, cache: bool = True):
+    def items(self):
         """g._adj.items()"""
+        self.__fetch_all()
+        return self.data.items()
+
+    # TODO: Revisit
+    def __fetch_all(self) -> None:
+        self.data.clear()
+        # items = defaultdict(dict)
         for ed in self.graph.edge_definitions():
             collection = ed["edge_collection"]
 
             for edge in self.graph.edge_collection(collection):
                 src_node_id = edge["_from"]
+                dst_node_id = edge["_to"]
+
+                # items[src_node_id][dst_node_id] = edge
+                # items[dst_node_id][src_node_id] = edge
 
                 if src_node_id in self.data:
-                    adjlist_inner_dict = self.data[src_node_id]
+                    src_inner_dict = self.data[src_node_id]
                 else:
-                    adjlist_inner_dict = self.adjlist_inner_dict_factory()
-                    adjlist_inner_dict.src_node_id = src_node_id
-                    adjlist_inner_dict.src_node_type = src_node_id.split("/")[0]
-                    self.data[src_node_id] = adjlist_inner_dict
+                    src_inner_dict = self.adjlist_inner_dict_factory()
+                    src_inner_dict.src_node_id = src_node_id
+                    src_inner_dict.src_node_type = src_node_id.split("/")[0]
+                    self.data[src_node_id] = src_inner_dict
 
-                edge_attr_dict = adjlist_inner_dict.edge_attr_dict_factory()
+                if dst_node_id in self.data:
+                    dst_inner_dict = self.data[dst_node_id]
+                else:
+                    dst_inner_dict = self.adjlist_inner_dict_factory()
+                    dst_inner_dict.src_node_id = dst_node_id
+                    dst_inner_dict.src_node_type = dst_node_id.split("/")[0]
+                    self.data[dst_node_id] = dst_inner_dict
+
+                edge_attr_dict = src_inner_dict.edge_attr_dict_factory()
                 edge_attr_dict.edge_id = edge["_id"]
                 edge_attr_dict.data = edge
-                adjlist_inner_dict.data[edge["_to"]] = edge_attr_dict
 
-        yield from self.data.items()
+                src_inner_dict.data[dst_node_id] = edge_attr_dict
+                dst_inner_dict.data[src_node_id] = edge_attr_dict
 
 
 class AdjListInnerDict(UserDict):
@@ -681,11 +671,11 @@ class AdjListInnerDict(UserDict):
 
         self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
 
-    def __repr__(self) -> str:
-        return f"'{self.src_node_id}'"
+    # def __repr__(self) -> str:
+    #     return f"'{self.src_node_id}'"
 
-    def __str__(self) -> str:
-        return f"'{self.src_node_id}'"
+    # def __str__(self) -> str:
+    #     return f"'{self.src_node_id}'"
 
     @key_is_string
     def __contains__(self, key) -> bool:
@@ -786,10 +776,12 @@ class AdjListInnerDict(UserDict):
 
     def __len__(self) -> int:
         """len(g._adj['node/1'])"""
+        assert self.src_node_id
+
         query = """
             RETURN LENGTH(
                 FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
-                    RETURN e
+                    RETURN 1
             )
         """
 
@@ -814,49 +806,36 @@ class AdjListInnerDict(UserDict):
         """g._adj['node/1'].keys()"""
         return self.__iter__()
 
-    def values(self, cache: bool = True):
-        """g._adj['node/1'].values()"""
-        query = """
-            FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
-                RETURN e
-        """
-
-        bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
-
-        for edge in aql(self.db, query, bind_vars):
-            dst_node_id = edge["_to"]
-            edge_attr_dict = self.edge_attr_dict_factory()
-            edge_attr_dict.edge_id = edge["_id"]
-            edge_attr_dict.data = edge
-
-            if cache:
-                self.data[dst_node_id] = edge_attr_dict
-
-            yield edge_attr_dict
-
-    def items(self, cache: bool = True):
-        """g._adj['node/1'].items()"""
-        query = """
-            FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
-                RETURN e
-        """
-
-        bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
-
-        for edge in aql(self.db, query, bind_vars):
-            dst_node_id = edge["_to"]
-            edge_attr_dict = self.edge_attr_dict_factory()
-            edge_attr_dict.edge_id = edge["_id"]
-            edge_attr_dict.data = edge
-
-            if cache:
-                self.data[dst_node_id] = edge_attr_dict
-
-            yield dst_node_id, edge
-
     def update(self, edges: dict[str, dict[str, Any]]):
         """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
         raise NotImplementedError("AdjListInnerDict.update()")
+
+    def values(self, cache: bool = True):
+        """g._adj['node/1'].values()"""
+        self.__fetch_all()
+        return self.data.values()
+
+    def items(self, cache: bool = True):
+        """g._adj['node/1'].items()"""
+        self.__fetch_all()
+        return self.data.items()
+
+    def __fetch_all(self):
+        self.data.clear()
+
+        query = """
+            FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
+                RETURN e
+        """
+
+        bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
+
+        for edge in aql(self.db, query, bind_vars):
+            edge_attr_dict = self.edge_attr_dict_factory()
+            edge_attr_dict.edge_id = edge["_id"]
+            edge_attr_dict.data = edge
+
+            self.data[edge["_to"]] = edge_attr_dict
 
 
 class EdgeAttrDict(UserDict):

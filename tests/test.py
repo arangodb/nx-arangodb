@@ -189,9 +189,6 @@ def test_nodes_crud(load_graph):
     edge_id = G_1.adj["person/1"]["person/2"]["_id"]
     G_1.remove_node("person/1")
     assert not db.has_document("person/1")
-
-    # NOTE: THis is currently failing
-    # This edge shoult not exist, because its source node was removed
     assert not db.has_document(edge_id)
 
 def test_edges_crud(load_graph):
@@ -213,6 +210,7 @@ def test_edges_crud(load_graph):
     edge_id = G_1.adj["person/1"]["person/1"]["_id"]
     doc = db.document(edge_id)
     assert doc["foo"] == "bar"
+    assert G_1.adj["person/1"]["person/1"]["foo"] == "bar"
 
     del G_1.adj["person/1"]["person/1"]["foo"]
     doc = db.document(edge_id)
@@ -231,6 +229,7 @@ def test_edges_crud(load_graph):
 
     assert not db.has_document(f"{G_1.default_node_type}/new_node_1")
     G_1.add_edge("new_node_1", "new_node_2", foo="bar")
+    assert G_1.adj["new_node_1"]["new_node_2"]["foo"] == "bar"
     edge_id = G_1.adj["new_node_1"]["new_node_2"]["_id"]
     doc = db.document(edge_id)
     assert db.has_document(doc["_from"])

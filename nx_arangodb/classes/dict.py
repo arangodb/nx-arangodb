@@ -237,6 +237,22 @@ class NodeDict(UserDict):
         """del g._node['node/1']"""
         node_id = get_node_id(key, self.default_node_type)
 
+        if not self.graph.has_vertex(node_id):
+            raise KeyError(key)
+
+        remove_statements = "\n".join(
+            f"REMOVE e IN `{edge_def['edge_collection']}` OPTIONS {{ignoreErrors: true}}"
+            for edge_def in self.graph.edge_definitions()
+        )
+
+        query = f"""
+            FOR v, e IN 1..1 ANY @src_node_id GRAPH @graph_name
+                {remove_statements}
+        """
+
+        bind_vars = {"src_node_id": node_id, "graph_name": self.graph.name}
+
+        aql(self.db, query, bind_vars)
         doc_delete(self.db, node_id)
         self.data.pop(node_id, None)
 
@@ -427,7 +443,7 @@ class NodeAttrDict(UserDict):
         self.data.update(attrs)
 
         if not self.node_id:
-            print("Silent Error: Node ID not set, cannot invoke NodeAttrDict.update()")
+            print("Log: Node ID not set, skipping NodeAttrDict.update()")
             return
 
         doc_update(self.db, self.node_id, attrs)
@@ -468,10 +484,10 @@ class AdjListOuterDict(UserDict):
         )
 
     def __repr__(self) -> str:
-        return f"Lazy '{self.graph.name}'"
+        return f"'{self.graph.name}'"
 
     def __str__(self) -> str:
-        return f"Lazy '{self.graph.name}'"
+        return f"'{self.graph.name}'"
 
     @key_is_string
     def __contains__(self, key) -> bool:
@@ -542,24 +558,11 @@ class AdjListOuterDict(UserDict):
         """
         del G._adj['node/1']
         """
+        # Nothing else to do here, as this delete is always invoked by
+        # G.remove_node(), which already removes all edges via
+        # del G._node['node/1']
         node_id = get_node_id(key, self.default_node_type)
-
-        if not self.graph.has_vertex(node_id):
-            return
-
-        remove_statements = "\n".join(
-            f"REMOVE e IN `{edge_def['edge_collection']}` OPTIONS {{ignoreErrors: true}}"
-            for edge_def in self.graph.edge_definitions()
-        )
-
-        query = f"""
-            FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
-                {remove_statements}
-        """
-
-        bind_vars = {"src_node_id": node_id, "graph_name": self.graph.name}
-
-        aql(self.db, query, bind_vars)
+        self.data.pop(node_id, None)
 
     def __len__(self) -> int:
         """len(g._adj)"""
@@ -592,29 +595,6 @@ class AdjListOuterDict(UserDict):
     def update(self, edges: dict[str, dict[str, dict[str, Any]]]):
         """g._adj.update({'node/1': {'node/2': {'foo': 'bar'}})"""
         raise NotImplementedError("AdjListOuterDict.update()")
-
-        for src_key, dst_dict in edges.items():
-            src_node_type, src_node_id = get_node_type_and_id(src_key)
-
-            adjlist_inner_dict = self.adjlist_inner_dict_factory()
-            adjlist_inner_dict.src_node_id = src_node_id
-            adjlist_inner_dict.src_node_type = src_node_type
-
-            results = {}
-            for dst_key, edge_dict in dst_dict.items():
-                dst_node_type, dst_node_id = get_node_type_and_id(dst_key)
-
-                edge_type = edge_dict.get("_edge_type")
-                if edge_type is None:
-                    edge_type = self.edge_type_func(src_node_type, dst_node_type)
-
-                results[dst_key] = self.graph.link(
-                    edge_type, src_node_id, dst_node_id, edge_dict, silent=True
-                )
-
-            adjlist_inner_dict.data = results
-
-            self.data[src_node_id] = adjlist_inner_dict
 
     def values(self):
         """g._adj.values()"""
@@ -700,10 +680,10 @@ class AdjListInnerDict(UserDict):
         self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
 
     def __repr__(self) -> str:
-        return f"Lazy '{self.src_node_id}'"
+        return f"'{self.src_node_id}'"
 
     def __str__(self) -> str:
-        return f"Lazy '{self.src_node_id}'"
+        return f"'{self.src_node_id}'"
 
     @key_is_string
     def __contains__(self, key) -> bool:
@@ -785,6 +765,7 @@ class AdjListInnerDict(UserDict):
     def __delitem__(self, key: Any) -> None:
         """del g._adj['node/1']['node/2']"""
         dst_node_id = get_node_id(key, self.default_node_type)
+        self.data.pop(dst_node_id, None)
 
         edge_id = aql_edge_id(
             self.db,
@@ -795,10 +776,11 @@ class AdjListInnerDict(UserDict):
         )
 
         if not edge_id:
+            m = f"Log: Edge ID not found ({self.src_node_id, dst_node_id}), skipping AdjListInnerDict.__delitem__()"
+            print(m)
             return
 
         self.graph.delete_edge(edge_id)
-        self.data.pop(dst_node_id, None)
 
     def __len__(self) -> int:
         """len(g._adj['node/1'])"""
@@ -870,13 +852,9 @@ class AdjListInnerDict(UserDict):
 
             yield dst_node_id, edge
 
-    # def update(self, edges: dict[str, dict[str, Any]]):
-    #     """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
-    #     if isinstance(edges, AdjListInnerDict):
-    #         self.data.update(edges.data)
-    #     else:
-    #         for key, value in edges.items():
-    #             self[key] = value
+    def update(self, edges: dict[str, dict[str, Any]]):
+        """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
+        raise NotImplementedError("AdjListInnerDict.update()")
 
 
 class EdgeAttrDict(UserDict):
@@ -979,8 +957,9 @@ class EdgeAttrDict(UserDict):
     def update(self, attrs: dict[str, Any]):
         """G._adj['node/1']['node/'2].update({'foo': 'bar'})"""
         self.data.update(attrs)
+
         if not self.edge_id:
-            print("Silent Error: Edge ID not set, cannot invoke EdgeAttrDict.update()")
+            print("Log: Edge ID not set, skipping EdgeAttrDict.update()")
             return
 
         doc_update(self.db, self.edge_id, attrs)

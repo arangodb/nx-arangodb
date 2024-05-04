@@ -178,16 +178,12 @@ def from_networkx_arangodb(G: nxadb.Graph, pull_graph: bool) -> nxadb.Graph:
 
         print("ANTHONY: Node & Adj Load took:", end_time - start_time)
 
-        G = G.__class__(
-            graph_name=G.graph_name,
-            default_node_type=G.default_node_type,
-            edge_type_func=G.edge_type_func,
-        )
-
+        # NOTE THIS IS A HACK
+        # I need to revisit the implications of this...
+        G = G.to_networkx_class()()
         G._node = node_dict
         G._adj = adj_dict
 
-        # TODO: I need to revisit the implications of this...
         return G
 
     else:

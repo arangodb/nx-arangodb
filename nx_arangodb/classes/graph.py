@@ -1,4 +1,5 @@
 import os
+from functools import cached_property
 from typing import Callable, ClassVar
 
 import networkx as nx
@@ -19,6 +20,7 @@ from .dict import (
     adjlist_outer_dict_factory,
     edge_attr_dict_factory,
 )
+from .reportviews import CustomNodeView
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.Graph)
 
@@ -57,8 +59,7 @@ class Graph(nx.Graph):
         # NOTE: Need to revisit these...
         # self.maintain_node_dict_cache = False
         # self.maintain_adj_dict_cache = False
-        self.use_node_and_adj_dict_cache_for_algorithms = False
-        self.use_coo_cache_for_algorithms = False
+        self.use_coo_cache = False
 
         self.src_indices = None
         self.dst_indices = None
@@ -195,16 +196,68 @@ class Graph(nx.Graph):
     # ArangoDB Methods #
     ####################
 
-    def pull(self, load_node_and_adj_dict=True, load_coo=True):
-        if not self.__graph_exists:
-            raise ValueError("Graph does not exist")
+    def pull(self, load_node_dict=True, load_adj_dict=True, load_coo=True):
+        """Load the graph from the ArangoDB database, and update existing graph object.
 
-        nxadb.classes.function.pull(
-            self,
-            load_node_and_adj_dict=load_node_and_adj_dict,
-            load_adj_dict_as_undirected=True,
-            load_coo=load_coo,
+        :param load_node_dict: Load the node dictionary.
+            Enabling this option will clear the existing node dictionary,
+            and replace it with the node data from the database. Comes with
+            a remote reference to the database. <--- TODO: Should we paramaterize this?
+        :type load_node_dict: bool
+        :param load_adj_dict: Load the adjacency dictionary.
+            Enabling this option will clear the existing adjacency dictionary,
+            and replace it with the edge data from the database. Comes with
+            a remote reference to the database. <--- TODO: Should we paramaterize this?
+        :type load_adj_dict: bool
+        :param load_coo: Load the COO representation. If False, the src & dst indices will be empty,
+            along with the node-ID-to-index mapping. Used for nx-cuGraph compatibility.
+        :type load_coo: bool
+        """
+        if not self.__graph_exists:
+            raise ValueError(f"Graph '{self.graph_name}' does not exist")
+
+        node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = (
+            nxadb.classes.function.get_arangodb_graph(
+                self,
+                load_node_dict=load_node_dict,
+                load_adj_dict=load_adj_dict,
+                load_adj_dict_as_undirected=True,
+                load_coo=load_coo,
+            )
         )
+
+        if load_node_dict:
+            self._node.clear()
+
+            for node_id, node_data in node_dict.items():
+                node_attr_dict = self.node_attr_dict_factory()
+                node_attr_dict.node_id = node_id
+                node_attr_dict.data = node_data
+                self._node.data[node_id] = node_attr_dict
+
+        if load_adj_dict:
+            self._adj.clear()
+
+            for src_node_id, dst_dict in adj_dict.items():
+                src_node_type = src_node_id.split("/")[0]
+
+                adjlist_inner_dict = self.adjlist_inner_dict_factory()
+                adjlist_inner_dict.src_node_id = src_node_id
+                adjlist_inner_dict.src_node_type = src_node_type
+
+                self._adj.data[src_node_id] = adjlist_inner_dict
+
+                for dst_id, edge_data in dst_dict.items():
+                    edge_attr_dict = self.edge_attr_dict_factory()
+                    edge_attr_dict.edge_id = edge_data["_id"]
+                    edge_attr_dict.data = edge_data
+
+                    adjlist_inner_dict.data[dst_id] = edge_attr_dict
+
+        if load_coo:
+            self.src_indices = src_indices
+            self.dst_indices = dst_indices
+            self.vertex_ids_to_index = vertex_ids_to_indices
 
     def push(self):
         raise NotImplementedError("What would this look like?")
@@ -216,6 +269,10 @@ class Graph(nx.Graph):
     #####################
     # nx.Graph Overides #
     #####################
+
+    @cached_property
+    def nodes(self):
+        return CustomNodeView(self)
 
     def add_node(self, node_for_adding, **attr):
         if node_for_adding not in self._node:

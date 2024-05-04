@@ -165,22 +165,34 @@ def from_networkx_arangodb(G: nxadb.Graph, pull_graph: bool) -> nxadb.Graph:
         print("ANTHONY: Graph does not exist, nothing to pull")
         return G
 
-    if (
-        G.use_node_and_adj_dict_cache_for_algorithms
-        and len(G.nodes) > 0
-        and len(G.adj) > 0
-    ):
-        print("ANTHONY: Using cached node and adj dict")
-        return G
-
     if pull_graph:
         start_time = time.time()
-        G.pull(load_coo=False)
+        node_dict, adj_dict, _, _, _ = nxadb.classes.function.get_arangodb_graph(
+            G,
+            load_node_dict=True,
+            load_adj_dict=True,
+            load_adj_dict_as_undirected=True if G.is_directed() else False,
+            load_coo=False,
+        )
         end_time = time.time()
 
         print("ANTHONY: Node & Adj Load took:", end_time - start_time)
 
-    return G
+        G = G.__class__(
+            graph_name=G.graph_name,
+            default_node_type=G.default_node_type,
+            edge_type_func=G.edge_type_func,
+        )
+
+        G._node = node_dict
+        G._adj = adj_dict
+
+        # TODO: I need to revisit the implications of this...
+        return G
+
+    else:
+        print("ANTHONY: Graph exists, but not pulling. Relying on remote connection...")
+        return G
 
 
 def _to_nxadb_graph(
@@ -254,7 +266,7 @@ try:
             raise NotImplementedError("Multigraphs not yet supported")
 
         if (
-            G.use_coo_cache_for_algorithms
+            G.use_coo_cache
             and G.src_indices is not None
             and G.dst_indices is not None
             and G.vertex_ids_to_index is not None
@@ -263,7 +275,7 @@ try:
 
         else:
             start_time = time.time()
-            G.pull(load_node_and_adj_dict=False)
+            G.pull(load_node_dict=False, load_adj_dict=False)
             end_time = time.time()
 
             print("ANTHONY: COO Load took:", end_time - start_time)

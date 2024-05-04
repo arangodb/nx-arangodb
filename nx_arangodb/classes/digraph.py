@@ -115,7 +115,7 @@ class DiGraph(nx.DiGraph):
         print(f"Graph '{graph_name}' exists: {self.__graph_exists}")
 
     def pull(self, load_node_and_adj_dict=True, load_coo=True):
-        nxadb.classes.function.pull(
+        nxadb.classes.function.get_arangodb_graph(
             self,
             load_node_and_adj_dict=load_node_and_adj_dict,
             load_adj_dict_as_undirected=False,

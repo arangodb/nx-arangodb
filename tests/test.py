@@ -88,13 +88,27 @@ def test_crud():
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
     G_2 = nx.Graph(nx.karate_club_graph())
 
+    assert G_1.graph_name == "KarateGraph"
+    assert G_1.graph["foo"] == "bar"
+
     #########
     # NODES #
     #########
 
-    assert G_1.graph_name == "KarateGraph"
-    assert G_1.graph["foo"] == "bar"
     assert len(G_1.nodes) == len(G_2.nodes)
+
+    for k, v in G_1.nodes(data=True):
+        assert db.document(k) == v
+
+    for k, v in G_1.nodes(data="club"):
+        assert db.document(k)["club"] == v
+
+    for k, v in G_1.nodes(data="bad_key", default="boom!"):
+        doc = db.document(k)
+        assert "bad_key" not in doc
+        assert v == "boom!"
+
+    G_1.clear() # clear cache
 
     person_1 = G_1.nodes["person/1"]
     assert person_1["_key"] == "1"

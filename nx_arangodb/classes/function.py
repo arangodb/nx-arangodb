@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Tuple
 
 import networkx as nx
+import numpy as np
 from arango.collection import StandardCollection
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
@@ -10,24 +11,27 @@ from arango.database import StandardDatabase
 import nx_arangodb as nxadb
 
 
-def pull(
+def get_arangodb_graph(
     G: nxadb.Graph | nxadb.DiGraph,
-    load_node_and_adj_dict: bool,
+    load_node_dict: bool,
+    load_adj_dict: bool,
     load_adj_dict_as_undirected: bool,
     load_coo: bool,
-) -> None:
+) -> Tuple[
+    dict[str, dict[str, Any]],
+    dict[str, dict[str, dict[str, Any]]],
+    np.ndarray,
+    np.ndarray,
+    dict[str, int],
+]:
     """Pulls the graph from the database, assuming the graph exists.
 
-    Modifies the graph object in place! Uses a rust-based graph loader <3
-
-    :param G: The graph object.
-    :type G: nxadb.Graph | nxadb.DiGraph
-    :param load_node_and_adj_dict: Whether to load the node and adjacency dictionaries.
-    :type load_node_and_adj_dict: bool
-    :param load_adj_dict_as_undirected: Whether to load the adjacency dictionary as undirected.
-    :type load_adj_dict_as_undirected: bool
-    :param load_coo: Whether to load the COO representation.
-    :type load_coo: bool
+    Returns the folowing representations:
+    - Node dictionary (nx.Graph)
+    - Adjacency dictionary (nx.Graph)
+    - Source Indices (COO)
+    - Destination Indices (COO)
+    - Node-ID-to-index mapping (COO)
     """
     if not G.graph_exists:
         raise ValueError("Graph does not exist in the database")
@@ -50,54 +54,18 @@ def pull(
     if G.graph_loader_batch_size is not None:
         kwargs["batch_size"] = G.graph_loader_batch_size
 
-    result = GraphLoader.load(
+    return GraphLoader.load(
         G.db.name,
         metagraph,
         [G._host],
         username=G._username,
         password=G._password,
-        load_node_dict=load_node_and_adj_dict,
-        load_adj_dict=load_node_and_adj_dict,
+        load_node_dict=load_node_dict,
+        load_adj_dict=load_adj_dict,
         load_adj_dict_as_undirected=load_adj_dict_as_undirected,
         load_coo=load_coo,
         **kwargs,
     )
-
-    if load_node_and_adj_dict:
-        # TODO: I need to revisit this monster
-
-        G._node.clear()
-        for node_id, node_data in result[0].items():
-            node_attr_dict = G.node_attr_dict_factory()
-            node_attr_dict.node_id = node_id
-            node_attr_dict.data = node_data
-            G._node.data[node_id] = node_attr_dict
-
-        G._adj.clear()
-        for src_node_id, dst_dict in result[1].items():
-            src_node_type = src_node_id.split("/")[0]
-
-            adjlist_inner_dict = G.adjlist_inner_dict_factory()
-            adjlist_inner_dict.src_node_id = src_node_id
-            adjlist_inner_dict.src_node_type = src_node_type
-
-            G._adj.data[src_node_id] = adjlist_inner_dict
-
-            for dst_id, edge_data in dst_dict.items():
-                edge_attr_dict = G.edge_attr_dict_factory()
-                edge_attr_dict.edge_id = edge_data["_id"]
-                edge_attr_dict.data = edge_data
-
-                adjlist_inner_dict.data[dst_id] = edge_attr_dict
-
-        # G._node = result[0]
-        # TODO: fix this hack
-        # G._adj = result[1]
-
-    if load_coo:
-        G.src_indices = result[2]
-        G.dst_indices = result[3]
-        G.vertex_ids_to_index = result[4]
 
 
 def key_is_string(func) -> Any:

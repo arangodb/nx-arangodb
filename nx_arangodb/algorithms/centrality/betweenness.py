@@ -1,4 +1,4 @@
-from networkx.algorithms.centrality import betweenness as nx_betweenness
+import networkx as nx
 
 from nx_arangodb.convert import _to_nxadb_graph, _to_nxcg_graph
 from nx_arangodb.utils import networkx_algorithm
@@ -45,37 +45,6 @@ def betweenness_centrality(
     G = _to_nxadb_graph(G, pull_graph=pull_graph_on_cpu)
 
     print("ANTHONY: Using nx bc()")
-
-    betweenness = dict.fromkeys(G, 0.0)  # b[v]=0 for v in G
-    if k is None:
-        nodes = G
-    else:
-        nodes = seed.sample(list(G.nodes()), k)
-    for s in nodes:
-        # single source shortest paths
-        if weight is None:  # use BFS
-            S, P, sigma, _ = nx_betweenness._single_source_shortest_path_basic(G, s)
-        else:  # use Dijkstra's algorithm
-            S, P, sigma, _ = nx_betweenness._single_source_dijkstra_path_basic(
-                G, s, weight
-            )
-        # accumulation
-        if endpoints:
-            betweenness, _ = nx_betweenness._accumulate_endpoints(
-                betweenness, S, P, sigma, s
-            )
-        else:
-            betweenness, _ = nx_betweenness._accumulate_basic(
-                betweenness, S, P, sigma, s
-            )
-
-    betweenness = nx_betweenness._rescale(
-        betweenness,
-        len(G),
-        normalized=normalized,
-        directed=G.is_directed(),
-        k=k,
-        endpoints=endpoints,
+    return nx.betweenness_centrality.orig_func(
+        G, k=k, normalized=normalized, weight=weight, endpoints=endpoints
     )
-
-    return betweenness

@@ -214,13 +214,15 @@ def aql_edge_get(
     graph_name: str,
     direction: str,
 ):
+    # TODO: need the use of DISTINCT
+    return_clause = "DISTINCT e" if direction == "ANY" else "e"
     return aql_edge(
         db,
         src_node_id,
         dst_node_id,
         graph_name,
         direction,
-        return_clause="e",
+        return_clause=return_clause,
     )
 
 
@@ -231,13 +233,15 @@ def aql_edge_id(
     graph_name: str,
     direction: str,
 ):
+    # TODO: need the use of DISTINCT
+    return_clause = "DISTINCT e._id" if direction == "ANY" else "e._id"
     return aql_edge(
         db,
         src_node_id,
         dst_node_id,
         graph_name,
         direction,
-        return_clause="e._id",
+        return_clause=return_clause,
     )
 
 
@@ -254,7 +258,7 @@ def aql_edge(
     elif direction == "OUTBOUND":
         filter_clause = f"e._to == @dst_node_id"
     elif direction == "ANY":
-        filter_clause = f"e._from == @dst_node_id OR e._to == @dst_node_id"
+        filter_clause = f"(e._from == @dst_node_id AND e._to == @src_node_id) OR (e._to == @dst_node_id AND e._from == @src_node_id)"
     else:
         raise ValueError(f"Invalid direction: {direction}")
 

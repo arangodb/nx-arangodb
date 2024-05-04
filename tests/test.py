@@ -6,11 +6,11 @@ import nx_arangodb as nxadb
 from .conftest import db
 
 
-def test_db():
+def test_db(load_graph):
     assert db.version()
 
 
-def test_bc():
+def test_bc(load_graph):
     G_1 = nx.karate_club_graph()
 
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
@@ -22,7 +22,7 @@ def test_bc():
 
     assert r_1 and r_2 and r_3 and r_4
 
-def test_bc_no_pull():
+def test_bc_no_pull(load_graph):
     try:
         import phenolrs
     except ModuleNotFoundError:
@@ -35,7 +35,7 @@ def test_bc_no_pull():
     assert len(res) == len(G_1)
 
 
-def test_pagerank():
+def test_pagerank(load_graph):
     G_1 = nx.karate_club_graph()
 
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
@@ -47,7 +47,7 @@ def test_pagerank():
 
     assert r_1 and r_2 and r_3 and r_4
 
-def test_pagerank_no_pull():
+def test_pagerank_no_pull(load_graph):
     try:
         import phenolrs
     except ModuleNotFoundError:
@@ -59,7 +59,7 @@ def test_pagerank_no_pull():
 
     assert len(res) == len(G_1)
 
-def test_louvain():
+def test_louvain(load_graph):
     G_1 = nx.karate_club_graph()
 
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
@@ -71,7 +71,7 @@ def test_louvain():
 
     assert r_1 and r_2 and r_3 and r_4
 
-def test_louvain_no_pull():
+def test_louvain_no_pull(load_graph):
     try:
         import phenolrs
     except ModuleNotFoundError:
@@ -83,7 +83,7 @@ def test_louvain_no_pull():
 
     assert res
 
-def test_shortest_path():
+def test_shortest_path(load_graph):
     G_1 = nxadb.Graph(graph_name="KarateGraph")
 
     r_1 = nx.shortest_path(G_1, source="person/1", target="person/34")
@@ -92,16 +92,12 @@ def test_shortest_path():
     assert len(r_1) == len(r_2) == 3
     assert r_1 != r_2
 
-def test_crud():
+def test_nodes_crud(load_graph):
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
     G_2 = nx.Graph(nx.karate_club_graph())
 
     assert G_1.graph_name == "KarateGraph"
     assert G_1.graph["foo"] == "bar"
-
-    #########
-    # NODES #
-    #########
 
     assert len(G_1.nodes) == len(G_2.nodes)
 
@@ -170,14 +166,95 @@ def test_crud():
     assert db.collection(G_1.default_node_type).has("2")
     assert db.collection(G_1.default_node_type).has("3")
 
-    #########
-    # EDGES #
-    #########
+    G_1.remove_node("1")
+    assert not db.collection(G_1.default_node_type).has("1")
+    with pytest.raises(KeyError):
+        G_1.nodes["1"]
 
-    # breakpoint() 
+    with pytest.raises(KeyError):
+        G_1.adj["1"]
 
-    # assert len(G_1.edges) == len(G_2.edges)
-    # assert len(G_1.adj) == len(G_2.adj)
+    G_1.remove_nodes_from(["2", "3"])
+    assert not db.collection(G_1.default_node_type).has("2")
+    assert not db.collection(G_1.default_node_type).has("3")
+    
+    with pytest.raises(KeyError):
+        G_1.nodes["2"]
 
+    with pytest.raises(KeyError):
+        G_1.adj["2"]
 
-    # breakpoint()
+    assert len(G_1.adj["person/1"]) > 0
+    assert G_1.adj["person/1"]["person/2"]
+    edge_id = G_1.adj["person/1"]["person/2"]["_id"]
+    G_1.remove_node("person/1")
+    assert not db.has_document("person/1")
+
+    # NOTE: THis is currently failing
+    # This edge shoult not exist, because its source node was removed
+    assert not db.has_document(edge_id)
+
+def test_edges_crud(load_graph):
+    G_1 = nxadb.Graph(graph_name="KarateGraph")
+    G_2 = nx.karate_club_graph()
+
+    for src, dst, w in G_1.edges.data("weight"):
+        assert G_1.adj[src][dst]["weight"] == w
+
+    for src, dst, w in G_1.edges.data("bad_key", default="boom!"):
+        assert "bad_key" not in G_1.adj[src][dst]
+        assert w == "boom!"
+
+    for k, edge in G_1.adj["person/1"].items():
+        assert db.has_document(k)
+        assert db.has_document(edge["_id"])
+
+    G_1.add_edge("person/1", "person/1", foo="bar", _edge_type="knows")
+    edge_id = G_1.adj["person/1"]["person/1"]["_id"]
+    doc = db.document(edge_id)
+    assert doc["foo"] == "bar"
+
+    del G_1.adj["person/1"]["person/1"]["foo"]
+    doc = db.document(edge_id)
+    assert "foo" not in doc
+
+    G_1.adj["person/1"]["person/1"].update({"bar": "foo"})
+    doc = db.document(edge_id)
+    assert doc["bar"] == "foo"
+
+    assert len(G_1.adj["person/1"]["person/1"]) == len(doc)
+    adj_count = len(G_1.adj["person/1"])
+    G_1.remove_edge("person/1", "person/1")
+    assert len(G_1.adj["person/1"]) == adj_count - 1
+    assert not db.has_document(edge_id)
+    assert "person/1" in G_1
+
+    assert not db.has_document(f"{G_1.default_node_type}/new_node_1")
+    G_1.add_edge("new_node_1", "new_node_2", foo="bar")
+    edge_id = G_1.adj["new_node_1"]["new_node_2"]["_id"]
+    doc = db.document(edge_id)
+    assert db.has_document(doc["_from"])
+    assert db.has_document(doc["_to"])
+    assert G_1.nodes["new_node_1"]
+    assert G_1.nodes["new_node_2"]
+
+    G_1.remove_edge("new_node_1", "new_node_2")
+    G_1.clear()
+    assert "new_node_1" in G_1
+    assert "new_node_2" in G_1
+    assert "new_node_2" not in G_1.adj["new_node_1"]
+
+    G_1.add_edges_from([("new_node_1", "new_node_2"), ("new_node_1", "new_node_3")], foo="bar")
+    G_1.clear()
+    assert "new_node_1" in G_1
+    assert "new_node_2" in G_1
+    assert "new_node_3" in G_1
+    assert G_1.adj["new_node_1"]["new_node_2"]["foo"] == "bar"
+    assert G_1.adj["new_node_1"]["new_node_3"]["foo"] == "bar"
+
+    G_1.remove_edges_from([("new_node_1", "new_node_2"), ("new_node_1", "new_node_3")])
+    assert "new_node_1" in G_1
+    assert "new_node_2" in G_1
+    assert "new_node_3" in G_1
+    assert "new_node_2" not in G_1.adj["new_node_1"]
+    assert "new_node_3" not in G_1.adj["new_node_1"]

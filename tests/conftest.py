@@ -1,3 +1,5 @@
+import pytest
+
 import os
 from typing import Any
 
@@ -38,6 +40,9 @@ def pytest_configure(config: Any) -> None:
     os.environ["DATABASE_PASSWORD"] = con["password"]
     os.environ["DATABASE_NAME"] = con["dbName"]
 
+
+@pytest.fixture(scope="function")
+def load_graph():
     db.delete_graph("KarateGraph", drop_collections=True, ignore_missing=True)
     adapter = ADBNX_Adapter(db)
     adapter.networkx_to_arangodb(

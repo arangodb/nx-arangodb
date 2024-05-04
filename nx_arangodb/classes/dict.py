@@ -67,8 +67,11 @@ def adjlist_inner_dict_factory(
     graph: Graph,
     default_node_type: str,
     edge_type_func: Callable[[str, str], str],
+    adjlist_outer_dict: AdjListOuterDict | None = None,
 ) -> Callable[..., AdjListInnerDict]:
-    return lambda: AdjListInnerDict(db, graph, default_node_type, edge_type_func)
+    return lambda: AdjListInnerDict(
+        db, graph, default_node_type, edge_type_func, adjlist_outer_dict
+    )
 
 
 def edge_attr_dict_factory(
@@ -471,7 +474,7 @@ class AdjListOuterDict(UserDict):
         self.default_node_type = default_node_type
         self.edge_type_func = edge_type_func
         self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(
-            db, graph, default_node_type, edge_type_func
+            db, graph, default_node_type, edge_type_func, self
         )
 
     # def __repr__(self) -> str:
@@ -656,6 +659,7 @@ class AdjListInnerDict(UserDict):
         graph: Graph,
         default_node_type: str,
         edge_type_func: Callable[[str, str], str],
+        adjlist_outer_dict: AdjListOuterDict,
         *args,
         **kwargs,
     ):
@@ -665,11 +669,19 @@ class AdjListInnerDict(UserDict):
         self.graph = graph
         self.default_node_type = default_node_type
         self.edge_type_func = edge_type_func
+        self.adjlist_outer_dict = adjlist_outer_dict
 
         self.src_node_id = None
         self.src_node_type = None
 
         self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
+
+    def __get_mirrored_edge_attr_dict(self, dst_node_id: str) -> bool:
+        if dst_node_id in self.adjlist_outer_dict.data:
+            if self.src_node_id in self.adjlist_outer_dict.data[dst_node_id].data:
+                return self.adjlist_outer_dict.data[dst_node_id].data[self.src_node_id]
+
+        return None
 
     # def __repr__(self) -> str:
     #     return f"'{self.src_node_id}'"
@@ -690,7 +702,7 @@ class AdjListInnerDict(UserDict):
             self.src_node_id,
             dst_node_id,
             self.graph.name,
-            direction="OUTBOUND",
+            direction="ANY",
         )
 
     @key_is_string
@@ -701,12 +713,17 @@ class AdjListInnerDict(UserDict):
         if dst_node_id in self.data:
             return self.data[dst_node_id]
 
+        if mirrored_edge_attr_dict := self.__get_mirrored_edge_attr_dict(dst_node_id):
+            logger.debug("No need to fetch the edge, as it is already cached")
+            self.data[dst_node_id] = mirrored_edge_attr_dict
+            return mirrored_edge_attr_dict
+
         edge = aql_edge_get(
             self.db,
             self.src_node_id,
             dst_node_id,
             self.graph.name,
-            direction="OUTBOUND",
+            direction="ANY",
         )
 
         if not edge:
@@ -727,11 +744,14 @@ class AdjListInnerDict(UserDict):
 
         dst_node_type, dst_node_id = get_node_type_and_id(key, self.default_node_type)
 
+        if mirrored_edge_attr_dict := self.__get_mirrored_edge_attr_dict(dst_node_id):
+            logger.debug("No need to create a new edge, as it already exists")
+            self.data[dst_node_id] = mirrored_edge_attr_dict
+            return
+
         edge_type = value.data.get("_edge_type")
         if edge_type is None:
             edge_type = self.edge_type_func(self.src_node_type, dst_node_type)
-
-        data = value.data
 
         if edge_id := value.edge_id:
             self.graph.delete_edge(edge_id)
@@ -741,15 +761,21 @@ class AdjListInnerDict(UserDict):
             self.src_node_id,
             dst_node_id,
             self.graph.name,
-            direction="OUTBOUND",
+            direction="ANY",
         ):
             self.graph.delete_edge(edge_id)
 
-        edge = self.graph.link(edge_type, self.src_node_id, dst_node_id, data)
+        edge_data = value.data
+        edge = self.graph.link(edge_type, self.src_node_id, dst_node_id, edge_data)
 
         edge_attr_dict = self.edge_attr_dict_factory()
         edge_attr_dict.edge_id = edge["_id"]
-        edge_attr_dict.data = {**data, **edge}
+        edge_attr_dict.data = {
+            **edge_data,
+            **edge,
+            "_from": self.src_node_id,
+            "_to": dst_node_id,
+        }
 
         self.data[dst_node_id] = edge_attr_dict
 
@@ -759,12 +785,17 @@ class AdjListInnerDict(UserDict):
         dst_node_id = get_node_id(key, self.default_node_type)
         self.data.pop(dst_node_id, None)
 
+        if self.__get_mirrored_edge_attr_dict(dst_node_id):
+            m = "No need to delete the edge, as the next del will take care of it"
+            logger.debug(m)
+            return
+
         edge_id = aql_edge_id(
             self.db,
             self.src_node_id,
             dst_node_id,
             self.graph.name,
-            direction="OUTBOUND",
+            direction="ANY",
         )
 
         if not edge_id:

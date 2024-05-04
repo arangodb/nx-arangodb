@@ -239,7 +239,33 @@ def test_edges_crud(load_graph):
 
     assert not db.has_document(f"{G_1.default_node_type}/new_node_1")
     col_count = db.collection(G_1.default_edge_type).count()
+
     G_1.add_edge("new_node_1", "new_node_2", foo="bar")
+    G_1.add_edge("new_node_1", "new_node_2", foo="bar", bar="foo")
+
+    bind_vars = {
+        "src": f"{G_1.default_node_type}/new_node_1",
+        "dst": f"{G_1.default_node_type}/new_node_2",
+    }
+
+    result = list(
+        db.aql.execute(
+            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @src AND e._to == @dst RETURN e",
+            bind_vars=bind_vars,
+        )
+    )
+
+    assert len(result) == 1
+
+    result = list(
+        db.aql.execute(
+            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @dst AND e._to == @src RETURN e",
+            bind_vars=bind_vars,
+        )
+    )
+
+    assert len(result) == 0
+
     assert db.collection(G_1.default_edge_type).count() == col_count + 1
     assert G_1.adj["new_node_1"]["new_node_2"]
     assert G_1.adj["new_node_1"]["new_node_2"]["foo"] == "bar"

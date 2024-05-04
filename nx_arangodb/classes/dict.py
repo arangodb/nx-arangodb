@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from typing import Any, Callable
 
 from arango.database import StandardDatabase
+from arango.exceptions import DocumentInsertError
 from arango.graph import Graph
 
 from .function import (
@@ -14,7 +15,9 @@ from .function import (
     aql_doc_get_keys,
     aql_doc_get_length,
     aql_doc_has_key,
+    aql_edge_exists,
     aql_edge_get,
+    aql_edge_id,
     aql_single,
     create_collection,
     doc_delete,
@@ -84,7 +87,7 @@ class GraphDict(UserDict):
     :type graph_name: str
     """
 
-    COLLECTION_NAME = "NXADB_GRAPH_ATTRIBUTES"
+    COLLECTION_NAME = "nxadb_graphs"
 
     def __init__(self, db: StandardDatabase, graph_name: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -134,8 +137,8 @@ class GraphDict(UserDict):
     @key_is_not_reserved
     def __delitem__(self, key):
         """del G.graph['foo']"""
-        del self.data[key]
         doc_update(self.db, self.graph_id, {key: None})
+        self.data.pop(key, None)
 
     @keys_are_strings
     @keys_are_not_reserved
@@ -196,8 +199,8 @@ class NodeDict(UserDict):
         """G._node['node/1']"""
         node_id = get_node_id(key, self.default_node_type)
 
-        if node_id in self.data:
-            return self.data[node_id]
+        if value := self.data.get(node_id):
+            return value
 
         if value := self.graph.vertex(node_id):
             node_attr_dict: NodeAttrDict = self.node_attr_dict_factory()
@@ -234,8 +237,8 @@ class NodeDict(UserDict):
         """del g._node['node/1']"""
         node_id = get_node_id(key, self.default_node_type)
 
-        del self.data[node_id]
         doc_delete(self.db, node_id)
+        self.data.pop(node_id, None)
 
     def __len__(self) -> int:
         """len(g._node)"""
@@ -378,8 +381,8 @@ class NodeAttrDict(UserDict):
     @key_is_not_reserved
     def __delitem__(self, key: str):
         """del G._node['node/1']['foo']"""
-        del self.data[key]
         doc_update(self.db, self.node_id, {key: None})
+        self.data.pop(key, None)
 
     def __iter__(self) -> Iterator[str]:
         """for key in G._node['node/1']"""
@@ -485,8 +488,8 @@ class AdjListOuterDict(UserDict):
         """G.adj["node/1"]"""
         node_type, node_id = get_node_type_and_id(key, self.default_node_type)
 
-        if node_id in self.data:
-            return self.data[node_id]
+        if value := self.data.get(node_id):
+            return value
 
         if self.graph.has_vertex(node_id):
             adjlist_inner_dict: AdjListInnerDict = self.adjlist_inner_dict_factory()
@@ -520,12 +523,12 @@ class AdjListOuterDict(UserDict):
                 dst_key, self.default_node_type
             )
 
-            edge_type = edge_dict.get("_edge_type")  # pop?
+            edge_type = edge_dict.get("_edge_type")
             if edge_type is None:
                 edge_type = self.edge_type_func(src_node_type, dst_node_type)
 
             results[dst_key] = self.graph.link(
-                edge_type, src_node_id, dst_node_id, edge_dict, silent=True
+                edge_type, src_node_id, dst_node_id, edge_dict
             )
 
         adjlist_inner_dict.src_node_id = src_node_id
@@ -539,7 +542,24 @@ class AdjListOuterDict(UserDict):
         """
         del G._adj['node/1']
         """
-        raise NotImplementedError("AdjListOuterDict.__delitem__()")
+        node_id = get_node_id(key, self.default_node_type)
+
+        if not self.graph.has_vertex(node_id):
+            return
+
+        remove_statements = "\n".join(
+            f"REMOVE e IN `{edge_def['edge_collection']}` OPTIONS {{ignoreErrors: true}}"
+            for edge_def in self.graph.edge_definitions()
+        )
+
+        query = f"""
+            FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
+                {remove_statements}
+        """
+
+        bind_vars = {"src_node_id": node_id, "graph_name": self.graph.name}
+
+        aql(self.db, query, bind_vars)
 
     def __len__(self) -> int:
         """len(g._adj)"""
@@ -584,7 +604,7 @@ class AdjListOuterDict(UserDict):
             for dst_key, edge_dict in dst_dict.items():
                 dst_node_type, dst_node_id = get_node_type_and_id(dst_key)
 
-                edge_type = edge_dict.get("_edge_type")  # pop?
+                edge_type = edge_dict.get("_edge_type")
                 if edge_type is None:
                     edge_type = self.edge_type_func(src_node_type, dst_node_type)
 
@@ -693,16 +713,13 @@ class AdjListInnerDict(UserDict):
         if dst_node_id in self.data:
             return True
 
-        return aql_edge_get(
+        return aql_edge_exists(
             self.db,
             self.src_node_id,
             dst_node_id,
             self.graph.name,
             direction="OUTBOUND",
-            return_bool=True,
         )
-
-    # CHECKPOINT...
 
     @key_is_string
     def __getitem__(self, key) -> EdgeAttrDict:
@@ -718,7 +735,6 @@ class AdjListInnerDict(UserDict):
             dst_node_id,
             self.graph.name,
             direction="OUTBOUND",
-            return_bool=False,
         )
 
         if not edge:
@@ -739,11 +755,24 @@ class AdjListInnerDict(UserDict):
 
         dst_node_type, dst_node_id = get_node_type_and_id(key, self.default_node_type)
 
-        edge_type = value.data.get("_edge_type")  # pop?
+        edge_type = value.data.get("_edge_type")
         if edge_type is None:
             edge_type = self.edge_type_func(self.src_node_type, dst_node_type)
 
         data = value.data
+
+        if edge_id := value.edge_id:
+            self.graph.delete_edge(edge_id)
+
+        elif edge_id := aql_edge_id(
+            self.db,
+            self.src_node_id,
+            dst_node_id,
+            self.graph.name,
+            direction="OUTBOUND",
+        ):
+            self.graph.delete_edge(edge_id)
+
         edge = self.graph.link(edge_type, self.src_node_id, dst_node_id, data)
 
         edge_attr_dict = self.edge_attr_dict_factory()
@@ -755,7 +784,21 @@ class AdjListInnerDict(UserDict):
     @key_is_string
     def __delitem__(self, key: Any) -> None:
         """del g._adj['node/1']['node/2']"""
-        raise NotImplementedError("AdjListInnerDict.__delitem__()")
+        dst_node_id = get_node_id(key, self.default_node_type)
+
+        edge_id = aql_edge_id(
+            self.db,
+            self.src_node_id,
+            dst_node_id,
+            self.graph.name,
+            direction="OUTBOUND",
+        )
+
+        if not edge_id:
+            return
+
+        self.graph.delete_edge(edge_id)
+        self.data.pop(dst_node_id, None)
 
     def __len__(self) -> int:
         """len(g._adj['node/1'])"""
@@ -895,8 +938,8 @@ class EdgeAttrDict(UserDict):
     @key_is_not_reserved
     def __delitem__(self, key: str):
         """del G._adj['node/1']['node/2']['foo']"""
-        del self.data[key]
-        doc_update(self.db, self.node_id, {key: None})
+        doc_update(self.db, self.edge_id, {key: None})
+        self.data.pop(key, None)
 
     def __iter__(self) -> Iterator[str]:
         """for key in G._adj['node/1']['node/2']"""
@@ -922,7 +965,7 @@ class EdgeAttrDict(UserDict):
 
     def items(self, cache: bool = True):
         """G._adj['node/1']['node/'2].items()"""
-        doc = self.db.document(self.node_id)
+        doc = self.db.document(self.edge_id)
 
         if cache:
             self.data = doc

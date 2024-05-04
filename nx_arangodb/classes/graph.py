@@ -38,7 +38,7 @@ class Graph(nx.Graph):
     def __init__(
         self,
         graph_name: str | None = None,
-        default_node_type: str = "NXADB_NODES",
+        default_node_type: str = "nxadb_nodes",
         edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
         *args,
         **kwargs,
@@ -278,6 +278,10 @@ class Graph(nx.Graph):
     @cached_property
     def nodes(self):
         return CustomNodeView(self)
+
+    # @cached_property
+    # def edges(self):
+    #     return CustomEdgeView(self)
 
     def add_node(self, node_for_adding, **attr):
         if node_for_adding not in self._node:

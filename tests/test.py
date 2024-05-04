@@ -238,8 +238,16 @@ def test_edges_crud(load_graph):
     assert "person/1" in G_1
 
     assert not db.has_document(f"{G_1.default_node_type}/new_node_1")
+    col_count = db.collection(G_1.default_edge_type).count()
     G_1.add_edge("new_node_1", "new_node_2", foo="bar")
+    assert db.collection(G_1.default_edge_type).count() == col_count + 1
+    assert G_1.adj["new_node_1"]["new_node_2"]
     assert G_1.adj["new_node_1"]["new_node_2"]["foo"] == "bar"
+    assert G_1.adj["new_node_2"]["new_node_1"]
+    assert (
+        G_1.adj["new_node_2"]["new_node_1"]["_id"]
+        == G_1.adj["new_node_1"]["new_node_2"]["_id"]
+    )
     edge_id = G_1.adj["new_node_1"]["new_node_2"]["_id"]
     doc = db.document(edge_id)
     assert db.has_document(doc["_from"])
@@ -269,3 +277,12 @@ def test_edges_crud(load_graph):
     assert "new_node_3" in G_1
     assert "new_node_2" not in G_1.adj["new_node_1"]
     assert "new_node_3" not in G_1.adj["new_node_1"]
+
+    assert G_1["person/1"]["person/2"] == G_1["person/2"]["person/1"]
+    new_weight = 1000
+    G_1["person/1"]["person/2"]["weight"] = new_weight
+    assert G_1["person/1"]["person/2"]["weight"] == new_weight
+    assert G_1["person/2"]["person/1"]["weight"] == new_weight
+    G_1.clear()
+    assert G_1["person/1"]["person/2"]["weight"] == new_weight
+    assert G_1["person/2"]["person/1"]["weight"] == new_weight

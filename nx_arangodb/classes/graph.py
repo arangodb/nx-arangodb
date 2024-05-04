@@ -268,7 +268,7 @@ class Graph(nx.Graph):
         raise NotImplementedError("What would this look like?")
 
     # TODO: proper subgraphing!
-    def query(self, query: str, bind_vars: dict | None = None, **kwargs) -> Cursor:
+    def a1l(self, query: str, bind_vars: dict | None = None, **kwargs) -> Cursor:
         return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
 
     #####################

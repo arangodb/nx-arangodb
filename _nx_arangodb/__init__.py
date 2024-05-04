@@ -31,6 +31,7 @@ _info = {
     "functions": {
         # BEGIN: functions
         "betweenness_centrality",
+        "is_partition",
         "louvain_communities",
         "louvain_partitions",
         "modularity",
@@ -45,6 +46,9 @@ _info = {
     },
     "additional_parameters": {
         # BEGIN: additional_parameters
+        "is_partition": {
+            "dtype : dtype or None, optional": "The data type (np.float32, np.float64, or None) to use for the edge weights in the algorithm. If None, then dtype is determined by the edge values.",
+        },
         "louvain_communities": {
             "dtype : dtype or None, optional": "The data type (np.float32, np.float64, or None) to use for the edge weights in the algorithm. If None, then dtype is determined by the edge values.",
         },

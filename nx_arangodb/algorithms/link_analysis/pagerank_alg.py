@@ -1,16 +1,15 @@
 import networkx as nx
 
 from nx_arangodb.convert import _to_nxadb_graph, _to_nxcg_graph
+from nx_arangodb.logger import logger
 from nx_arangodb.utils import _dtype_param, networkx_algorithm
 
 try:
     import nx_cugraph as nxcg
 
     GPU_ENABLED = True
-    print("ANTHONY: GPU is enabled")
 except ModuleNotFoundError:
     GPU_ENABLED = False
-    print("ANTHONY: GPU is disabled")
 
 
 @networkx_algorithm(
@@ -33,13 +32,12 @@ def pagerank(
     run_on_gpu=True,
     pull_graph_on_cpu=True,
 ):
-    print("ANTHONY: Calling pagerank from nx_arangodb")
+    logger.debug(f"nxadb.pagerank for {G.__class__.__name__}")
 
     if GPU_ENABLED and run_on_gpu:
-        print("ANTHONY: to_nxcg")
         G = _to_nxcg_graph(G, weight)
 
-        print("ANTHONY: Using nxcg pagerank()")
+        logger.debug("using nxcg.pagerank")
         return nxcg.pagerank(
             G,
             alpha=alpha,
@@ -52,10 +50,9 @@ def pagerank(
             dtype=dtype,
         )
 
-    print("ANTHONY: to_nxadb")
     G = _to_nxadb_graph(G, pull_graph=pull_graph_on_cpu)
 
-    print("ANTHONY: Using nx pagerank()")
+    logger.debug("using nx.pagerank")
     return nx.algorithms.pagerank.orig_func(
         G,
         alpha=alpha,

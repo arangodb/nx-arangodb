@@ -3,16 +3,15 @@ from collections import deque
 import networkx as nx
 
 from nx_arangodb.convert import _to_nxadb_graph, _to_nxcg_graph
+from nx_arangodb.logger import logger
 from nx_arangodb.utils import _dtype_param, networkx_algorithm
 
 try:
     import nx_cugraph as nxcg
 
     GPU_ENABLED = True
-    print("ANTHONY: GPU is enabled")
 except ModuleNotFoundError:
     GPU_ENABLED = False
-    print("ANTHONY: GPU is disabled")
 
 
 @networkx_algorithm(
@@ -35,11 +34,12 @@ def louvain_communities(
     run_on_gpu=True,
     pull_graph_on_cpu=True,
 ):
+    logger.debug(f"nxadb.louvain_communities for {G.__class__.__name__}")
+
     if GPU_ENABLED and run_on_gpu:
-        print("ANTHONY: to_nxcg")
         G = _to_nxcg_graph(G, weight)
 
-        print("ANTHONY: Using nxcg louvain()")
+        logger.debug("using nxcg.louvain_communities")
         return nxcg.algorithms.community.louvain._louvain_communities(
             G,
             weight=weight,
@@ -49,8 +49,9 @@ def louvain_communities(
             seed=seed,
         )
 
-    print("ANTHONY: to_nxadb")
     G = _to_nxadb_graph(G, pull_graph=pull_graph_on_cpu)
+
+    logger.debug("using nx.louvain_communities")
     return nx.community.louvain_communities.orig_func(
         G,
         weight=weight,

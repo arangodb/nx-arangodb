@@ -8,6 +8,8 @@ from arango.database import StandardDatabase
 from arango.exceptions import DocumentInsertError
 from arango.graph import Graph
 
+from nx_arangodb.logger import logger
+
 from .function import (
     aql,
     aql_as_list,
@@ -443,7 +445,7 @@ class NodeAttrDict(UserDict):
         self.data.update(attrs)
 
         if not self.node_id:
-            print("Log: Node ID not set, skipping NodeAttrDict.update()")
+            logger.debug("Node ID not set, skipping NodeAttrDict.update()")
             return
 
         doc_update(self.db, self.node_id, attrs)
@@ -776,8 +778,8 @@ class AdjListInnerDict(UserDict):
         )
 
         if not edge_id:
-            m = f"Log: Edge ID not found ({self.src_node_id, dst_node_id}), skipping AdjListInnerDict.__delitem__()"
-            print(m)
+            m = f"Edge ID not found ({self.src_node_id, dst_node_id}), skipping AdjListInnerDict.__delitem__()"
+            logger.debug(m)
             return
 
         self.graph.delete_edge(edge_id)
@@ -959,7 +961,7 @@ class EdgeAttrDict(UserDict):
         self.data.update(attrs)
 
         if not self.edge_id:
-            print("Log: Edge ID not set, skipping EdgeAttrDict.update()")
+            logger.debug("Edge ID not set, skipping EdgeAttrDict.update()")
             return
 
         doc_update(self.db, self.edge_id, attrs)

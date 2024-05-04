@@ -14,6 +14,7 @@ from nx_arangodb.classes.dict import (
     node_attr_dict_factory,
     node_dict_factory,
 )
+from nx_arangodb.logger import logger
 
 from .dict import (
     adjlist_inner_dict_factory,
@@ -169,7 +170,7 @@ class Graph(nx.Graph):
         # variables are missing. For now, we'll just set db to None.
         if not all([self._host, self._username, self._password, self._db_name]):
             self.__db = None
-            print("Database environment variables not set")
+            logger.warning("Database environment variables not set")
             return
 
         try:
@@ -178,7 +179,7 @@ class Graph(nx.Graph):
             )
         except ServerConnectionError as e:
             self.__db = None
-            print(f"Could not connect to the database: {e}")
+            logger.warning(f"Could not connect to the database: {e}")
 
     def __set_graph_name(self, graph_name: str | None = None):
         if self.__db is None:
@@ -186,7 +187,7 @@ class Graph(nx.Graph):
 
         if graph_name is None:
             self.__graph_exists = False
-            print("**graph_name** attribute not set")
+            logger.warning(f"**graph_name** not set for {self.__class__.__name__}")
             return
 
         if not isinstance(graph_name, str):
@@ -195,7 +196,7 @@ class Graph(nx.Graph):
         self.__graph_name = graph_name
         self.__graph_exists = self.db.has_graph(graph_name)
 
-        print(f"Graph '{graph_name}' exists: {self.__graph_exists}")
+        logger.info(f"Graph '{graph_name}' exists: {self.__graph_exists}")
 
     ####################
     # ArangoDB Methods #
@@ -268,7 +269,7 @@ class Graph(nx.Graph):
         raise NotImplementedError("What would this look like?")
 
     # TODO: proper subgraphing!
-    def a1l(self, query: str, bind_vars: dict | None = None, **kwargs) -> Cursor:
+    def aql(self, query: str, bind_vars: dict | None = None, **kwargs) -> Cursor:
         return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
 
     #####################

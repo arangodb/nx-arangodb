@@ -9,11 +9,6 @@ from arango.database import StandardDatabase
 from arango.exceptions import ServerConnectionError
 
 import nx_arangodb as nxadb
-from nx_arangodb.classes.dict import (
-    graph_dict_factory,
-    node_attr_dict_factory,
-    node_dict_factory,
-)
 from nx_arangodb.exceptions import *
 from nx_arangodb.logger import logger
 
@@ -21,6 +16,9 @@ from .dict import (
     adjlist_inner_dict_factory,
     adjlist_outer_dict_factory,
     edge_attr_dict_factory,
+    graph_dict_factory,
+    node_attr_dict_factory,
+    node_dict_factory,
 )
 from .reportviews import CustomEdgeView, CustomNodeView
 
@@ -65,6 +63,7 @@ class Graph(nx.Graph):
         # NOTE: Need to revisit these...
         # self.maintain_node_dict_cache = False
         # self.maintain_adj_dict_cache = False
+        self.use_nx_cache = False
         self.use_coo_cache = False
 
         self.src_indices = None
@@ -204,6 +203,10 @@ class Graph(nx.Graph):
     # ArangoDB Methods #
     ####################
 
+    # TODO: proper subgraphing!
+    def aql(self, query: str, bind_vars: dict | None = None, **kwargs) -> Cursor:
+        return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
+
     def pull(self, load_node_dict=True, load_adj_dict=True, load_coo=True):
         """Load the graph from the ArangoDB database, and update existing graph object.
 
@@ -226,7 +229,7 @@ class Graph(nx.Graph):
                 self,
                 load_node_dict=load_node_dict,
                 load_adj_dict=load_adj_dict,
-                load_adj_dict_as_undirected=True,
+                load_adj_dict_as_directed=False,
                 load_coo=load_coo,
             )
         )
@@ -264,10 +267,6 @@ class Graph(nx.Graph):
     def push(self):
         raise NotImplementedError("What would this look like?")
 
-    # TODO: proper subgraphing!
-    def aql(self, query: str, bind_vars: dict | None = None, **kwargs) -> Cursor:
-        return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
-
     #####################
     # nx.Graph Overides #
     #####################
@@ -275,7 +274,7 @@ class Graph(nx.Graph):
     @cached_property
     def nodes(self):
         if self.graph_exists:
-            logger.warning("NOTE: nxadb.CustomNodeView is EXPERIMENTAL")
+            logger.warning("nxadb.CustomNodeView is currently EXPERIMENTAL")
             return CustomNodeView(self)
 
         return nx.classes.reportviews.NodeView(self)
@@ -283,7 +282,7 @@ class Graph(nx.Graph):
     @cached_property
     def edges(self):
         if self.graph_exists:
-            logger.warning("NOTE: nxadb.CustomEdgeView is EXPERIMENTAL")
+            logger.warning("nxadb.CustomEdgeView is currently EXPERIMENTAL")
             return CustomEdgeView(self)
 
         return nx.classes.reportviews.EdgeView(self)

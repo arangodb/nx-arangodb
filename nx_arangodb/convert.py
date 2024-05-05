@@ -174,16 +174,30 @@ def to_networkx(G: nxadb.Graph, *, sort_edges: bool = False) -> nx.Graph:
     return G.to_networkx_class()(incoming_graph_data=G)
 
 
-def from_networkx_arangodb(G: nxadb.Graph, pull_graph: bool) -> nxadb.Graph:
+def from_networkx_arangodb(
+    G: nxadb.Graph | nxadb.DiGraph, pull_graph: bool
+) -> nxadb.Graph | nxadb.DiGraph:
     logger.debug(f"from_networkx_arangodb for {G.__class__.__name__}")
+
+    if not isinstance(G, (nxadb.Graph, nxadb.DiGraph)):
+        raise TypeError(f"Expected nx_arangodb.(Graph || DiGraph); got {type(G)}")
 
     if not G.graph_exists:
         logger.debug("graph does not exist, nothing to pull")
         return G
 
     if not pull_graph:
+        if isinstance(G, nxadb.DiGraph):
+            m = "nx_arangodb.DiGraph has no CRUD Support yet. Cannot rely on remote connection."
+            raise NotImplementedError(m)
+
         logger.debug("graph exists, but not pulling. relying on remote connection...")
         return G
+
+    # if G.use_nx_cache and G._node and G._adj:
+    #     m = "**use_nx_cache** is enabled. using cached data. no pull required."
+    #     logger.debug(m)
+    #     return G
 
     logger.debug("pulling as NetworkX Graph...")
     start_time = time.time()
@@ -191,19 +205,28 @@ def from_networkx_arangodb(G: nxadb.Graph, pull_graph: bool) -> nxadb.Graph:
         G,
         load_node_dict=True,
         load_adj_dict=True,
-        load_adj_dict_as_undirected=True if G.is_directed() else False,
+        load_adj_dict_as_directed=G.is_directed(),
         load_coo=False,
     )
     end_time = time.time()
     logger.debug(f"load took {end_time - start_time} seconds")
 
-    # NOTE THIS IS A HACK
-    # I need to revisit the implications of this...
-    G = G.to_networkx_class()()
-    G._node = node_dict
-    G._adj = adj_dict
+    # Copied from nx.convert.to_networkx_graph
+    try:
+        logger.debug("creating nx graph from loaded ArangoDB data...")
+        result = nx.convert.from_dict_of_dicts(
+            adj_dict,
+            create_using=G.to_networkx_class(),
+            multigraph_input=G.is_multigraph(),
+        )
 
-    return G
+        for n, dd in node_dict.items():
+            result._node[n].update(dd)
+
+        return result
+
+    except Exception as err:
+        raise nx.NetworkXError("Input is not a correct NetworkX graph.") from err
 
 
 def _to_nxadb_graph(
@@ -216,7 +239,7 @@ def _to_nxadb_graph(
     """Ensure that input type is a nx_arangodb graph, and convert if necessary."""
     logger.debug(f"_to_nxadb_graph for {G.__class__.__name__}")
 
-    if isinstance(G, nxadb.Graph):
+    if isinstance(G, (nxadb.Graph, nxadb.DiGraph)):
         return from_networkx_arangodb(G, pull_graph)
 
     if isinstance(G, nx.Graph):
@@ -286,9 +309,8 @@ if GPU_ENABLED:
             and G.dst_indices is not None
             and G.vertex_ids_to_index is not None
         ):
-            logger.debug(
-                "**use_coo_cache** is enabled. using cached COO data. no pull required."
-            )
+            m = "**use_coo_cache** is enabled. using cached COO data. no pull required."
+            logger.debug(m)
 
         else:
             logger.debug("pulling as NetworkX-CuGraph Graph...")

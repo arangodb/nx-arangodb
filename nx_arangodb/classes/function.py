@@ -20,7 +20,7 @@ def get_arangodb_graph(
     G: nxadb.Graph | nxadb.DiGraph,
     load_node_dict: bool,
     load_adj_dict: bool,
-    load_adj_dict_as_undirected: bool,
+    load_adj_dict_as_directed: bool,
     load_coo: bool,
 ) -> Tuple[
     dict[str, dict[str, Any]],
@@ -69,7 +69,7 @@ def get_arangodb_graph(
         password=G._password,
         load_node_dict=load_node_dict,
         load_adj_dict=load_adj_dict,
-        load_adj_dict_as_undirected=load_adj_dict_as_undirected,
+        load_adj_dict_as_directed=load_adj_dict_as_directed,
         load_coo=load_coo,
         **kwargs,
     )

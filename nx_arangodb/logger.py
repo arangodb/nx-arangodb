@@ -2,16 +2,18 @@ import logging
 
 logger = logging.getLogger(__package__)
 
-if not logger.handlers:
-    handler = logging.StreamHandler()
+if logger.hasHandlers():
+    logger.handlers.clear()
 
-    formatter = logging.Formatter(
-        f"[%(asctime)s] [%(levelname)s]: %(message)s",
-        "%H:%M:%S %z",
-    )
+handler = logging.StreamHandler()
 
-    handler.setFormatter(formatter)
+formatter = logging.Formatter(
+    f"[%(asctime)s] [%(levelname)s]: %(message)s",
+    "%H:%M:%S %z",
+)
 
-    logger.addHandler(handler)
+handler.setFormatter(formatter)
+
+logger.addHandler(handler)
 
 logger.setLevel(logging.INFO)

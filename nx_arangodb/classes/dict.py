@@ -532,7 +532,7 @@ class AdjListOuterDict(UserDict):
         node_id = get_node_id(key, self.default_node_type)
 
         if node_id in self.data:
-            logger.debug(f"cached in AdjListOuterDict.__contains__({node_id}")
+            logger.debug(f"cached in AdjListOuterDict.__contains__({node_id})")
             return True
 
         logger.debug("graph.has_vertex in AdjListOuterDict.__contains__")
@@ -544,11 +544,11 @@ class AdjListOuterDict(UserDict):
         node_type, node_id = get_node_type_and_id(key, self.default_node_type)
 
         if value := self.data.get(node_id):
-            logger.debug(f"cached in AdjListOuterDict.__getitem__({node_id}")
+            logger.debug(f"cached in AdjListOuterDict.__getitem__({node_id})")
             return value
 
         if self.graph.has_vertex(node_id):
-            logger.debug(f"graph.vertex in AdjListOuterDict.__getitem__({node_id}")
+            logger.debug(f"graph.vertex in AdjListOuterDict.__getitem__({node_id})")
             adjlist_inner_dict: AdjListInnerDict = self.adjlist_inner_dict_factory()
             adjlist_inner_dict.src_node_id = node_id
             adjlist_inner_dict.src_node_type = node_type
@@ -820,7 +820,7 @@ class AdjListInnerDict(UserDict):
         edge_type = value.data.get("_edge_type")
         if edge_type is None:
             edge_type = self.edge_type_func(self.src_node_type, dst_node_type)
-            logger.debug(f"No edge type specified, so generated: {edge_type}")
+            logger.debug(f"No edge type specified, so generated: {edge_type})")
 
         if edge_id := value.edge_id:
             m = f"edge id found, deleting ({self.src_node_id, dst_node_id})"

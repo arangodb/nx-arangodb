@@ -19,6 +19,12 @@ def shortest_path(
     dtype=None,
 ):
     """limited version of nx.shortest_path"""
+
+    if not G.graph_exists:
+        return nx.shortest_path.orig_func(
+            G, source=source, target=target, weight=weight, method=method
+        )
+
     if target is None or source is None:
         raise ValueError("Both source and target must be specified for now")
 

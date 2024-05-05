@@ -20,6 +20,7 @@ from .function import (
     aql_edge_exists,
     aql_edge_get,
     aql_edge_id,
+    aql_fetch_data,
     aql_single,
     create_collection,
     doc_delete,
@@ -339,24 +340,9 @@ class NodeDict(UserDict):
             self.__fetch_all()
             return self.data.items()
 
-        items = {}
-        v_cols = list(self.graph.vertex_collections())
-        for collection in v_cols:
-            query = f"""
-                LET result = (
-                    FOR v IN `{collection}`
-                        RETURN {{[v._id]: v.@data or @default}}
-                )
-
-                RETURN MERGE(result)
-            """
-
-            bind_vars = {"data": data, "default": default}
-
-            items.update(aql_single(self.db, query, bind_vars))
-
         logger.debug(f"NodeDict.items(data={data})")
-        return items.items()
+        v_cols = list(self.graph.vertex_collections())
+        return aql_fetch_data(self.db, v_cols, data, default, is_edge=False)
 
     def __fetch_all(self):
         logger.debug("NodeDict.__fetch_all()")
@@ -520,6 +506,8 @@ class AdjListOuterDict(UserDict):
             db, graph, default_node_type, edge_type_func, self
         )
 
+        self.FETCHED_ALL_DATA = False
+
     # def __repr__(self) -> str:
     #     return f"'{self.graph.name}'"
 
@@ -551,7 +539,6 @@ class AdjListOuterDict(UserDict):
             logger.debug(f"graph.vertex in AdjListOuterDict.__getitem__({node_id})")
             adjlist_inner_dict: AdjListInnerDict = self.adjlist_inner_dict_factory()
             adjlist_inner_dict.src_node_id = node_id
-            adjlist_inner_dict.src_node_type = node_type
 
             self.data[node_id] = adjlist_inner_dict
 
@@ -566,7 +553,6 @@ class AdjListOuterDict(UserDict):
         """
         assert isinstance(adjlist_inner_dict, AdjListInnerDict)
         assert not adjlist_inner_dict.src_node_id
-        assert not adjlist_inner_dict.src_node_type
 
         logger.debug(f"AdjListOuterDict.__setitem__({src_key})")
 
@@ -592,7 +578,6 @@ class AdjListOuterDict(UserDict):
             )
 
         adjlist_inner_dict.src_node_id = src_node_id
-        adjlist_inner_dict.src_node_type = src_node_type
         adjlist_inner_dict.data = results
 
         self.data[src_node_id] = adjlist_inner_dict
@@ -622,9 +607,14 @@ class AdjListOuterDict(UserDict):
     def __iter__(self) -> Iterator[str]:
         """for k in g._adj"""
         logger.debug("AdjListOuterDict.__iter__")
-        for collection in self.graph.vertex_collections():
-            for id in self.graph.vertex_collection(collection).ids():
-                yield id
+
+        if self.FETCHED_ALL_DATA:
+            yield from self.data.keys()
+
+        else:
+            for collection in self.graph.vertex_collections():
+                for id in self.graph.vertex_collection(collection).ids():
+                    yield id
 
     def keys(self):
         """g._adj.keys()"""
@@ -634,6 +624,7 @@ class AdjListOuterDict(UserDict):
     def clear(self):
         """g._node.clear()"""
         self.data.clear()
+        self.FETCHED_ALL_DATA = False
         logger.debug("cleared AdjListOuterDict")
 
         # if clear_remote:
@@ -651,17 +642,27 @@ class AdjListOuterDict(UserDict):
         self.__fetch_all()
         return self.data.values()
 
-    def items(self):
-        """g._adj.items()"""
-        logger.debug("AdjListOuterDict.items()")
-        self.__fetch_all()
-        return self.data.items()
+    def items(self, data: str | None = None, default: Any | None = None):
+        """g._adj.items() or G._adj.items(data='foo')"""
+        if data is None:
+            logger.debug("AdjListOuterDict.items(data=None)")
+            self.__fetch_all()
+            return self.data.items()
+
+        logger.debug(f"AdjListOuterDict.items(data={data})")
+        e_cols = [ed["edge_collection"] for ed in self.graph.edge_definitions()]
+        result = aql_fetch_data(self.db, e_cols, data, default, is_edge=True)
+        yield from result
 
     # TODO: Revisit
     def __fetch_all(self) -> None:
         logger.debug("AdjListOuterDict.__fetch_all()")
 
-        self.data.clear()
+        if self.FETCHED_ALL_DATA:
+            logger.debug("Already fetched data, skipping fetch")
+            return
+
+        self.clear()
         # items = defaultdict(dict)
         for ed in self.graph.edge_definitions():
             collection = ed["edge_collection"]
@@ -678,7 +679,6 @@ class AdjListOuterDict(UserDict):
                 else:
                     src_inner_dict = self.adjlist_inner_dict_factory()
                     src_inner_dict.src_node_id = src_node_id
-                    src_inner_dict.src_node_type = src_node_id.split("/")[0]
                     self.data[src_node_id] = src_inner_dict
 
                 if dst_node_id in self.data:
@@ -686,15 +686,16 @@ class AdjListOuterDict(UserDict):
                 else:
                     dst_inner_dict = self.adjlist_inner_dict_factory()
                     dst_inner_dict.src_node_id = dst_node_id
-                    dst_inner_dict.src_node_type = dst_node_id.split("/")[0]
                     self.data[dst_node_id] = dst_inner_dict
 
                 edge_attr_dict = src_inner_dict.edge_attr_dict_factory()
                 edge_attr_dict.edge_id = edge["_id"]
                 edge_attr_dict.data = edge
 
-                src_inner_dict.data[dst_node_id] = edge_attr_dict
-                dst_inner_dict.data[src_node_id] = edge_attr_dict
+                self.data[src_node_id].data[dst_node_id] = edge_attr_dict
+                self.data[dst_node_id].data[src_node_id] = edge_attr_dict
+
+        self.FETCHED_ALL_DATA = True
 
 
 class AdjListInnerDict(UserDict):
@@ -733,9 +734,10 @@ class AdjListInnerDict(UserDict):
         self.adjlist_outer_dict = adjlist_outer_dict
 
         self.src_node_id = None
-        self.src_node_type = None
 
         self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
+
+        self.FETCHED_ALL_DATA = False
 
     def __get_mirrored_edge_attr_dict(self, dst_node_id: str) -> bool:
         logger.debug(f"checking for mirrored edge ({self.src_node_id}, {dst_node_id})")
@@ -810,6 +812,7 @@ class AdjListInnerDict(UserDict):
         assert isinstance(value, EdgeAttrDict)
         logger.debug(f"AdjListInnerDict({self.src_node_id}).__setitem__({key})")
 
+        src_node_type = self.src_node_id.split("/")[0]
         dst_node_type, dst_node_id = get_node_type_and_id(key, self.default_node_type)
 
         if mirrored_edge_attr_dict := self.__get_mirrored_edge_attr_dict(dst_node_id):
@@ -819,7 +822,7 @@ class AdjListInnerDict(UserDict):
 
         edge_type = value.data.get("_edge_type")
         if edge_type is None:
-            edge_type = self.edge_type_func(self.src_node_type, dst_node_type)
+            edge_type = self.edge_type_func(src_node_type, dst_node_type)
             logger.debug(f"No edge type specified, so generated: {edge_type})")
 
         if edge_id := value.edge_id:
@@ -884,7 +887,11 @@ class AdjListInnerDict(UserDict):
     def __len__(self) -> int:
         """len(g._adj['node/1'])"""
         assert self.src_node_id
-        logger.debug(f"AdjListInnerDict({self.src_node_id}).__len__")
+
+        if self.FETCHED_ALL_DATA:
+            m = f"Already fetched data, skipping AdjListInnerDict({self.src_node_id}).__len__"
+            logger.debug(m)
+            return len(self.data)
 
         query = """
             RETURN LENGTH(
@@ -895,27 +902,39 @@ class AdjListInnerDict(UserDict):
 
         bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
 
+        logger.debug(f"aql_single in AdjListInnerDict({self.src_node_id}).__len__")
         count = aql_single(self.db, query, bind_vars)
 
         return count if count is not None else 0
 
     def __iter__(self) -> Iterator[str]:
         """for k in g._adj['node/1']"""
-        logger.debug(f"AdjListInnerDict({self.src_node_id}).__iter__")
+        if self.FETCHED_ALL_DATA:
+            m = f"Already fetched data, skipping AdjListInnerDict({self.src_node_id}).__iter__"
+            logger.debug(m)
+            yield from self.data.keys()
 
-        query = """
-            FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
-                RETURN e._to
-        """
+        else:
+            query = """
+                FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
+                    RETURN e._to
+            """
 
-        bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
+            bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
 
-        yield from aql(self.db, query, bind_vars)
+            logger.debug(f"aql in AdjListInnerDict({self.src_node_id}).__iter__")
+            yield from aql(self.db, query, bind_vars)
 
     def keys(self):
         """g._adj['node/1'].keys()"""
         logger.debug(f"AdjListInnerDict({self.src_node_id}).keys()")
         return self.__iter__()
+
+    def clear(self):
+        """G._adj['node/1'].clear()"""
+        self.data.clear()
+        self.FETCHED_ALL_DATA = False
+        logger.debug(f"cleared AdjListInnerDict({self.src_node_id})")
 
     def update(self, edges: dict[str, dict[str, Any]]):
         """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
@@ -936,7 +955,11 @@ class AdjListInnerDict(UserDict):
     def __fetch_all(self):
         logger.debug(f"AdjListInnerDict({self.src_node_id}).__fetch_all()")
 
-        self.data.clear()
+        if self.FETCHED_ALL_DATA:
+            logger.debug("Already fetched data, skipping fetch")
+            return
+
+        self.clear()
 
         query = """
             FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
@@ -951,6 +974,8 @@ class AdjListInnerDict(UserDict):
             edge_attr_dict.data = edge
 
             self.data[edge["_to"]] = edge_attr_dict
+
+        self.FETCHED_ALL_DATA = True
 
 
 class EdgeAttrDict(UserDict):

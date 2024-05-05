@@ -277,6 +277,52 @@ def aql_edge(
     return aql_single(db, query, bind_vars)
 
 
+def aql_fetch_data(
+    db: arango.StandardDatabase,
+    collections: list[str],
+    data: str,
+    default: Any,
+    is_edge: bool = True,
+) -> dict[str, Any] | list[tuple[str, str, Any]]:
+    if is_edge:
+        items = []
+        for collection in collections:
+            query = f"""
+                LET result = (
+                    FOR doc IN `{collection}`
+                        RETURN [doc._from, doc._to, doc.@data or @default]
+                )
+
+                RETURN result
+            """
+
+            bind_vars = {"data": data, "default": default}
+
+            items.extend(aql_single(db, query, bind_vars))
+
+        return items
+
+    else:
+        return_clause = f"{{[doc._id]: doc.@data or @default}}"
+
+        items = {}
+        for collection in collections:
+            query = f"""
+                LET result = (
+                    FOR doc IN `{collection}`
+                        RETURN {return_clause}
+                )
+
+                RETURN MERGE(result)
+            """
+
+            bind_vars = {"data": data, "default": default}
+
+            items.update(aql_single(db, query, bind_vars))
+
+        return items.items()
+
+
 def doc_update(
     db: arango.StandardDatabase, id: str, data: dict[str, Any], **kwargs
 ) -> None:

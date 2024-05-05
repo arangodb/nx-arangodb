@@ -21,7 +21,7 @@ from .dict import (
     adjlist_outer_dict_factory,
     edge_attr_dict_factory,
 )
-from .reportviews import CustomNodeView
+from .reportviews import CustomEdgeView, CustomNodeView
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.Graph)
 
@@ -278,11 +278,19 @@ class Graph(nx.Graph):
 
     @cached_property
     def nodes(self):
-        return CustomNodeView(self)
+        if self.graph_exists:
+            logger.warning("NOTE: nxadb.CustomNodeView is EXPERIMENTAL")
+            return CustomNodeView(self)
 
-    # @cached_property
-    # def edges(self):
-    #     return CustomEdgeView(self)
+        return nx.classes.reportviews.NodeView(self)
+
+    @cached_property
+    def edges(self):
+        if self.graph_exists:
+            logger.warning("NOTE: nxadb.CustomEdgeView is EXPERIMENTAL")
+            return CustomEdgeView(self)
+
+        return nx.classes.reportviews.EdgeView(self)
 
     def add_node(self, node_for_adding, **attr):
         if node_for_adding not in self._node:

@@ -1,5 +1,3 @@
-# Copied from nx-cugraph
-
 from networkx.exception import *
 
 from . import utils
@@ -12,5 +10,7 @@ from .convert import *
 
 from . import algorithms
 from .algorithms import *
+
+from .logger import logger
 
 from _nx_arangodb._version import __git_commit__, __version__

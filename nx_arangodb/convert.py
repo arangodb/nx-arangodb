@@ -1,13 +1,25 @@
-# Copied from nx-cugraph
-
 from __future__ import annotations
 
 import itertools
+import time
 from typing import TYPE_CHECKING
 
 import networkx as nx
 
 import nx_arangodb as nxadb
+from nx_arangodb.logger import logger
+
+try:
+    import cupy as cp
+    import numpy as np
+    import nx_cugraph as nxcg
+
+    GPU_ENABLED = True
+    logger.info("NXCG is enabled.")
+except ModuleNotFoundError as e:
+    GPU_ENABLED = False
+    logger.info(f"NXCG is disabled. {e}.")
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from nx_arangodb.typing import AttrKey, Dtype, EdgeValue, NodeValue
@@ -102,6 +114,8 @@ def from_networkx(
     --------
     to_networkx : The opposite; convert nx_arangodb graph to networkx graph
     """
+    logger.debug(f"from_networkx for {graph.__class__.__name__}")
+
     if not isinstance(graph, nx.Graph):
         if isinstance(graph, nx.classes.reportviews.NodeView):
             # Convert to a Graph with only nodes (no edges)
@@ -123,7 +137,6 @@ def from_networkx(
         else:
             klass = nxadb.Graph
 
-    print(f"ANTHONY: Called from_networkx for {graph.__class__.__name__}")
     return klass(incoming_graph_data=graph)
 
 
@@ -153,29 +166,67 @@ def to_networkx(G: nxadb.Graph, *, sort_edges: bool = False) -> nx.Graph:
     --------
     from_networkx : The opposite; convert networkx graph to nx_cugraph graph
     """
+    logger.debug(f"to_networkx for {G.__class__.__name__}")
+
     if not isinstance(G, nxadb.Graph):
         raise TypeError(f"Expected nx_arangodb.Graph; got {type(G)}")
 
-    print(f"ANTHONY: Called to_networkx for {G.__class__.__name__}")
     return G.to_networkx_class()(incoming_graph_data=G)
 
 
-def from_networkx_arangodb(G: nxadb.Graph) -> nxadb.Graph:
+def from_networkx_arangodb(
+    G: nxadb.Graph | nxadb.DiGraph, pull_graph: bool
+) -> nxadb.Graph | nxadb.DiGraph:
+    logger.debug(f"from_networkx_arangodb for {G.__class__.__name__}")
+
+    if not isinstance(G, (nxadb.Graph, nxadb.DiGraph)):
+        raise TypeError(f"Expected nx_arangodb.(Graph || DiGraph); got {type(G)}")
+
     if not G.graph_exists:
-        print("ANTHONY: Graph does not exist, nothing to pull")
+        logger.debug("graph does not exist, nothing to pull")
         return G
 
-    if G.use_node_and_adj_dict_cache and len(G.nodes) > 0 and len(G.adj) > 0:
-        print("ANTHONY: Using cached node and adj dict")
+    if not pull_graph:
+        if isinstance(G, nxadb.DiGraph):
+            m = "nx_arangodb.DiGraph has no CRUD Support yet. Cannot rely on remote connection."
+            raise NotImplementedError(m)
+
+        logger.debug("graph exists, but not pulling. relying on remote connection...")
         return G
 
+    # if G.use_nx_cache and G._node and G._adj:
+    #     m = "**use_nx_cache** is enabled. using cached data. no pull required."
+    #     logger.debug(m)
+    #     return G
+
+    logger.debug("pulling as NetworkX Graph...")
     start_time = time.time()
-    G.pull(load_coo=False)
+    node_dict, adj_dict, _, _, _ = nxadb.classes.function.get_arangodb_graph(
+        G,
+        load_node_dict=True,
+        load_adj_dict=True,
+        load_adj_dict_as_directed=G.is_directed(),
+        load_coo=False,
+    )
     end_time = time.time()
+    logger.debug(f"load took {end_time - start_time} seconds")
 
-    print("ANTHONY: Node & Adj Load took:", end_time - start_time)
+    # Copied from nx.convert.to_networkx_graph
+    try:
+        logger.debug("creating nx graph from loaded ArangoDB data...")
+        result = nx.convert.from_dict_of_dicts(
+            adj_dict,
+            create_using=G.__class__,
+            multigraph_input=G.is_multigraph(),
+        )
 
-    return G
+        for n, dd in node_dict.items():
+            result._node[n].update(dd)
+
+        return result
+
+    except Exception as err:
+        raise nx.NetworkXError("Input is not a correct NetworkX graph.") from err
 
 
 def _to_nxadb_graph(
@@ -183,10 +234,13 @@ def _to_nxadb_graph(
     edge_attr: AttrKey | None = None,
     edge_default: EdgeValue | None = 1,
     edge_dtype: Dtype | None = None,
+    pull_graph: bool = True,
 ) -> nxadb.Graph | nxadb.DiGraph:
     """Ensure that input type is a nx_arangodb graph, and convert if necessary."""
-    if isinstance(G, nxadb.Graph):
-        return from_networkx_arangodb(G)
+    logger.debug(f"_to_nxadb_graph for {G.__class__.__name__}")
+
+    if isinstance(G, (nxadb.Graph, nxadb.DiGraph)):
+        return from_networkx_arangodb(G, pull_graph)
 
     if isinstance(G, nx.Graph):
         return from_networkx(
@@ -196,13 +250,7 @@ def _to_nxadb_graph(
     raise TypeError
 
 
-try:
-    import os
-    import time
-
-    import cupy as cp
-    import numpy as np
-    import nx_cugraph as nxcg
+if GPU_ENABLED:
 
     def _to_nxcg_graph(
         G,
@@ -212,9 +260,13 @@ try:
         as_directed: bool = False,
     ) -> nxcg.Graph | nxcg.DiGraph:
         """Ensure that input type is a nx_cugraph graph, and convert if necessary."""
+        logger.debug(f"_to_nxcg_graph for {G.__class__.__name__}")
+
         if isinstance(G, nxcg.Graph):
+            logger.debug("already an nx_cugraph graph")
             return G
-        if isinstance(G, nxadb.Graph):
+
+        if isinstance(G, (nxadb.Graph, nxadb.DiGraph)):
             # Assumption: G.adb_graph_name points to an existing graph in ArangoDB
             # Therefore, the user wants us to pull the graph from ArangoDB,
             # and convert it to an nx_cugraph graph.
@@ -223,14 +275,20 @@ try:
             # the NetworkX graph to an nx_cugraph graph.
             # TODO: Implement a direct conversion from ArangoDB to nx_cugraph
             if G.graph_exists:
-                print("ANTHONY: Graph exists, running _nxadb_to_nxcg()")
-                return _nxadb_to_nxcg(G, as_directed=as_directed)
+                logger.debug("converting nx_arangodb graph to nx_cugraph graph")
+                return nxcg_from_networkx_arangodb(G, as_directed=as_directed)
+
+        if isinstance(G, (nxadb.MultiGraph, nxadb.MultiDiGraph)):
+            raise NotImplementedError(
+                "nxadb.MultiGraph not yet supported for _to_nxcg_graph()"
+            )
 
         # If G is a networkx graph, or is a nxadb graph that doesn't point to an "existing"
         # ArangoDB graph, then we just treat it as a normal networkx graph &
         # convert it to nx_cugraph.
         # TODO: Need to revisit the "existing" ArangoDB graph condition...
         if isinstance(G, nx.Graph):
+            logger.debug("converting networkx graph to nx_cugraph graph")
             return nxcg.convert.from_networkx(
                 G,
                 {edge_attr: edge_default} if edge_attr is not None else None,
@@ -241,9 +299,12 @@ try:
         # TODO: handle cugraph.Graph
         raise TypeError
 
-    def _nxadb_to_nxcg(
-        G: nxadb.Graph, as_directed: bool = False
+    def nxcg_from_networkx_arangodb(
+        G: nxadb.Graph | nxadb.DiGraph, as_directed: bool = False
     ) -> nxcg.Graph | nxcg.DiGraph:
+        """Convert an nx_arangodb graph to nx_cugraph graph."""
+        logger.debug(f"nxcg_from_networkx_arangodb for {G.__class__.__name__}")
+
         if G.is_multigraph():
             raise NotImplementedError("Multigraphs not yet supported")
 
@@ -253,14 +314,27 @@ try:
             and G.dst_indices is not None
             and G.vertex_ids_to_index is not None
         ):
-            print("ANTHONY: Using cached COO")
+            m = "**use_coo_cache** is enabled. using cached COO data. no pull required."
+            logger.debug(m)
 
         else:
+            logger.debug("pulling as NetworkX-CuGraph Graph...")
             start_time = time.time()
-            G.pull(load_node_and_adj_dict=False)
+            _, _, src_indices, dst_indices, vertex_ids_to_index = (
+                nxadb.classes.function.get_arangodb_graph(
+                    G,
+                    load_node_dict=False,
+                    load_adj_dict=False,
+                    load_adj_dict_as_directed=G.is_directed(),
+                    load_coo=True,
+                )
+            )
             end_time = time.time()
+            logger.debug(f"load took {end_time - start_time} seconds")
 
-            print("ANTHONY: COO Load took:", end_time - start_time)
+            G.src_indices = src_indices
+            G.dst_indices = dst_indices
+            G.vertex_ids_to_index = vertex_ids_to_index
 
         N = len(G.vertex_ids_to_index)
 
@@ -269,8 +343,8 @@ try:
         else:
             klass = nxcg.Graph
 
+        logger.debug("creating nx_cugraph graph from COO data...")
         start_time = time.time()
-
         rv = klass.from_coo(
             N,
             cp.array(G.src_indices),
@@ -278,13 +352,11 @@ try:
             key_to_id=G.vertex_ids_to_index,
         )
         end_time = time.time()
-
-        print("ANTHONY: from_coo took:", end_time - start_time)
+        logger.debug(f"nxcg from_coo took {end_time - start_time}")
 
         return rv
 
-except ModuleNotFoundError as e:
-    print(f"ANTHONY: {e}")
+else:
 
     def _to_nxcg_graph(
         G,
@@ -292,6 +364,6 @@ except ModuleNotFoundError as e:
         edge_default: EdgeValue | None = 1,
         edge_dtype: Dtype | None = None,
         as_directed: bool = False,
-    ) -> nxadb.Graph:
+    ) -> nxcg.Graph | nxcg.DiGraph:
         m = "nx-cugraph is not installed; cannot convert to nx-cugraph graph"
         raise NotImplementedError(m)

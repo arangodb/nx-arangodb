@@ -216,7 +216,7 @@ def from_networkx_arangodb(
         logger.debug("creating nx graph from loaded ArangoDB data...")
         result = nx.convert.from_dict_of_dicts(
             adj_dict,
-            create_using=G.to_networkx_class(),
+            create_using=G.__class__,
             multigraph_input=G.is_multigraph(),
         )
 

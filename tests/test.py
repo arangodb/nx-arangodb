@@ -315,3 +315,60 @@ def test_edges_crud(load_graph):
     G_1.clear()
     assert G_1["person/1"]["person/2"]["weight"] == new_weight
     assert G_1["person/2"]["person/1"]["weight"] == new_weight
+
+
+def test_readme(load_graph):
+    G = nxadb.Graph(graph_name="KarateGraph")
+    G_nx = nx.karate_club_graph()
+
+    assert len(G.nodes) == len(G_nx.nodes)
+    assert len(G.adj) == len(G_nx.adj)
+    assert len(G.edges) == len(G_nx.edges)
+
+    nx.betweenness_centrality(G)
+    nx.pagerank(G)
+    nx.community.louvain_communities(G)
+    nx.shortest_path(G, "person/1", "person/34")
+    nx.all_neighbors(G, "person/1")
+
+    G.nodes(data="club", default="unknown")
+    G.edges(data="weight", default=1000)
+
+    G.nodes["person/1"]
+    G.adj["person/1"]
+    G.edges[("person/1", "person/3")]
+
+    G.nodes["person/1"]["name"] = "John Doe"
+    G.nodes["person/1"].update({"age": 40})
+    del G.nodes["person/1"]["name"]
+
+    G.adj["person/1"]["person/3"]["weight"] = 2
+    G.adj["person/1"]["person/3"].update({"weight": 3})
+    del G.adj["person/1"]["person/3"]["weight"]
+
+    G.edges[("person/1", "person/3")]["weight"] = 0.5
+    assert G.adj["person/1"]["person/3"]["weight"] == 0.5
+
+    G.add_node("person/35", name="Jane Doe")
+    G.add_nodes_from(
+        [("person/36", {"name": "Jack Doe"}), ("person/37", {"name": "Jill Doe"})]
+    )
+    G.add_edge("person/1", "person/35", weight=1.5, _edge_type="knows")
+    G.add_edges_from(
+        [
+            ("person/1", "person/36", {"weight": 2}),
+            ("person/1", "person/37", {"weight": 3}),
+        ],
+        _edge_type="knows",
+    )
+
+    G.remove_edge("person/1", "person/35")
+    G.remove_edges_from([("person/1", "person/36"), ("person/1", "person/37")])
+    G.remove_node("person/35")
+    G.remove_nodes_from(["person/36", "person/37"])
+
+    G.clear()
+
+    assert len(G.nodes) == len(G_nx.nodes)
+    assert len(G.adj) == len(G_nx.adj)
+    assert len(G.edges) == len(G_nx.edges)

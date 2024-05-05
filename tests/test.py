@@ -82,12 +82,13 @@ def test_louvain(load_graph):
         return
 
     G_3 = nxadb.Graph(graph_name="KarateGraph")
-    r_5 = nx.pagerank(G_3)
+    r_5 = nx.community.louvain_communities(G_3)
 
     G_4 = nxadb.Graph(graph_name="KarateGraph")
-    r_6 = nxadb.pagerank(G_4, pull_graph_on_cpu=False)
+    r_6 = nxadb.community.louvain_communities(G_4, pull_graph_on_cpu=False)
 
-    assert len(r_5) == len(r_6) > 0
+    assert len(r_5) > 0
+    assert len(r_6) > 0
 
 
 def test_shortest_path(load_graph):

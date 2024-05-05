@@ -1,6 +1,7 @@
 import networkx as nx
 
 import nx_arangodb as nxadb
+from nx_arangodb.exceptions import ShortestPathError
 from nx_arangodb.utils import _dtype_param, networkx_algorithm
 
 __all__ = ["shortest_path"]
@@ -26,10 +27,10 @@ def shortest_path(
         )
 
     if target is None or source is None:
-        raise ValueError("Both source and target must be specified for now")
+        raise ShortestPathError("Both source and target must be specified for now")
 
     if method != "dijkstra":
-        raise NotImplementedError("Only dijkstra method is supported")
+        raise ShortestPathError("Only dijkstra method is supported")
 
     query = """
         FOR vertex IN ANY SHORTEST_PATH @source TO @target GRAPH @graph

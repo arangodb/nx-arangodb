@@ -14,6 +14,7 @@ from nx_arangodb.classes.dict import (
     node_attr_dict_factory,
     node_dict_factory,
 )
+from nx_arangodb.exceptions import *
 from nx_arangodb.logger import logger
 
 from .dict import (
@@ -45,9 +46,8 @@ class Graph(nx.Graph):
         **kwargs,
     ):
         if kwargs.get("incoming_graph_data") is not None and graph_name is not None:
-            raise ValueError(
-                "Cannot pass both 'incoming_graph_data' and 'graph_name' yet"
-            )
+            m = "Cannot pass both **incoming_graph_data** and **graph_name** yet"
+            raise NotImplementedError(m)
 
         self.__db = None
         self.__graph_name = None
@@ -133,14 +133,14 @@ class Graph(nx.Graph):
     @property
     def db(self) -> StandardDatabase:
         if self.__db is None:
-            raise ValueError("Database not set")
+            raise DatabaseNotSet("Database not set")
 
         return self.__db
 
     @property
     def graph_name(self) -> str:
         if self.__graph_name is None:
-            raise ValueError("Graph name not set")
+            raise GraphNameNotSet("Graph name not set")
 
         return self.__graph_name
 
@@ -183,7 +183,9 @@ class Graph(nx.Graph):
 
     def __set_graph_name(self, graph_name: str | None = None):
         if self.__db is None:
-            raise ValueError("Cannot set graph name without setting the database first")
+            raise DatabaseNotSet(
+                "Cannot set graph name without setting the database first"
+            )
 
         if graph_name is None:
             self.__graph_exists = False
@@ -219,9 +221,6 @@ class Graph(nx.Graph):
             along with the node-ID-to-index mapping. Used for nx-cuGraph compatibility.
         :type load_coo: bool
         """
-        if not self.__graph_exists:
-            raise ValueError(f"Graph '{self.graph_name}' does not exist")
-
         node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = (
             nxadb.classes.function.get_arangodb_graph(
                 self,
@@ -245,11 +244,8 @@ class Graph(nx.Graph):
             self._adj.clear()
 
             for src_node_id, dst_dict in adj_dict.items():
-                src_node_type = src_node_id.split("/")[0]
-
                 adjlist_inner_dict = self.adjlist_inner_dict_factory()
                 adjlist_inner_dict.src_node_id = src_node_id
-                adjlist_inner_dict.src_node_type = src_node_type
 
                 self._adj.data[src_node_id] = adjlist_inner_dict
 

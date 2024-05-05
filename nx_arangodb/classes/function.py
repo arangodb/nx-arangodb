@@ -9,10 +9,10 @@ from arango import exceptions, graph
 
 import nx_arangodb as nxadb
 
-from .exceptions import (
-    EDGE_ALREADY_EXISTS_ERROR_CODE,
+from ..exceptions import (
     AQLMultipleResultsFound,
-    EdgeAlreadyExists,
+    GraphDoesNotExist,
+    InvalidTraversalDirection,
 )
 
 
@@ -39,7 +39,9 @@ def get_arangodb_graph(
     - Node-ID-to-index mapping (COO)
     """
     if not G.graph_exists:
-        raise ValueError("Graph does not exist in the database")
+        raise GraphDoesNotExist(
+            "Graph does not exist in the database. Can't load graph."
+        )
 
     adb_graph = G.db.graph(G.graph_name)
     v_cols = adb_graph.vertex_collections()
@@ -260,7 +262,7 @@ def aql_edge(
     elif direction == "ANY":
         filter_clause = f"(e._from == @dst_node_id AND e._to == @src_node_id) OR (e._to == @dst_node_id AND e._from == @src_node_id)"
     else:
-        raise ValueError(f"Invalid direction: {direction}")
+        raise InvalidTraversalDirection(f"Invalid direction: {direction}")
 
     query = f"""
         FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name

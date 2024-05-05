@@ -109,7 +109,6 @@ def test_nodes_crud(load_graph):
     assert G_1.graph["foo"] == "bar"
 
     assert len(G_1.nodes) == len(G_2.nodes)
-    assert len(G_1.adj) == len(G_2.adj)
 
     for k, v in G_1.nodes(data=True):
         assert db.document(k) == v
@@ -205,6 +204,9 @@ def test_nodes_crud(load_graph):
 def test_edges_crud(load_graph):
     G_1 = nxadb.Graph(graph_name="KarateGraph")
     G_2 = nx.karate_club_graph()
+
+    assert len(G_1.adj) == len(G_2.adj)
+    assert len(G_1.edges) == len(G_2.edges)
 
     for src, dst, w in G_1.edges.data("weight"):
         assert G_1.adj[src][dst]["weight"] == w

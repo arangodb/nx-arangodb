@@ -3,18 +3,20 @@ Development Sandbox:
 <a href="https://colab.research.google.com/drive/1gIfJDEumN6UdZou_VlSbG874xGkHwtU2?usp=sharing" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 
 What's currently possible:
-- NetworkX CRUD Interface for ArangoDB
+- ArangoDB CRUD Interface for `nx.Graph`
 - Algorithm dispatching to `nx` & `nxcg` (`betweenness_centrality`, `pagerank`, `louvain_communities`)
 - Algorithm dispatching to ArangoDB (`shortest_path`)
 - Data Load from ArangoDB to `nx` object
 - Data Load from ArangoDB to `nxcg` object
 - Data Load from ArangoDB via dictionary-based remote connection
 
-Next milestone:
+Next steps:
 - Generalize `nxadb`'s support for `nx` & `nxcg` algorithms
+- Improve support for `nxadb.DiGraph`
 - CRUD Interface Improvements
 
-Planned, but not yet scopped:
+Planned:
+- Support for `nxadb.MultiGraph` & `nxadb.MultiDiGraph`
 - Data Load from `nx` to ArangoDB
 - Data Load from `nxcg` to ArangoDB
 

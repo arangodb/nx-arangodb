@@ -39,6 +39,9 @@ nx.all_neighbors(G, "person/1")
 assert len(G.nodes) == 34
 assert len(G.adj) == 34
 
+G.nodes(data='club', default='unknown')
+G.edges(data='weight', default=1000)
+
 G.nodes["person/1"]
 G.adj["person/1"]
 G.edges[("person/1", "person/3")]

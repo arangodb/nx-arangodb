@@ -162,7 +162,7 @@ class DiGraph(nx.DiGraph, Graph):
             password=self.__password,
             load_node_dict=load_node_and_adj_dict,
             load_adj_dict=load_node_and_adj_dict,
-            load_adj_dict_as_undirected=False,
+            load_adj_dict_as_directed=True,
             load_coo=load_coo,
             **kwargs,
         )

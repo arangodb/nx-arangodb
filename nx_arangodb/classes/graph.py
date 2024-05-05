@@ -147,7 +147,7 @@ class Graph(nx.Graph):
             password=self.__password,
             load_node_dict=load_node_and_adj_dict,
             load_adj_dict=load_node_and_adj_dict,
-            load_adj_dict_as_undirected=True,
+            load_adj_dict_as_directed=False,
             load_coo=load_coo,
             **kwargs,
         )

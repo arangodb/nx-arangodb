@@ -15,10 +15,10 @@ try:
     import nx_cugraph as nxcg
 
     GPU_ENABLED = True
-    logger.info("NCXG is enabled.")
+    logger.info("NXCG is enabled.")
 except ModuleNotFoundError as e:
     GPU_ENABLED = False
-    logger.info(f"NCXG is disabled. {e}.")
+    logger.info(f"NXCG is disabled. {e}.")
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -276,7 +276,7 @@ if GPU_ENABLED:
             # TODO: Implement a direct conversion from ArangoDB to nx_cugraph
             if G.graph_exists:
                 logger.debug("converting nx_arangodb graph to nx_cugraph graph")
-                return _nxadb_to_nxcg(G, as_directed=as_directed)
+                return nxcg_from_networkx_arangodb(G, as_directed=as_directed)
 
         # If G is a networkx graph, or is a nxadb graph that doesn't point to an "existing"
         # ArangoDB graph, then we just treat it as a normal networkx graph &
@@ -294,11 +294,11 @@ if GPU_ENABLED:
         # TODO: handle cugraph.Graph
         raise TypeError
 
-    def _nxadb_to_nxcg(
-        G: nxadb.Graph, as_directed: bool = False
+    def nxcg_from_networkx_arangodb(
+        G: nxadb.Graph | nxadb.DiGraph, as_directed: bool = False
     ) -> nxcg.Graph | nxcg.DiGraph:
-        """Convert a nx_arangodb graph to nx_cugraph graph."""
-        logger.debug(f"_nxadb_to_nxcg for {G.__class__.__name__}")
+        """Convert an nx_arangodb graph to nx_cugraph graph."""
+        logger.debug(f"nxcg_from_networkx_arangodb for {G.__class__.__name__}")
 
         if G.is_multigraph():
             raise NotImplementedError("Multigraphs not yet supported")
@@ -315,9 +315,21 @@ if GPU_ENABLED:
         else:
             logger.debug("pulling as NetworkX-CuGraph Graph...")
             start_time = time.time()
-            G.pull(load_node_dict=False, load_adj_dict=False)
+            _, _, src_indices, dst_indices, vertex_ids_to_index = (
+                nxadb.classes.function.get_arangodb_graph(
+                    G,
+                    load_node_dict=False,
+                    load_adj_dict=False,
+                    load_adj_dict_as_directed=G.is_directed(),
+                    load_coo=True,
+                )
+            )
             end_time = time.time()
             logger.debug(f"load took {end_time - start_time} seconds")
+
+            G.src_indices = src_indices
+            G.dst_indices = dst_indices
+            G.vertex_ids_to_index = vertex_ids_to_index
 
         N = len(G.vertex_ids_to_index)
 
@@ -347,6 +359,6 @@ else:
         edge_default: EdgeValue | None = 1,
         edge_dtype: Dtype | None = None,
         as_directed: bool = False,
-    ) -> nxadb.Graph:
+    ) -> nxcg.Graph | nxcg.DiGraph:
         m = "nx-cugraph is not installed; cannot convert to nx-cugraph graph"
         raise NotImplementedError(m)

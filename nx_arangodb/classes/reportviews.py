@@ -32,7 +32,7 @@ class CustomNodeDataView(nx.classes.reportviews.NodeDataView):
         # )
 
         # New:
-        return iter(self._nodes.items(key=data, default=self._default))
+        return iter(self._nodes.items(data=data, default=self._default))
 
         # Reason: We can utilize AQL to filter the data we
         # want to return, instead of filtering it in Python

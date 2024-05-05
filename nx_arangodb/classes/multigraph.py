@@ -5,21 +5,21 @@ import networkx as nx
 import nx_arangodb as nxadb
 from nx_arangodb.logger import logger
 
-networkx_api = nxadb.utils.decorators.networkx_class(nx.DiGraph)
+networkx_api = nxadb.utils.decorators.networkx_class(nx.MultiGraph)
 
-__all__ = ["DiGraph"]
+__all__ = ["MultiGraph"]
 
 
-class DiGraph(nx.DiGraph):
+class MultiGraph(nx.MultiGraph):
     __networkx_backend__: ClassVar[str] = "arangodb"  # nx >=3.2
     __networkx_plugin__: ClassVar[str] = "arangodb"  # nx <3.2
 
     @classmethod
-    def to_networkx_class(cls) -> type[nx.DiGraph]:
-        return nx.DiGraph
+    def to_networkx_class(cls) -> type[nx.MultiGraph]:
+        return nx.MultiGraph
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.graph_exists = False
-        m = "nxadb.DiGraph has not been implemented yet. This is a pass-through subclass of nx.DiGraph for now."
+        m = "nxadb.MultiGraph has not been implemented yet. This is a pass-through subclass of nx.MultiGraph for now."
         logger.warning(m)

@@ -43,5 +43,5 @@ def betweenness_centrality(
 
     logger.debug("using nx.betweenness_centrality")
     return nx.betweenness_centrality.orig_func(
-        G, k=k, normalized=normalized, weight=weight, endpoints=endpoints
+        G, k=k, normalized=normalized, weight=weight, endpoints=endpoints, seed=seed
     )

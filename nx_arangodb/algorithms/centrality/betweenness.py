@@ -37,6 +37,7 @@ def betweenness_centrality(
         G = _to_nxcg_graph(G, weight)
 
         logger.debug("using nxcg.betweenness_centrality")
+        print("Running nxcg.betweenness_centrality()")
         return nxcg.betweenness_centrality(G, k=k, normalized=normalized, weight=weight)
 
     G = _to_nxadb_graph(G, pull_graph=pull_graph_on_cpu)

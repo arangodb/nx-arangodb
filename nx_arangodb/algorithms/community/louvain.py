@@ -40,6 +40,7 @@ def louvain_communities(
         G = _to_nxcg_graph(G, weight)
 
         logger.debug("using nxcg.louvain_communities")
+        print("Running nxcg.louvain_communities()")
         return nxcg.algorithms.community.louvain._louvain_communities(
             G,
             weight=weight,

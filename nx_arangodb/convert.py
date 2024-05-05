@@ -200,6 +200,7 @@ def from_networkx_arangodb(
     #     return G
 
     logger.debug("pulling as NetworkX Graph...")
+    print(f"Fetching {G.name} as Node & Adj dictionaries...")
     start_time = time.time()
     node_dict, adj_dict, _, _, _ = nxadb.classes.function.get_arangodb_graph(
         G,
@@ -210,11 +211,13 @@ def from_networkx_arangodb(
     )
     end_time = time.time()
     logger.debug(f"load took {end_time - start_time} seconds")
-    print(f"ADB -> ADJ load took {end_time - start_time} seconds")
+    print(f"ADB -> Node & Adj load took {end_time - start_time} seconds")
 
     # Copied from nx.convert.to_networkx_graph
     try:
         logger.debug("creating nx graph from loaded ArangoDB data...")
+        print("Creating nx graph from loaded ArangoDB data...")
+        start_time = time.time()
         result = nx.convert.from_dict_of_dicts(
             adj_dict,
             create_using=G.__class__,
@@ -223,6 +226,13 @@ def from_networkx_arangodb(
 
         for n, dd in node_dict.items():
             result._node[n].update(dd)
+        end_time = time.time()
+        print(f"NX Graph creation took {end_time - start_time}")
+
+        # TODO: Could we just get away with:
+        # G._node = node_dict
+        # G._adj = adj_dict
+        # ?
 
         return result
 
@@ -320,6 +330,7 @@ if GPU_ENABLED:
 
         else:
             logger.debug("pulling as NetworkX-CuGraph Graph...")
+            print(f"Fetching {G.name} as COO...")
             start_time = time.time()
             _, _, src_indices, dst_indices, vertex_ids_to_index = (
                 nxadb.classes.function.get_arangodb_graph(
@@ -346,6 +357,7 @@ if GPU_ENABLED:
             klass = nxcg.Graph
 
         logger.debug("creating nx_cugraph graph from COO data...")
+        print(f"creating nx_cugraph graph from COO data...")
         start_time = time.time()
         rv = klass.from_coo(
             N,
@@ -354,6 +366,7 @@ if GPU_ENABLED:
             key_to_id=G.vertex_ids_to_index,
         )
         end_time = time.time()
+        print(f"COO -> NXCG took {end_time - start_time}")
         logger.debug(f"nxcg from_coo took {end_time - start_time}")
 
         return rv

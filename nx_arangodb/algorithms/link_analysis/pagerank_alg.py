@@ -38,6 +38,7 @@ def pagerank(
         G = _to_nxcg_graph(G, weight)
 
         logger.debug("using nxcg.pagerank")
+        print("Running nxcg.pagerank()")
         return nxcg.pagerank(
             G,
             alpha=alpha,

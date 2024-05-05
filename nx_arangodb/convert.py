@@ -266,7 +266,7 @@ if GPU_ENABLED:
             logger.debug("already an nx_cugraph graph")
             return G
 
-        if isinstance(G, nxadb.Graph):
+        if isinstance(G, (nxadb.Graph, nxadb.DiGraph)):
             # Assumption: G.adb_graph_name points to an existing graph in ArangoDB
             # Therefore, the user wants us to pull the graph from ArangoDB,
             # and convert it to an nx_cugraph graph.
@@ -277,6 +277,11 @@ if GPU_ENABLED:
             if G.graph_exists:
                 logger.debug("converting nx_arangodb graph to nx_cugraph graph")
                 return nxcg_from_networkx_arangodb(G, as_directed=as_directed)
+
+        if isinstance(G, (nxadb.MultiGraph, nxadb.MultiDiGraph)):
+            raise NotImplementedError(
+                "nxadb.MultiGraph not yet supported for _to_nxcg_graph()"
+            )
 
         # If G is a networkx graph, or is a nxadb graph that doesn't point to an "existing"
         # ArangoDB graph, then we just treat it as a normal networkx graph &

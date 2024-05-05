@@ -1,5 +1,3 @@
-# Copied from nx-cugraph
-
 """Tell NetworkX about the arangodb backend. This file can update itself:
 
 $ make plugin-info

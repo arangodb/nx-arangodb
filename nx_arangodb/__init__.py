@@ -1,5 +1,3 @@
-# Copied from nx-cugraph
-
 from networkx.exception import *
 
 from . import utils

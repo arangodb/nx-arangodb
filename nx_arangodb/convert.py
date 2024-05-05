@@ -210,6 +210,7 @@ def from_networkx_arangodb(
     )
     end_time = time.time()
     logger.debug(f"load took {end_time - start_time} seconds")
+    print(f"ADB -> ADJ load took {end_time - start_time} seconds")
 
     # Copied from nx.convert.to_networkx_graph
     try:
@@ -331,6 +332,7 @@ if GPU_ENABLED:
             )
             end_time = time.time()
             logger.debug(f"load took {end_time - start_time} seconds")
+            print(f"ADB -> COO load took {end_time - start_time} seconds")
 
             G.src_indices = src_indices
             G.dst_indices = dst_indices

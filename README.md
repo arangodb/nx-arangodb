@@ -36,8 +36,10 @@ nx.community.louvain_communities(G)
 nx.shortest_path(G, "person/1", "person/34")
 nx.all_neighbors(G, "person/1")
 
-assert len(G.nodes) == 34
-assert len(G.adj) == 34
+G_nx = nx.karate_club_graph()
+assert len(G.nodes) == len(G_nx.nodes)
+assert len(G.adj) == len(G_nx.adj)
+assert len(G.edges) == len(G_nx.edges)
 
 G.nodes(data='club', default='unknown')
 G.edges(data='weight', default=1000)

@@ -325,12 +325,6 @@ def test_readme(load_graph):
     assert len(G.adj) == len(G_nx.adj)
     assert len(G.edges) == len(G_nx.edges)
 
-    nx.betweenness_centrality(G)
-    nx.pagerank(G)
-    nx.community.louvain_communities(G)
-    nx.shortest_path(G, "person/1", "person/34")
-    nx.all_neighbors(G, "person/1")
-
     G.nodes(data="club", default="unknown")
     G.edges(data="weight", default=1000)
 

@@ -9,7 +9,7 @@ from arango import ArangoClient
 
 from nx_arangodb.logger import logger
 
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 def pytest_addoption(parser: Any) -> None:

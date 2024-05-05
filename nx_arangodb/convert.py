@@ -200,7 +200,7 @@ def from_networkx_arangodb(
     #     return G
 
     logger.debug("pulling as NetworkX Graph...")
-    print(f"Fetching {G.name} as Node & Adj dictionaries...")
+    print(f"Fetching {G.graph_name} as Node & Adj dictionaries...")
     start_time = time.time()
     node_dict, adj_dict, _, _, _ = nxadb.classes.function.get_arangodb_graph(
         G,
@@ -330,7 +330,7 @@ if GPU_ENABLED:
 
         else:
             logger.debug("pulling as NetworkX-CuGraph Graph...")
-            print(f"Fetching {G.name} as COO...")
+            print(f"Fetching {G.graph_name} as COO...")
             start_time = time.time()
             _, _, src_indices, dst_indices, vertex_ids_to_index = (
                 nxadb.classes.function.get_arangodb_graph(

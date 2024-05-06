@@ -366,11 +366,10 @@ if GPU_ENABLED:
         logger.debug("creating nx_cugraph graph from COO data...")
         print(f"creating nx_cugraph graph from COO data...")
         start_time = time.time()
-
         rv = klass.from_coo(
-            N,
-            src_indices_cp,
-            dst_indices_cp,
+            N=N,
+            src_indices=src_indices_cp,
+            dst_indices=dst_indices_cp,
             key_to_id=G.vertex_ids_to_index,
         )
         end_time = time.time()

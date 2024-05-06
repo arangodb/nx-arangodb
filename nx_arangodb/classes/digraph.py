@@ -55,8 +55,8 @@ class DiGraph(nx.DiGraph):
         # NOTE: Need to revisit these...
         # self.maintain_node_dict_cache = False
         # self.maintain_adj_dict_cache = False
-        self.use_nx_cache = False
-        self.use_coo_cache = False
+        self.use_nx_cache = True
+        self.use_coo_cache = True
 
         self.src_indices = None
         self.dst_indices = None

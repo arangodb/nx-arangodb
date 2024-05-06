@@ -356,13 +356,21 @@ if GPU_ENABLED:
         else:
             klass = nxcg.Graph
 
+        start_time = time.time()
+        print("Building CuPy arrays...")
+        src_indices_cp = cp.array(G.src_indices)
+        dst_indices_cp = cp.array(G.dst_indices)
+        end_time = time.time()
+        print(f"COO (NumPy) -> COO (CuPy) took {end_time - start_time}")
+
         logger.debug("creating nx_cugraph graph from COO data...")
         print(f"creating nx_cugraph graph from COO data...")
         start_time = time.time()
+
         rv = klass.from_coo(
             N,
-            cp.array(G.src_indices),
-            cp.array(G.dst_indices),
+            src_indices_cp,
+            dst_indices_cp,
             key_to_id=G.vertex_ids_to_index,
         )
         end_time = time.time()

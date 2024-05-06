@@ -57,8 +57,8 @@ class Graph(nx.Graph):
 
         self.auto_sync = True
 
-        self.graph_loader_parallelism = None
-        self.graph_loader_batch_size = None
+        self.graph_loader_parallelism = 20
+        self.graph_loader_batch_size = 5000000
 
         # NOTE: Need to revisit these...
         # self.maintain_node_dict_cache = False

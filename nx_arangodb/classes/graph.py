@@ -3,6 +3,7 @@ from functools import cached_property
 from typing import Callable, ClassVar
 
 import networkx as nx
+from adbnx_adapter import ADBNX_Adapter
 from arango import ArangoClient
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
@@ -38,15 +39,11 @@ class Graph(nx.Graph):
     def __init__(
         self,
         graph_name: str | None = None,
-        default_node_type: str = "nxadb_nodes",
+        default_node_type: str = "nxadb_node",
         edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
         *args,
         **kwargs,
     ):
-        if kwargs.get("incoming_graph_data") is not None and graph_name is not None:
-            m = "Cannot pass both **incoming_graph_data** and **graph_name** yet"
-            raise NotImplementedError(m)
-
         self.__db = None
         self.__graph_name = None
         self.__graph_exists = False
@@ -74,10 +71,38 @@ class Graph(nx.Graph):
         self.edge_type_func = edge_type_func
         self.default_edge_type = edge_type_func(default_node_type, default_node_type)
 
+        incoming_graph_data = kwargs.pop("incoming_graph_data", None)
         if self.__graph_exists:
             self.adb_graph = self.db.graph(graph_name)
             self.__create_default_collections()
             self.__set_factory_methods()
+
+            if incoming_graph_data:
+                m = "Cannot pass both **incoming_graph_data** and **graph_name** yet"
+                raise NotImplementedError(m)
+
+        elif self.__graph_name is not None and incoming_graph_data is not None:
+            if not isinstance(incoming_graph_data, nx.Graph):
+                adapter = ADBNX_Adapter(self.db)
+                self.adb_graph = adapter.networkx_to_arangodb(
+                    graph_name,
+                    incoming_graph_data,
+                    edge_definitions=[
+                        {
+                            "edge_collection": self.default_edge_type,
+                            "from_vertex_collections": [self.default_node_type],
+                            "to_vertex_collections": [self.default_node_type],
+                        }
+                    ],
+                )
+
+                self.__set_factory_methods()
+                self.__graph_exists = True
+            else:
+                m = f"Type of **incoming_graph_data** not supported yet ({type(incoming_graph_data)})"  # noqa: E501
+                raise NotImplementedError(m)
+
+        # self.__qa_chain = None
 
         super().__init__(*args, **kwargs)
 
@@ -206,6 +231,31 @@ class Graph(nx.Graph):
     # TODO: proper subgraphing!
     def aql(self, query: str, bind_vars: dict | None = None, **kwargs) -> Cursor:
         return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
+
+    # NOTE: Ignore this for now
+    # def chat(self, prompt: str) -> str:
+    #     if self.__qa_chain is None:
+    #         if not self.__graph_exists:
+    #             return "Could not initialize QA chain: Graph does not exist"
+
+    #         # try:
+    #         from langchain.chains import ArangoGraphQAChain
+    #         from langchain_community.graphs import ArangoGraph
+    #         from langchain_openai import ChatOpenAI
+
+    #         model = ChatOpenAI(temperature=0, model_name="gpt-4")
+
+    #         self.__qa_chain = ArangoGraphQAChain.from_llm(
+    #             llm=model, graph=ArangoGraph(self.db), verbose=True
+    #         )
+
+    #         # except Exception as e:
+    #         #     return f"Could not initialize QA chain: {e}"
+
+    #     self.__qa_chain.graph.set_schema()
+    #     result = self.__qa_chain.invoke(prompt)
+
+    #     print(result["result"])
 
     def pull(self, load_node_dict=True, load_adj_dict=True, load_coo=True):
         """Load the graph from the ArangoDB database, and update existing graph object.

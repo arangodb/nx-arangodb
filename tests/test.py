@@ -10,6 +10,19 @@ def test_db(load_graph):
     assert db.version()
 
 
+def test_load_graph_from_nxadb():
+    db.delete_graph("KarateGraph", drop_collections=True, ignore_missing=True)
+
+    G_nx = nx.karate_club_graph()
+    G_adb = nxadb.Graph(
+        graph_name="karate", incoming_graph_data=G_nx, default_node_type="person"
+    )
+
+    assert len(G_adb.nodes) == len(G_nx.nodes)
+    assert len(G_adb.adj) == len(G_nx.adj)
+    assert len(G_adb.edges) == len(G_nx.edges)
+
+
 def test_bc(load_graph):
     G_1 = nx.karate_club_graph()
     G_2 = nxadb.Graph(incoming_graph_data=G_1)

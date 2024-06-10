@@ -71,38 +71,39 @@ class Graph(nx.Graph):
         self.edge_type_func = edge_type_func
         self.default_edge_type = edge_type_func(default_node_type, default_node_type)
 
-        incoming_graph_data = kwargs.pop("incoming_graph_data", None)
+        incoming_graph_data = kwargs.get("incoming_graph_data")
         if self.__graph_exists:
             self.adb_graph = self.db.graph(graph_name)
             self.__create_default_collections()
             self.__set_factory_methods()
 
             if incoming_graph_data:
-                m = "Cannot pass both **incoming_graph_data** and **graph_name** yet"
+                m = "Cannot pass both **incoming_graph_data** and **graph_name** yet if the already graph exists"  # noqa: E501
                 raise NotImplementedError(m)
 
-        elif self.__graph_name:
-            if isinstance(incoming_graph_data, nx.Graph):
-                adapter = ADBNX_Adapter(self.db)
-                self.adb_graph = adapter.networkx_to_arangodb(
-                    graph_name,
-                    incoming_graph_data,
-                    # TODO: Parameterize the edge definitions?
-                    # How can we work with a heterogenous **incoming_graph_data**?
-                    edge_definitions=[
-                        {
-                            "edge_collection": self.default_edge_type,
-                            "from_vertex_collections": [self.default_node_type],
-                            "to_vertex_collections": [self.default_node_type],
-                        }
-                    ],
-                )
-
-                self.__set_factory_methods()
-                self.__graph_exists = True
-            else:
-                m = f"Type of **incoming_graph_data** not supported yet ({type(incoming_graph_data)})"  # noqa: E501
+        elif self.__graph_name and incoming_graph_data:
+            if not isinstance(incoming_graph_data, nx.Graph):
+                m = f"Type of **incoming_graph_data** not supported yet ({type(incoming_graph_data)})"
                 raise NotImplementedError(m)
+
+            adapter = ADBNX_Adapter(self.db)
+            self.adb_graph = adapter.networkx_to_arangodb(
+                graph_name,
+                incoming_graph_data,
+                # TODO: Parameterize the edge definitions
+                # How can we work with a heterogenous **incoming_graph_data**?
+                edge_definitions=[
+                    {
+                        "edge_collection": self.default_edge_type,
+                        "from_vertex_collections": [self.default_node_type],
+                        "to_vertex_collections": [self.default_node_type],
+                    }
+                ],
+            )
+
+            self.__set_factory_methods()
+            self.__graph_exists = True
+            del kwargs["incoming_graph_data"]
 
         # self.__qa_chain = None
 

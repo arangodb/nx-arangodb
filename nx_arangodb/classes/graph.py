@@ -81,8 +81,8 @@ class Graph(nx.Graph):
                 m = "Cannot pass both **incoming_graph_data** and **graph_name** yet"
                 raise NotImplementedError(m)
 
-        elif self.__graph_name is not None and incoming_graph_data is not None:
-            if not isinstance(incoming_graph_data, nx.Graph):
+        elif self.__graph_name:
+            if isinstance(incoming_graph_data, nx.Graph):
                 adapter = ADBNX_Adapter(self.db)
                 self.adb_graph = adapter.networkx_to_arangodb(
                     graph_name,

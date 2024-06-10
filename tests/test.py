@@ -10,97 +10,133 @@ def test_db(load_graph):
     assert db.version()
 
 
+def test_load_graph_from_nxadb():
+    graph_name = "KarateGraph"
+
+    db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
+
+    G_nx = nx.karate_club_graph()
+
+    _ = nxadb.Graph(
+        graph_name=graph_name,
+        incoming_graph_data=G_nx,
+        default_node_type="person",
+    )
+
+    assert db.has_graph(graph_name)
+    assert db.has_collection("person")
+    assert db.has_collection("person_to_person")
+    assert db.collection("person").count() == len(G_nx.nodes)
+    assert db.collection("person_to_person").count() == len(G_nx.edges)
+
+    db.delete_graph(graph_name, drop_collections=True)
+
+
 def test_bc(load_graph):
     G_1 = nx.karate_club_graph()
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
+    G_3 = nxadb.Graph(graph_name="KarateGraph")
 
     r_1 = nx.betweenness_centrality(G_1)
     r_2 = nx.betweenness_centrality(G_2)
     r_3 = nx.betweenness_centrality(G_1, backend="arangodb")
     r_4 = nx.betweenness_centrality(G_2, backend="arangodb")
+    r_5 = nx.betweenness_centrality.orig_func(G_3)
 
-    assert len(r_1) == len(r_2) == len(r_3) == len(r_4) > 0
+    assert len(r_1) == len(G_1)
+    assert r_1 == r_2
+    assert r_2 == r_3
+    assert r_3 == r_4
+    assert len(r_1) == len(r_5)
 
     try:
         import phenolrs
     except ModuleNotFoundError:
         return
 
-    G_3 = nxadb.Graph(graph_name="KarateGraph")
-    r_5 = nx.betweenness_centrality(G_3)
-
     G_4 = nxadb.Graph(graph_name="KarateGraph")
-    r_6 = nxadb.betweenness_centrality(G_4, pull_graph_on_cpu=False)
+    r_6 = nx.betweenness_centrality(G_4)
 
-    G_5 = nxadb.DiGraph(graph_name="KarateGraph")
-    r_7 = nx.betweenness_centrality(G_5)
+    G_5 = nxadb.Graph(graph_name="KarateGraph")
+    r_7 = nxadb.betweenness_centrality(G_5, pull_graph_on_cpu=False)
 
-    # assert r_5 == r_6 # this is acting strange. I need to revisit
-    assert r_6 == r_7
-    assert len(r_5) == len(r_6) == len(r_7) > 0
+    G_6 = nxadb.DiGraph(graph_name="KarateGraph")
+    r_8 = nx.betweenness_centrality(G_6)
+
+    # assert r_6 == r_7 # this is acting strange. I need to revisit
+    assert r_7 == r_8
+    assert len(r_6) == len(r_7) == len(r_8) == len(G_4) > 0
 
 
 def test_pagerank(load_graph):
     G_1 = nx.karate_club_graph()
-
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
+    G_3 = nxadb.Graph(graph_name="KarateGraph")
 
     r_1 = nx.pagerank(G_1)
     r_2 = nx.pagerank(G_2)
     r_3 = nx.pagerank(G_1, backend="arangodb")
     r_4 = nx.pagerank(G_2, backend="arangodb")
+    r_5 = nx.pagerank.orig_func(G_3)
 
-    assert len(r_1) == len(r_2) == len(r_3) == len(r_4) > 0
+    assert len(r_1) == len(G_1)
+    assert r_1 == r_2
+    assert r_2 == r_3
+    assert r_3 == r_4
+    assert len(r_1) == len(r_5)
 
     try:
         import phenolrs
     except ModuleNotFoundError:
         return
 
-    G_3 = nxadb.Graph(graph_name="KarateGraph")
-    r_5 = nx.pagerank(G_3)
-
     G_4 = nxadb.Graph(graph_name="KarateGraph")
-    r_6 = nxadb.pagerank(G_4, pull_graph_on_cpu=False)
+    r_6 = nx.pagerank(G_4)
 
-    G_5 = nxadb.DiGraph(graph_name="KarateGraph")
-    r_7 = nx.pagerank(G_5)
+    G_5 = nxadb.Graph(graph_name="KarateGraph")
+    r_7 = nxadb.pagerank(G_5, pull_graph_on_cpu=False)
 
-    assert len(r_5) == len(r_6) == len(r_7) == len(G_4)
+    G_6 = nxadb.DiGraph(graph_name="KarateGraph")
+    r_8 = nx.pagerank(G_6)
+
+    assert len(r_6) == len(r_7) == len(r_8) == len(G_4) > 0
 
 
 def test_louvain(load_graph):
     G_1 = nx.karate_club_graph()
-
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
+    G_3 = nxadb.Graph(graph_name="KarateGraph")
 
     r_1 = nx.community.louvain_communities(G_1)
     r_2 = nx.community.louvain_communities(G_2)
     r_3 = nx.community.louvain_communities(G_1, backend="arangodb")
     r_4 = nx.community.louvain_communities(G_2, backend="arangodb")
+    r_5 = nx.community.louvain_communities.orig_func(G_3)
 
     assert len(r_1) > 0
     assert len(r_2) > 0
     assert len(r_3) > 0
     assert len(r_4) > 0
+    assert len(r_5) > 0
 
     try:
         import phenolrs
     except ModuleNotFoundError:
         return
 
-    G_3 = nxadb.Graph(graph_name="KarateGraph")
-    r_5 = nx.community.louvain_communities(G_3)
-
     G_4 = nxadb.Graph(graph_name="KarateGraph")
-    r_6 = nxadb.community.louvain_communities(G_4, pull_graph_on_cpu=False)
+    r_6 = nx.community.louvain_communities(G_4)
 
-    G_5 = nxadb.DiGraph(graph_name="KarateGraph")
-    r_7 = nx.community.louvain_communities(G_5)
+    G_5 = nxadb.Graph(graph_name="KarateGraph")
+    r_7 = nxadb.community.louvain_communities(G_5, pull_graph_on_cpu=False)
+
+    G_6 = nxadb.DiGraph(graph_name="KarateGraph")
+    r_8 = nx.community.louvain_communities(G_6)
 
     assert len(r_5) > 0
     assert len(r_6) > 0
     assert len(r_7) > 0
+    assert len(r_8) > 0
 
 
 def test_shortest_path(load_graph):

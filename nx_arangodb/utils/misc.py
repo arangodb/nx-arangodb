@@ -13,7 +13,7 @@ import numpy as np
 if TYPE_CHECKING:
     # import nx_cugraph as nxcg
 
-    from ..typing import Dtype, EdgeKey
+    from ..typing import Dtype, EdgeKey  # noqa
 
 try:
     from itertools import pairwise  # Python >=3.10

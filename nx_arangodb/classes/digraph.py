@@ -8,7 +8,7 @@ from arango.database import StandardDatabase
 from arango.exceptions import ServerConnectionError
 
 import nx_arangodb as nxadb
-from nx_arangodb.exceptions import *
+from nx_arangodb.exceptions import DatabaseNotSet, GraphNameNotSet
 from nx_arangodb.logger import logger
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.DiGraph)
@@ -130,9 +130,8 @@ class DiGraph(nx.DiGraph):
 
     def __set_graph_name(self, graph_name: str | None = None):
         if self.__db is None:
-            raise DatabaseNotSet(
-                "Cannot set graph name without setting the database first"
-            )
+            m = "Cannot set graph name without setting the database first"
+            raise DatabaseNotSet(m)
 
         if graph_name is None:
             self.__graph_exists = False

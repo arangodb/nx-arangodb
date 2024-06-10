@@ -172,15 +172,18 @@ class GraphDict(UserDict):
 
 
 class NodeDict(UserDict):
-    """The outer-level of the dict of dict structure representing the nodes (vertices) of a graph.
+    """The outer-level of the dict of dict structure representing the
+    nodes (vertices) of a graph.
 
-    The outer dict is keyed by ArangoDB Vertex IDs and the inner dict is keyed by Vertex attributes.
+    The outer dict is keyed by ArangoDB Vertex IDs and the inner dict
+    is keyed by Vertex attributes.
 
     :param db: The ArangoDB database.
     :type db: StandardDatabase
     :param graph: The ArangoDB graph.
     :type graph: Graph
-    :param default_node_type: The default node type. Used if the node ID is not formatted as 'type/id'.
+    :param default_node_type: The default node type. Used if the node ID
+        is not formatted as 'type/id'.
     :type default_node_type: str
     """
 
@@ -262,7 +265,7 @@ class NodeDict(UserDict):
             raise KeyError(key)
 
         remove_statements = "\n".join(
-            f"REMOVE e IN `{edge_def['edge_collection']}` OPTIONS {{ignoreErrors: true}}"
+            f"REMOVE e IN `{edge_def['edge_collection']}` OPTIONS {{ignoreErrors: true}}"  # noqa
             for edge_def in self.graph.edge_definitions()
         )
 
@@ -360,7 +363,8 @@ class NodeDict(UserDict):
 
 
 class NodeAttrDict(UserDict):
-    """The inner-level of the dict of dict structure representing the nodes (vertices) of a graph.
+    """The inner-level of the dict of dict structure
+    representing the nodes (vertices) of a graph.
 
     :param db: The ArangoDB database.
     :type db: StandardDatabase
@@ -463,7 +467,7 @@ class NodeAttrDict(UserDict):
             self.data.update(attrs)
 
             if not self.node_id:
-                logger.debug(f"Node ID not set, skipping NodeAttrDict(?).update()")
+                logger.debug("Node ID not set, skipping NodeAttrDict(?).update()")
                 return
 
             logger.debug(f"NodeAttrDict({self.node_id}).update({attrs})")
@@ -471,7 +475,8 @@ class NodeAttrDict(UserDict):
 
 
 class AdjListOuterDict(UserDict):
-    """The outer-level of the dict of dict of dict structure representing the Adjacency List of a graph.
+    """The outer-level of the dict of dict of dict structure
+    representing the Adjacency List of a graph.
 
     The outer-dict is keyed by the node ID of the source node.
 
@@ -699,7 +704,8 @@ class AdjListOuterDict(UserDict):
 
 
 class AdjListInnerDict(UserDict):
-    """The inner-level of the dict of dict of dict structure representing the Adjacency List of a graph.
+    """The inner-level of the dict of dict of dict structure
+    representing the Adjacency List of a graph.
 
     The inner-dict is keyed by the node ID of the destination node.
 
@@ -777,7 +783,7 @@ class AdjListInnerDict(UserDict):
         dst_node_id = get_node_id(key, self.default_node_type)
 
         if dst_node_id in self.data:
-            m = f"cached in AdjListInnerDict({self.src_node_id}).__getitem__({dst_node_id})"
+            m = f"cached in AdjListInnerDict({self.src_node_id}).__getitem__({dst_node_id})"  # noqa
             logger.debug(m)
             return self.data[dst_node_id]
 
@@ -786,7 +792,7 @@ class AdjListInnerDict(UserDict):
             self.data[dst_node_id] = mirrored_edge_attr_dict
             return mirrored_edge_attr_dict
 
-        m = f"aql_edge_get in AdjListInnerDict({self.src_node_id}).__getitem__({dst_node_id})"
+        m = f"aql_edge_get in AdjListInnerDict({self.src_node_id}).__getitem__({dst_node_id})"  # noqa
         edge = aql_edge_get(
             self.db,
             self.src_node_id,
@@ -877,7 +883,7 @@ class AdjListInnerDict(UserDict):
         )
 
         if not edge_id:
-            m = f"edge not found, AdjListInnerDict({self.src_node_id}).__delitem__({dst_node_id})"
+            m = f"edge not found, AdjListInnerDict({self.src_node_id}).__delitem__({dst_node_id})"  # noqa
             logger.debug(m)
             return
 
@@ -889,7 +895,7 @@ class AdjListInnerDict(UserDict):
         assert self.src_node_id
 
         if self.FETCHED_ALL_DATA:
-            m = f"Already fetched data, skipping AdjListInnerDict({self.src_node_id}).__len__"
+            m = f"Already fetched data, skipping AdjListInnerDict({self.src_node_id}).__len__"  # noqa
             logger.debug(m)
             return len(self.data)
 
@@ -910,7 +916,7 @@ class AdjListInnerDict(UserDict):
     def __iter__(self) -> Iterator[str]:
         """for k in g._adj['node/1']"""
         if self.FETCHED_ALL_DATA:
-            m = f"Already fetched data, skipping AdjListInnerDict({self.src_node_id}).__iter__"
+            m = f"Already fetched data, skipping AdjListInnerDict({self.src_node_id}).__iter__"  # noqa
             logger.debug(m)
             yield from self.data.keys()
 
@@ -979,7 +985,8 @@ class AdjListInnerDict(UserDict):
 
 
 class EdgeAttrDict(UserDict):
-    """The innermost-level of the dict of dict of dict structure representing the Adjacency List of a graph.
+    """The innermost-level of the dict of dict of dict structure
+    representing the Adjacency List of a graph.
 
     The innermost-dict is keyed by the edge attribute key.
 

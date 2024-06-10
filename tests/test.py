@@ -22,9 +22,9 @@ def test_bc(load_graph):
     assert len(r_1) == len(r_2) == len(r_3) == len(r_4) > 0
 
     try:
-        import phenolrs
+        import phenolrs  # noqa
     except ModuleNotFoundError:
-        return
+        pytest.skip("phenolrs not installed")
 
     G_3 = nxadb.Graph(graph_name="KarateGraph")
     r_5 = nx.betweenness_centrality(G_3)
@@ -53,9 +53,9 @@ def test_pagerank(load_graph):
     assert len(r_1) == len(r_2) == len(r_3) == len(r_4) > 0
 
     try:
-        import phenolrs
+        import phenolrs  # noqa
     except ModuleNotFoundError:
-        return
+        pytest.skip("phenolrs not installed")
 
     G_3 = nxadb.Graph(graph_name="KarateGraph")
     r_5 = nx.pagerank(G_3)
@@ -85,9 +85,9 @@ def test_louvain(load_graph):
     assert len(r_4) > 0
 
     try:
-        import phenolrs
+        import phenolrs  # noqa
     except ModuleNotFoundError:
-        return
+        pytest.skip("phenolrs not installed")
 
     G_3 = nxadb.Graph(graph_name="KarateGraph")
     r_5 = nx.community.louvain_communities(G_3)
@@ -270,7 +270,7 @@ def test_graph_edges_crud(load_graph):
 
     result = list(
         db.aql.execute(
-            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @src AND e._to == @dst RETURN e",
+            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @src AND e._to == @dst RETURN e",  # noqa
             bind_vars=bind_vars,
         )
     )
@@ -279,7 +279,7 @@ def test_graph_edges_crud(load_graph):
 
     result = list(
         db.aql.execute(
-            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @dst AND e._to == @src RETURN e",
+            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @dst AND e._to == @src RETURN e",  # noqa
             bind_vars=bind_vars,
         )
     )

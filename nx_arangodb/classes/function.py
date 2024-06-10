@@ -3,9 +3,7 @@ from __future__ import annotations
 from typing import Any, Tuple
 
 import arango
-import networkx as nx
 import numpy as np
-from arango import exceptions, graph
 
 import nx_arangodb as nxadb
 
@@ -92,7 +90,7 @@ def keys_are_strings(func) -> Any:
 
     def wrapper(self, dict, *args, **kwargs) -> Any:
         if not all(isinstance(key, str) for key in dict):
-            raise TypeError(f"All keys must be strings.")
+            raise TypeError("All keys must be strings.")
 
         return func(self, dict, *args, **kwargs)
 
@@ -119,7 +117,7 @@ def keys_are_not_reserved(func) -> Any:
 
     def wrapper(self, dict, *args, **kwargs) -> Any:
         if any(key in RESERVED_KEYS for key in dict):
-            raise KeyError(f"All keys must not be reserved.")
+            raise KeyError("All keys must not be reserved.")
 
         return func(self, dict, *args, **kwargs)
 
@@ -166,28 +164,28 @@ def aql_single(
 
 def aql_doc_has_key(db: arango.StandardDatabase, id: str, key: str) -> bool:
     """Checks if a document has a key."""
-    query = f"RETURN HAS(DOCUMENT(@id), @key)"
+    query = "RETURN HAS(DOCUMENT(@id), @key)"
     bind_vars = {"id": id, "key": key}
     return aql_single(db, query, bind_vars)
 
 
 def aql_doc_get_key(db: arango.StandardDatabase, id: str, key: str) -> Any:
     """Gets a key from a document."""
-    query = f"RETURN DOCUMENT(@id).@key"
+    query = "RETURN DOCUMENT(@id).@key"
     bind_vars = {"id": id, "key": key}
     return aql_single(db, query, bind_vars)
 
 
 def aql_doc_get_keys(db: arango.StandardDatabase, id: str) -> list[str]:
     """Gets the keys of a document."""
-    query = f"RETURN ATTRIBUTES(DOCUMENT(@id))"
+    query = "RETURN ATTRIBUTES(DOCUMENT(@id))"
     bind_vars = {"id": id}
     return aql_single(db, query, bind_vars)
 
 
 def aql_doc_get_length(db: arango.StandardDatabase, id: str) -> int:
     """Gets the length of a document."""
-    query = f"RETURN LENGTH(DOCUMENT(@id))"
+    query = "RETURN LENGTH(DOCUMENT(@id))"
     bind_vars = {"id": id}
     return aql_single(db, query, bind_vars)
 
@@ -256,11 +254,14 @@ def aql_edge(
     return_clause: str,
 ):
     if direction == "INBOUND":
-        filter_clause = f"e._from == @dst_node_id"
+        filter_clause = "e._from == @dst_node_id"
     elif direction == "OUTBOUND":
-        filter_clause = f"e._to == @dst_node_id"
+        filter_clause = "e._to == @dst_node_id"
     elif direction == "ANY":
-        filter_clause = f"(e._from == @dst_node_id AND e._to == @src_node_id) OR (e._to == @dst_node_id AND e._from == @src_node_id)"
+        filter_clause = """
+            (e._from == @dst_node_id AND e._to == @src_node_id)
+            OR (e._to == @dst_node_id AND e._from == @src_node_id)
+        """
     else:
         raise InvalidTraversalDirection(f"Invalid direction: {direction}")
 
@@ -289,36 +290,34 @@ def aql_fetch_data(
     if is_edge:
         items = []
         for collection in collections:
-            query = f"""
+            query = """
                 LET result = (
-                    FOR doc IN `{collection}`
+                    FOR doc IN @@collection
                         RETURN [doc._from, doc._to, doc.@data or @default]
                 )
 
                 RETURN result
             """
 
-            bind_vars = {"data": data, "default": default}
+            bind_vars = {"data": data, "default": default, "@collection": collection}
 
             items.extend(aql_single(db, query, bind_vars))
 
         return items
 
     else:
-        return_clause = f"{{[doc._id]: doc.@data or @default}}"
-
         items = {}
         for collection in collections:
-            query = f"""
+            query = """
                 LET result = (
-                    FOR doc IN `{collection}`
-                        RETURN {return_clause}
+                    FOR doc IN @@collection
+                        RETURN {[doc._id]: doc.@data or @default}
                 )
 
                 RETURN MERGE(result)
             """
 
-            bind_vars = {"data": data, "default": default}
+            bind_vars = {"data": data, "default": default, "@collection": collection}
 
             items.update(aql_single(db, query, bind_vars))
 

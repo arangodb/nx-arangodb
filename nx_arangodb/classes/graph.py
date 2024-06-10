@@ -9,7 +9,7 @@ from arango.database import StandardDatabase
 from arango.exceptions import ServerConnectionError
 
 import nx_arangodb as nxadb
-from nx_arangodb.exceptions import *
+from nx_arangodb.exceptions import DatabaseNotSet, GraphNameNotSet
 from nx_arangodb.logger import logger
 
 from .dict import (
@@ -182,9 +182,8 @@ class Graph(nx.Graph):
 
     def __set_graph_name(self, graph_name: str | None = None):
         if self.__db is None:
-            raise DatabaseNotSet(
-                "Cannot set graph name without setting the database first"
-            )
+            m = "Cannot set graph name without setting the database first"
+            raise DatabaseNotSet(m)
 
         if graph_name is None:
             self.__graph_exists = False
@@ -220,8 +219,9 @@ class Graph(nx.Graph):
             and replace it with the edge data from the database. Comes with
             a remote reference to the database. <--- TODO: Should we paramaterize this?
         :type load_adj_dict: bool
-        :param load_coo: Load the COO representation. If False, the src & dst indices will be empty,
-            along with the node-ID-to-index mapping. Used for nx-cuGraph compatibility.
+        :param load_coo: Load the COO representation. If False, the src & dst
+            indices will be empty, along with the node-ID-to-index mapping.
+            Used for nx-cuGraph compatibility.
         :type load_coo: bool
         """
         node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = (

@@ -21,5 +21,5 @@ class MultiDiGraph(nx.MultiDiGraph):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.graph_exists = False
-        m = "nxadb.MultiDiGraph has not been implemented yet. This is a pass-through subclass of nx.MultiDiGraph for now."
+        m = "nxadb.MultiDiGraph has not been implemented yet. This is a pass-through subclass of nx.MultiDiGraph for now."  # noqa
         logger.warning(m)

@@ -8,7 +8,7 @@ if logger.hasHandlers():
 handler = logging.StreamHandler()
 
 formatter = logging.Formatter(
-    f"[%(asctime)s] [%(levelname)s]: %(message)s",
+    "[%(asctime)s] [%(levelname)s]: %(message)s",
     "%H:%M:%S %z",
 )
 

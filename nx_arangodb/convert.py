@@ -188,7 +188,7 @@ def from_networkx_arangodb(
 
     if not pull_graph:
         if isinstance(G, nxadb.DiGraph):
-            m = "nx_arangodb.DiGraph has no CRUD Support yet. Cannot rely on remote connection."
+            m = "nx_arangodb.DiGraph has no CRUD Support yet. Cannot rely on remote connection."  # noqa: E501
             raise NotImplementedError(m)
 
         logger.debug("graph exists, but not pulling. relying on remote connection...")
@@ -294,9 +294,9 @@ if GPU_ENABLED:
                 "nxadb.MultiGraph not yet supported for _to_nxcg_graph()"
             )
 
-        # If G is a networkx graph, or is a nxadb graph that doesn't point to an "existing"
-        # ArangoDB graph, then we just treat it as a normal networkx graph &
-        # convert it to nx_cugraph.
+        # If G is a networkx graph, or is a nxadb graph that doesn't point
+        # to an "existing" ArangoDB graph, then we just treat it as a normal
+        # networkx graph & convert it to nx_cugraph.
         # TODO: Need to revisit the "existing" ArangoDB graph condition...
         if isinstance(G, nx.Graph):
             logger.debug("converting networkx graph to nx_cugraph graph")
@@ -364,7 +364,7 @@ if GPU_ENABLED:
         print(f"COO (NumPy) -> COO (CuPy) took {end_time - start_time}")
 
         logger.debug("creating nx_cugraph graph from COO data...")
-        print(f"creating nx_cugraph graph from COO data...")
+        print("creating nx_cugraph graph from COO data...")
         start_time = time.time()
         rv = klass.from_coo(
             N=N,

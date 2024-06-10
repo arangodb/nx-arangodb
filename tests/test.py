@@ -22,6 +22,8 @@ def test_load_graph_from_nxadb():
     assert len(G_adb.adj) == len(G_nx.adj)
     assert len(G_adb.edges) == len(G_nx.edges)
 
+    db.delete_graph("KarateGraph", drop_collections=True)
+
 
 def test_bc(load_graph):
     G_1 = nx.karate_club_graph()

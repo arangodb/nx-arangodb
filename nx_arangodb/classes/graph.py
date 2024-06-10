@@ -54,8 +54,8 @@ class Graph(nx.Graph):
 
         self.auto_sync = True
 
-        self.graph_loader_parallelism = 20
-        self.graph_loader_batch_size = 5000000
+        self.graph_loader_parallelism = 10
+        self.graph_loader_batch_size = 100000
 
         # NOTE: Need to revisit these...
         # self.maintain_node_dict_cache = False
@@ -87,6 +87,8 @@ class Graph(nx.Graph):
                 self.adb_graph = adapter.networkx_to_arangodb(
                     graph_name,
                     incoming_graph_data,
+                    # TODO: Parameterize the edge definitions?
+                    # How can we work with a heterogenous **incoming_graph_data**?
                     edge_definitions=[
                         {
                             "edge_collection": self.default_edge_type,

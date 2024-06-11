@@ -55,7 +55,7 @@ def get_arangodb_graph(
         "edgeCollections": {col: {} for col in e_cols},
     }
 
-    from phenolrs.graph_loader import GraphLoader
+    from phenolrs.networkx_loader import NetworkXLoader
 
     kwargs = {}
     if G.graph_loader_parallelism is not None:
@@ -64,7 +64,7 @@ def get_arangodb_graph(
         kwargs["batch_size"] = G.graph_loader_batch_size
 
     # TODO: Remove ignore when phenolrs is published
-    return GraphLoader.load(  # type: ignore
+    return NetworkXLoader.load_into_networkx(  # type: ignore
         G.db.name,
         metagraph,
         [G._host],

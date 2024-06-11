@@ -162,7 +162,7 @@ def from_networkx_arangodb(
         logger.debug("creating nx graph from loaded ArangoDB data...")
         print("Creating nx graph from loaded ArangoDB data...")
         start_time = time.time()
-        result = nx.convert.from_dict_of_dicts(
+        result: nxadb.Graph | nxadb.DiGraph = nx.convert.from_dict_of_dicts(
             adj_dict,
             create_using=G.__class__,
             multigraph_input=G.is_multigraph(),
@@ -172,11 +172,6 @@ def from_networkx_arangodb(
             result._node[n].update(dd)
         end_time = time.time()
         print(f"NX Graph creation took {end_time - start_time}")
-
-        # TODO: Could we just get away with:
-        # G._node = node_dict
-        # G._adj = adj_dict
-        # ?
 
         return result
 

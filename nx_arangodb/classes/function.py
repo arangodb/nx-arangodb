@@ -94,8 +94,9 @@ def keys_are_strings(func: Callable[..., Any]) -> Any:
     """Decorator to check if the keys are strings."""
 
     def wrapper(self: Any, dict: dict[Any, Any], *args: Any, **kwargs: Any) -> Any:
-        if not all(isinstance(key, str) for key in dict):
-            raise TypeError("All keys must be strings.")
+        for key in dict:
+            if not isinstance(key, str):
+                raise TypeError(f"'{key}' is not a string.")
 
         return func(self, dict, *args, **kwargs)
 
@@ -121,8 +122,9 @@ def keys_are_not_reserved(func: Any) -> Any:
     """Decorator to check if the keys are not reserved."""
 
     def wrapper(self: Any, dict: dict[Any, Any], *args: Any, **kwargs: Any) -> Any:
-        if any(key in RESERVED_KEYS for key in dict):
-            raise KeyError("All keys must not be reserved.")
+        for key in dict:
+            if key in RESERVED_KEYS:
+                raise KeyError(f"'{key}' is a reserved key.")
 
         return func(self, dict, *args, **kwargs)
 

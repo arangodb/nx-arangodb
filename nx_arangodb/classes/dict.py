@@ -279,7 +279,10 @@ class NodeAttrDict(UserDict[str, Any]):
         # if clear_remote:
         #     doc_insert(self.db, self.node_id, silent=True, overwrite=True)
 
-    def update(self, attrs: Any) -> None:  # type: ignore[override]
+    @keys_are_strings
+    @keys_are_not_reserved
+    # @values_are_json_serializable # TODO?
+    def update(self, attrs: Any) -> None:
         """G._node['node/1'].update({'foo': 'bar'})"""
         if attrs:
             self.data.update(attrs)
@@ -590,12 +593,14 @@ class EdgeAttrDict(UserDict[str, Any]):
         self.data = self.db.document(self.edge_id)
         yield from self.data.items()
 
-    def clear(self):
+    def clear(self) -> None:
         """G._adj['node/1']['node/'2].clear()"""
         self.data.clear()
         logger.debug(f"cleared EdgeAttrDict({self.edge_id})")
 
-    def update(self, attrs):
+    @keys_are_strings
+    @keys_are_not_reserved
+    def update(self, attrs: Any) -> None:
         """G._adj['node/1']['node/'2].update({'foo': 'bar'})"""
         if attrs:
             self.data.update(attrs)
@@ -859,7 +864,8 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         self.FETCHED_ALL_DATA = False
         logger.debug(f"cleared AdjListInnerDict({self.src_node_id})")
 
-    def update(self, edges: Any) -> None:  # type: ignore[override]
+    @keys_are_strings
+    def update(self, edges: Any) -> None:
         """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
         raise NotImplementedError("AdjListInnerDict.update()")
 
@@ -1096,7 +1102,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             result = aql_fetch_data_edge(self.db, e_cols, data, default)
             yield from result
 
-    # TODO: Revisit
+    # TODO: Revisit this logic
     def __fetch_all(self) -> None:
         logger.debug("AdjListOuterDict.__fetch_all()")
 

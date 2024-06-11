@@ -130,7 +130,7 @@ def test_louvain(load_graph: Any) -> None:
     r_6 = nx.community.louvain_communities(G_4)
 
     G_5 = nxadb.Graph(graph_name="KarateGraph")
-    r_7 = nxadb.community.louvain_communities(G_5, pull_graph_on_cpu=False)  # type: ignore
+    r_7 = nxadb.community.louvain_communities(G_5, pull_graph_on_cpu=False)  # type: ignore  # noqa
 
     G_6 = nxadb.DiGraph(graph_name="KarateGraph")
     r_8 = nx.community.louvain_communities(G_6)

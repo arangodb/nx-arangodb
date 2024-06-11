@@ -85,7 +85,7 @@ class Graph(nx.Graph):
 
         elif self.__graph_name and incoming_graph_data:
             if not isinstance(incoming_graph_data, nx.Graph):
-                m = f"Type of **incoming_graph_data** not supported yet ({type(incoming_graph_data)})"
+                m = f"Type of **incoming_graph_data** not supported yet ({type(incoming_graph_data)})"  # noqa: E501
                 raise NotImplementedError(m)
 
             adapter = ADBNX_Adapter(self.db)

@@ -63,6 +63,9 @@ jobs:
       - name: Install packages
         run: pip install .[dev]
 
+      - name: Install Phenolrs (temporary solution)
+        run: pip install phenolrs --find-links .
+
       - name: Run local tests
         run: pytest tests/test.py
 

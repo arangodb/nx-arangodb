@@ -4,13 +4,14 @@ on:
   pull_request:
   push:
     branches: [ main ]
+
 env:
   PACKAGE_DIR: nx_arangodb
   TESTS_DIR: tests
+
 jobs:
-  build:
+  setup:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -32,6 +33,13 @@ jobs:
       - name: Install packages
         run: pip install .[dev]
 
+  lint:
+    runs-on: ubuntu-latest
+    needs: setup
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Run black
         run: black --check --verbose --diff --color ${{env.PACKAGE_DIR}} ${{env.TESTS_DIR}}
 
@@ -41,8 +49,14 @@ jobs:
       - name: Run isort
         run: isort --check --profile=black ${{env.PACKAGE_DIR}} ${{env.TESTS_DIR}}
 
-      # - name: Run mypy
-      #   run: mypy ${{env.PACKAGE_DIR}} ${{env.TESTS_DIR}}
+      - name: Run mypy
+        run: mypy ${{env.PACKAGE_DIR}} ${{env.TESTS_DIR}}
+
+  test:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Run local tests
         run: pytest tests/test.py

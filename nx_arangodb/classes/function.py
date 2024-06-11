@@ -1,11 +1,18 @@
+"""
+A collection of CRUD functions for the ArangoDB graph database.
+Used by the nx_arangodb Graph, DiGraph, MultiGraph, and MultiDiGraph classes.
+"""
+
 from __future__ import annotations
 
-from typing import Any, Tuple
+from collections import UserDict
+from typing import Any, Callable, Tuple
 
-import arango
-import networkx as nx
 import numpy as np
-from arango import exceptions, graph
+import numpy.typing as npt
+from arango.collection import StandardCollection
+from arango.cursor import Cursor
+from arango.database import StandardDatabase
 
 import nx_arangodb as nxadb
 
@@ -25,8 +32,8 @@ def get_arangodb_graph(
 ) -> Tuple[
     dict[str, dict[str, Any]],
     dict[str, dict[str, dict[str, Any]]],
-    np.ndarray,
-    np.ndarray,
+    npt.NDArray[np.int64],
+    npt.NDArray[np.int64],
     dict[str, int],
 ]:
     """Pulls the graph from the database, assuming the graph exists.
@@ -48,12 +55,12 @@ def get_arangodb_graph(
     edge_definitions = adb_graph.edge_definitions()
     e_cols = {c["edge_collection"] for c in edge_definitions}
 
-    metagraph = {
+    metagraph: dict[str, dict[str, Any]] = {
         "vertexCollections": {col: {} for col in v_cols},
         "edgeCollections": {col: {} for col in e_cols},
     }
 
-    from phenolrs.graph_loader import GraphLoader
+    from phenolrs.networkx_loader import NetworkXLoader
 
     kwargs = {}
     if G.graph_loader_parallelism is not None:
@@ -61,7 +68,8 @@ def get_arangodb_graph(
     if G.graph_loader_batch_size is not None:
         kwargs["batch_size"] = G.graph_loader_batch_size
 
-    return GraphLoader.load(
+    # TODO: Remove ignore when phenolrs is published
+    return NetworkXLoader.load_into_networkx(  # type: ignore
         G.db.name,
         metagraph,
         [G._host],
@@ -75,10 +83,10 @@ def get_arangodb_graph(
     )
 
 
-def key_is_string(func) -> Any:
+def key_is_string(func: Callable[..., Any]) -> Any:
     """Decorator to check if the key is a string."""
 
-    def wrapper(self, key, *args, **kwargs) -> Any:
+    def wrapper(self: Any, key: str, *args: Any, **kwargs: Any) -> Any:
         if not isinstance(key, str):
             raise TypeError(f"'{key}' is not a string.")
 
@@ -87,12 +95,13 @@ def key_is_string(func) -> Any:
     return wrapper
 
 
-def keys_are_strings(func) -> Any:
+def keys_are_strings(func: Callable[..., Any]) -> Any:
     """Decorator to check if the keys are strings."""
 
-    def wrapper(self, dict, *args, **kwargs) -> Any:
-        if not all(isinstance(key, str) for key in dict):
-            raise TypeError(f"All keys must be strings.")
+    def wrapper(self: Any, dict: dict[Any, Any], *args: Any, **kwargs: Any) -> Any:
+        for key in dict:
+            if not isinstance(key, str):
+                raise TypeError(f"'{key}' is not a string.")
 
         return func(self, dict, *args, **kwargs)
 
@@ -102,10 +111,10 @@ def keys_are_strings(func) -> Any:
 RESERVED_KEYS = {"_id", "_key", "_rev"}
 
 
-def key_is_not_reserved(func) -> Any:
+def key_is_not_reserved(func: Callable[..., Any]) -> Any:
     """Decorator to check if the key is not reserved."""
 
-    def wrapper(self, key, *args, **kwargs) -> Any:
+    def wrapper(self: Any, key: str, *args: Any, **kwargs: Any) -> Any:
         if key in RESERVED_KEYS:
             raise KeyError(f"'{key}' is a reserved key.")
 
@@ -114,12 +123,13 @@ def key_is_not_reserved(func) -> Any:
     return wrapper
 
 
-def keys_are_not_reserved(func) -> Any:
+def keys_are_not_reserved(func: Any) -> Any:
     """Decorator to check if the keys are not reserved."""
 
-    def wrapper(self, dict, *args, **kwargs) -> Any:
-        if any(key in RESERVED_KEYS for key in dict):
-            raise KeyError(f"All keys must not be reserved.")
+    def wrapper(self: Any, dict: dict[Any, Any], *args: Any, **kwargs: Any) -> Any:
+        for key in dict:
+            if key in RESERVED_KEYS:
+                raise KeyError(f"'{key}' is a reserved key.")
 
         return func(self, dict, *args, **kwargs)
 
@@ -127,8 +137,8 @@ def keys_are_not_reserved(func) -> Any:
 
 
 def create_collection(
-    db: arango.StandardDatabase, collection_name: str, edge: bool = False
-) -> arango.StandardCollection:
+    db: StandardDatabase, collection_name: str, edge: bool = False
+) -> StandardCollection:
     """Creates a collection if it does not exist and returns it."""
     if not db.has_collection(collection_name):
         db.create_collection(collection_name, edge=edge)
@@ -137,22 +147,22 @@ def create_collection(
 
 
 def aql(
-    db: arango.StandardDatabase, query: str, bind_vars: dict[str, Any], **kwargs
-) -> arango.Cursor:
+    db: StandardDatabase, query: str, bind_vars: dict[str, Any], **kwargs: Any
+) -> Cursor:
     """Executes an AQL query and returns the cursor."""
     return db.aql.execute(query, bind_vars=bind_vars, stream=True, **kwargs)
 
 
 def aql_as_list(
-    db: arango.StandardDatabase, query: str, bind_vars: dict[str, Any], **kwargs
+    db: StandardDatabase, query: str, bind_vars: dict[str, Any], **kwargs: Any
 ) -> list[Any]:
     """Executes an AQL query and returns the results as a list."""
     return list(aql(db, query, bind_vars, **kwargs))
 
 
 def aql_single(
-    db: arango.StandardDatabase, query: str, bind_vars: dict[str, Any]
-) -> Any:
+    db: StandardDatabase, query: str, bind_vars: dict[str, Any]
+) -> Any | None:
     """Executes an AQL query and returns the first result."""
     result = aql_as_list(db, query, bind_vars)
     if len(result) == 0:
@@ -164,41 +174,44 @@ def aql_single(
     return result[0]
 
 
-def aql_doc_has_key(db: arango.StandardDatabase, id: str, key: str) -> bool:
+def aql_doc_has_key(db: StandardDatabase, id: str, key: str) -> bool:
     """Checks if a document has a key."""
-    query = f"RETURN HAS(DOCUMENT(@id), @key)"
+    query = "RETURN HAS(DOCUMENT(@id), @key)"
     bind_vars = {"id": id, "key": key}
-    return aql_single(db, query, bind_vars)
+    result = aql_single(db, query, bind_vars)
+    return bool(result) if result is not None else False
 
 
-def aql_doc_get_key(db: arango.StandardDatabase, id: str, key: str) -> Any:
+def aql_doc_get_key(db: StandardDatabase, id: str, key: str) -> Any:
     """Gets a key from a document."""
-    query = f"RETURN DOCUMENT(@id).@key"
+    query = "RETURN DOCUMENT(@id).@key"
     bind_vars = {"id": id, "key": key}
     return aql_single(db, query, bind_vars)
 
 
-def aql_doc_get_keys(db: arango.StandardDatabase, id: str) -> list[str]:
+def aql_doc_get_keys(db: StandardDatabase, id: str) -> list[str]:
     """Gets the keys of a document."""
-    query = f"RETURN ATTRIBUTES(DOCUMENT(@id))"
+    query = "RETURN ATTRIBUTES(DOCUMENT(@id))"
     bind_vars = {"id": id}
-    return aql_single(db, query, bind_vars)
+    result = aql_single(db, query, bind_vars)
+    return list(result) if result is not None else []
 
 
-def aql_doc_get_length(db: arango.StandardDatabase, id: str) -> int:
+def aql_doc_get_length(db: StandardDatabase, id: str) -> int:
     """Gets the length of a document."""
-    query = f"RETURN LENGTH(DOCUMENT(@id))"
+    query = "RETURN LENGTH(DOCUMENT(@id))"
     bind_vars = {"id": id}
-    return aql_single(db, query, bind_vars)
+    result = aql_single(db, query, bind_vars)
+    return int(result) if result is not None else 0
 
 
 def aql_edge_exists(
-    db: arango.StandardDatabase,
+    db: StandardDatabase,
     src_node_id: str,
     dst_node_id: str,
     graph_name: str,
     direction: str,
-):
+) -> bool | None:
     return aql_edge(
         db,
         src_node_id,
@@ -210,12 +223,12 @@ def aql_edge_exists(
 
 
 def aql_edge_get(
-    db: arango.StandardDatabase,
+    db: StandardDatabase,
     src_node_id: str,
     dst_node_id: str,
     graph_name: str,
     direction: str,
-):
+) -> Any | None:
     # TODO: need the use of DISTINCT
     return_clause = "DISTINCT e" if direction == "ANY" else "e"
     return aql_edge(
@@ -229,15 +242,15 @@ def aql_edge_get(
 
 
 def aql_edge_id(
-    db: arango.StandardDatabase,
+    db: StandardDatabase,
     src_node_id: str,
     dst_node_id: str,
     graph_name: str,
     direction: str,
-):
+) -> str | None:
     # TODO: need the use of DISTINCT
     return_clause = "DISTINCT e._id" if direction == "ANY" else "e._id"
-    return aql_edge(
+    result = aql_edge(
         db,
         src_node_id,
         dst_node_id,
@@ -246,21 +259,26 @@ def aql_edge_id(
         return_clause=return_clause,
     )
 
+    return str(result) if result is not None else None
+
 
 def aql_edge(
-    db: arango.StandardDatabase,
+    db: StandardDatabase,
     src_node_id: str,
     dst_node_id: str,
     graph_name: str,
     direction: str,
     return_clause: str,
-):
+) -> Any | None:
     if direction == "INBOUND":
-        filter_clause = f"e._from == @dst_node_id"
+        filter_clause = "e._from == @dst_node_id"
     elif direction == "OUTBOUND":
-        filter_clause = f"e._to == @dst_node_id"
+        filter_clause = "e._to == @dst_node_id"
     elif direction == "ANY":
-        filter_clause = f"(e._from == @dst_node_id AND e._to == @src_node_id) OR (e._to == @dst_node_id AND e._from == @src_node_id)"
+        filter_clause = """
+            (e._from == @dst_node_id AND e._to == @src_node_id)
+            OR (e._to == @dst_node_id AND e._from == @src_node_id)
+        """
     else:
         raise InvalidTraversalDirection(f"Invalid direction: {direction}")
 
@@ -280,80 +298,87 @@ def aql_edge(
 
 
 def aql_fetch_data(
-    db: arango.StandardDatabase,
+    db: StandardDatabase,
     collections: list[str],
     data: str,
     default: Any,
-    is_edge: bool = True,
-) -> dict[str, Any] | list[tuple[str, str, Any]]:
-    if is_edge:
-        items = []
-        for collection in collections:
-            query = f"""
-                LET result = (
-                    FOR doc IN `{collection}`
-                        RETURN [doc._from, doc._to, doc.@data or @default]
-                )
+) -> dict[str, Any]:
+    items = {}
+    for collection in collections:
+        query = """
+            LET result = (
+                FOR doc IN @@collection
+                    RETURN {[doc._id]: doc.@data or @default}
+            )
 
-                RETURN result
-            """
+            RETURN MERGE(result)
+        """
 
-            bind_vars = {"data": data, "default": default}
+        bind_vars = {"data": data, "default": default, "@collection": collection}
+        result = aql_single(db, query, bind_vars)
+        items.update(result if result is not None else {})
 
-            items.extend(aql_single(db, query, bind_vars))
+    return items
 
-        return items
 
-    else:
-        return_clause = f"{{[doc._id]: doc.@data or @default}}"
+def aql_fetch_data_edge(
+    db: StandardDatabase,
+    collections: list[str],
+    data: str,
+    default: Any,
+) -> list[tuple[str, str, Any]]:
+    items = []
+    for collection in collections:
+        query = """
+            LET result = (
+                FOR doc IN @@collection
+                    RETURN [doc._from, doc._to, doc.@data or @default]
+            )
 
-        items = {}
-        for collection in collections:
-            query = f"""
-                LET result = (
-                    FOR doc IN `{collection}`
-                        RETURN {return_clause}
-                )
+            RETURN result
+        """
 
-                RETURN MERGE(result)
-            """
+        bind_vars = {"data": data, "default": default, "@collection": collection}
+        result = aql_single(db, query, bind_vars)
+        items.extend(result if result is not None else [])
 
-            bind_vars = {"data": data, "default": default}
-
-            items.update(aql_single(db, query, bind_vars))
-
-        return items.items()
+    return items
 
 
 def doc_update(
-    db: arango.StandardDatabase, id: str, data: dict[str, Any], **kwargs
+    db: StandardDatabase, id: str, data: dict[str, Any], **kwargs: Any
 ) -> None:
     """Updates a document in the collection."""
     db.update_document({**data, "_id": id}, keep_none=False, silent=True, **kwargs)
 
 
-def doc_delete(db: arango.StandardDatabase, id: str, **kwargs) -> None:
+def doc_delete(db: StandardDatabase, id: str, **kwargs: Any) -> None:
     """Deletes a document from the collection."""
     db.delete_document(id, silent=True, **kwargs)
 
 
 def doc_insert(
-    db: arango.StandardDatabase,
+    db: StandardDatabase,
     collection: str,
     id: str,
     data: dict[str, Any] = {},
-    **kwargs,
-) -> dict[str, Any] | bool:
+    **kwargs: Any,
+) -> dict[str, Any]:
     """Inserts a document into a collection."""
-    return db.insert_document(collection, {**data, "_id": id}, overwrite=True, **kwargs)
+    result: dict[str, Any] = db.insert_document(
+        collection, {**data, "_id": id}, overwrite=True, **kwargs
+    )
+
+    return result
 
 
 def doc_get_or_insert(
-    db: arango.StandardDatabase, collection: str, id: str, **kwargs
+    db: StandardDatabase, collection: str, id: str, **kwargs: Any
 ) -> dict[str, Any]:
     """Loads a document if existing, otherwise inserts it & returns it."""
     if db.has_document(id):
-        return db.document(id)
+        result: dict[str, Any] = db.document(id)
+        return result
 
     return doc_insert(db, collection, id, **kwargs)
 

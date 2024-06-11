@@ -1,6 +1,9 @@
+# type: ignore
+# NOTE: NetworkX algorithms are not typed
+
 import networkx as nx
 
-from nx_arangodb.convert import _to_nxadb_graph, _to_nxcg_graph
+from nx_arangodb.convert import _to_nx_graph, _to_nxcg_graph
 from nx_arangodb.logger import logger
 from nx_arangodb.utils import _dtype_param, networkx_algorithm
 
@@ -51,7 +54,7 @@ def pagerank(
             dtype=dtype,
         )
 
-    G = _to_nxadb_graph(G, pull_graph=pull_graph_on_cpu)
+    G = _to_nx_graph(G, pull_graph=pull_graph_on_cpu)
 
     logger.debug("using nx.pagerank")
     return nx.algorithms.pagerank.orig_func(

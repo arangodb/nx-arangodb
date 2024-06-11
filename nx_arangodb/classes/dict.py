@@ -1,8 +1,13 @@
+"""
+A collection of dictionary-like objects for interacting with ArangoDB.
+Used as the underlying data structure for NetworkX-ArangoDB graphs.
+"""
+
 from __future__ import annotations
 
 from collections import UserDict, defaultdict
 from collections.abc import Iterator
-from typing import Any, Callable
+from typing import Any, Callable, Generator
 
 from arango.database import StandardDatabase
 from arango.exceptions import DocumentInsertError
@@ -21,6 +26,7 @@ from .function import (
     aql_edge_get,
     aql_edge_id,
     aql_fetch_data,
+    aql_fetch_data_edge,
     aql_single,
     create_collection,
     doc_delete,
@@ -81,7 +87,7 @@ def edge_attr_dict_factory(
     return lambda: EdgeAttrDict(db, graph)
 
 
-class GraphDict(UserDict):
+class GraphDict(UserDict[str, Any]):
     """A dictionary-like object for storing graph attributes.
 
     Given that ArangoDB does not have a concept of graph attributes, this class
@@ -95,9 +101,12 @@ class GraphDict(UserDict):
 
     COLLECTION_NAME = "nxadb_graphs"
 
-    def __init__(self, db: StandardDatabase, graph_name: str, *args, **kwargs):
+    def __init__(
+        self, db: StandardDatabase, graph_name: str, *args: Any, **kwargs: Any
+    ):
         logger.debug("GraphDict.__init__")
         super().__init__(*args, **kwargs)
+        self.data: dict[str, Any] = {}
 
         self.db = db
         self.graph_name = graph_name
@@ -120,7 +129,7 @@ class GraphDict(UserDict):
         return aql_doc_has_key(self.db, self.graph_id, key)
 
     @key_is_string
-    def __getitem__(self, key: Any) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """G.graph['foo']"""
         if value := self.data.get(key):
             return value
@@ -138,7 +147,7 @@ class GraphDict(UserDict):
     @key_is_string
     @key_is_not_reserved
     # @value_is_json_serializable # TODO?
-    def __setitem__(self, key: str, value: Any):
+    def __setitem__(self, key: str, value: Any) -> None:
         """G.graph['foo'] = 'bar'"""
         self.data[key] = value
         logger.debug(f"doc_update in GraphDict.__setitem__({key})")
@@ -146,7 +155,7 @@ class GraphDict(UserDict):
 
     @key_is_string
     @key_is_not_reserved
-    def __delitem__(self, key):
+    def __delitem__(self, key: str) -> None:
         """del G.graph['foo']"""
         self.data.pop(key, None)
         logger.debug(f"doc_update in GraphDict.__delitem__({key})")
@@ -155,14 +164,14 @@ class GraphDict(UserDict):
     @keys_are_strings
     @keys_are_not_reserved
     # @values_are_json_serializable # TODO?
-    def update(self, attrs):
+    def update(self, attrs: Any) -> None:
         """G.graph.update({'foo': 'bar'})"""
         if attrs:
             self.data.update(attrs)
             logger.debug(f"doc_update in GraphDict.update({attrs})")
             doc_update(self.db, self.graph_id, attrs)
 
-    def clear(self):
+    def clear(self) -> None:
         """G.graph.clear()"""
         self.data.clear()
         logger.debug("cleared GraphDict")
@@ -171,16 +180,139 @@ class GraphDict(UserDict):
         #     doc_insert(self.db, self.COLLECTION_NAME, self.graph_id, silent=True)
 
 
-class NodeDict(UserDict):
-    """The outer-level of the dict of dict structure representing the nodes (vertices) of a graph.
-
-    The outer dict is keyed by ArangoDB Vertex IDs and the inner dict is keyed by Vertex attributes.
+class NodeAttrDict(UserDict[str, Any]):
+    """The inner-level of the dict of dict structure
+    representing the nodes (vertices) of a graph.
 
     :param db: The ArangoDB database.
     :type db: StandardDatabase
     :param graph: The ArangoDB graph.
     :type graph: Graph
-    :param default_node_type: The default node type. Used if the node ID is not formatted as 'type/id'.
+    """
+
+    def __init__(self, db: StandardDatabase, graph: Graph, *args: Any, **kwargs: Any):
+        logger.debug("NodeAttrDict.__init__")
+
+        self.db = db
+        self.graph = graph
+        self.node_id: str
+
+        super().__init__(*args, **kwargs)
+        self.data: dict[str, Any] = {}
+
+    @key_is_string
+    def __contains__(self, key: str) -> bool:
+        """'foo' in G._node['node/1']"""
+        if key in self.data:
+            logger.debug(f"cached in NodeAttrDict.__contains__({key})")
+            return True
+
+        logger.debug("aql_doc_has_key in NodeAttrDict.__contains__")
+        return aql_doc_has_key(self.db, self.node_id, key)
+
+    @key_is_string
+    def __getitem__(self, key: str) -> Any:
+        """G._node['node/1']['foo']"""
+        if value := self.data.get(key):
+            logger.debug(f"cached in NodeAttrDict.__getitem__({key})")
+            return value
+
+        logger.debug(f"aql_doc_get_key in NodeAttrDict.__getitem__({key})")
+        result = aql_doc_get_key(self.db, self.node_id, key)
+
+        if not result:
+            raise KeyError(key)
+
+        self.data[key] = result
+
+        return result
+
+    @key_is_string
+    @key_is_not_reserved
+    # @value_is_json_serializable # TODO?
+    def __setitem__(self, key: str, value: Any) -> None:
+        """G._node['node/1']['foo'] = 'bar'"""
+        self.data[key] = value
+        logger.debug(f"doc_update in NodeAttrDict.__setitem__({key})")
+        doc_update(self.db, self.node_id, {key: value})
+
+    @key_is_string
+    @key_is_not_reserved
+    def __delitem__(self, key: str) -> None:
+        """del G._node['node/1']['foo']"""
+        self.data.pop(key, None)
+        logger.debug(f"doc_update in NodeAttrDict({self.node_id}).__delitem__({key})")
+        doc_update(self.db, self.node_id, {key: None})
+
+    def __iter__(self) -> Iterator[str]:
+        """for key in G._node['node/1']"""
+        logger.debug(f"NodeAttrDict({self.node_id}).__iter__")
+        yield from aql_doc_get_keys(self.db, self.node_id)
+
+    def __len__(self) -> int:
+        """len(G._node['node/1'])"""
+        logger.debug(f"NodeAttrDict({self.node_id}).__len__")
+        return aql_doc_get_length(self.db, self.node_id)
+
+    # TODO: Revisit typing of return value
+    from collections.abc import KeysView
+
+    def keys(self) -> Any:
+        """G._node['node/1'].keys()"""
+        logger.debug(f"NodeAttrDict({self.node_id}).keys()")
+        yield from self.__iter__()
+
+    # TODO: Revisit typing of return value
+    def values(self) -> Any:
+        """G._node['node/1'].values()"""
+        logger.debug(f"NodeAttrDict({self.node_id}).values()")
+        self.data = self.db.document(self.node_id)
+        yield from self.data.values()
+
+    # TODO: Revisit typing of return value
+    def items(self) -> Any:
+        """G._node['node/1'].items()"""
+        logger.debug(f"NodeAttrDict({self.node_id}).items()")
+        self.data = self.db.document(self.node_id)
+        yield from self.data.items()
+
+    def clear(self) -> None:
+        """G._node['node/1'].clear()"""
+        self.data.clear()
+        logger.debug(f"cleared NodeAttrDict({self.node_id})")
+
+        # if clear_remote:
+        #     doc_insert(self.db, self.node_id, silent=True, overwrite=True)
+
+    @keys_are_strings
+    @keys_are_not_reserved
+    # @values_are_json_serializable # TODO?
+    def update(self, attrs: Any) -> None:
+        """G._node['node/1'].update({'foo': 'bar'})"""
+        if attrs:
+            self.data.update(attrs)
+
+            if not self.node_id:
+                logger.debug("Node ID not set, skipping NodeAttrDict(?).update()")
+                return
+
+            logger.debug(f"NodeAttrDict({self.node_id}).update({attrs})")
+            doc_update(self.db, self.node_id, attrs)
+
+
+class NodeDict(UserDict[str, NodeAttrDict]):
+    """The outer-level of the dict of dict structure representing the
+    nodes (vertices) of a graph.
+
+    The outer dict is keyed by ArangoDB Vertex IDs and the inner dict
+    is keyed by Vertex attributes.
+
+    :param db: The ArangoDB database.
+    :type db: StandardDatabase
+    :param graph: The ArangoDB graph.
+    :type graph: Graph
+    :param default_node_type: The default node type. Used if the node ID
+        is not formatted as 'type/id'.
     :type default_node_type: str
     """
 
@@ -189,11 +321,12 @@ class NodeDict(UserDict):
         db: StandardDatabase,
         graph: Graph,
         default_node_type: str,
-        *args,
-        **kwargs,
+        *args: Any,
+        **kwargs: Any,
     ):
         logger.debug("NodeDict.__init__")
         super().__init__(*args, **kwargs)
+        self.data: dict[str, NodeAttrDict] = {}
 
         self.db = db
         self.graph = graph
@@ -210,7 +343,7 @@ class NodeDict(UserDict):
             return True
 
         logger.debug(f"graph.has_vertex in NodeDict.__contains__({node_id})")
-        return self.graph.has_vertex(node_id)
+        return bool(self.graph.has_vertex(node_id))
 
     @key_is_string
     def __getitem__(self, key: str) -> NodeAttrDict:
@@ -234,7 +367,7 @@ class NodeDict(UserDict):
         raise KeyError(key)
 
     @key_is_string
-    def __setitem__(self, key: str, value: NodeAttrDict):
+    def __setitem__(self, key: str, value: NodeAttrDict) -> None:
         """G._node['node/1'] = {'foo': 'bar'}
 
         Not to be confused with:
@@ -254,7 +387,7 @@ class NodeDict(UserDict):
         self.data[node_id] = node_attr_dict
 
     @key_is_string
-    def __delitem__(self, key: Any) -> None:
+    def __delitem__(self, key: str) -> None:
         """del g._node['node/1']"""
         node_id = get_node_id(key, self.default_node_type)
 
@@ -262,7 +395,7 @@ class NodeDict(UserDict):
             raise KeyError(key)
 
         remove_statements = "\n".join(
-            f"REMOVE e IN `{edge_def['edge_collection']}` OPTIONS {{ignoreErrors: true}}"
+            f"REMOVE e IN `{edge_def['edge_collection']}` OPTIONS {{ignoreErrors: true}}"  # noqa
             for edge_def in self.graph.edge_definitions()
         )
 
@@ -295,10 +428,9 @@ class NodeDict(UserDict):
         """iter(g._node)"""
         logger.debug("NodeDict.__iter__")
         for collection in self.graph.vertex_collections():
-            for node_id in self.graph.vertex_collection(collection).ids():
-                yield node_id
+            yield from self.graph.vertex_collection(collection).ids()
 
-    def clear(self):
+    def clear(self) -> None:
         """g._node.clear()"""
         self.data.clear()
         logger.debug("cleared NodeDict")
@@ -308,7 +440,7 @@ class NodeDict(UserDict):
         #         self.graph.vertex_collection(collection).truncate()
 
     @keys_are_strings
-    def update(self, nodes: dict[str, dict[str, Any]]):
+    def update(self, nodes: Any) -> None:
         """g._node.update({'node/1': {'foo': 'bar'}, 'node/2': {'baz': 'qux'}})"""
         raise NotImplementedError("NodeDict.update()")
         # for node_id, attrs in nodes.items():
@@ -322,27 +454,30 @@ class NodeDict(UserDict):
 
         #     self.data[node_id] = node_attr_dict
 
-    def keys(self):
+    def keys(self) -> Any:
         """g._node.keys()"""
         logger.debug("NodeDict.keys()")
         return self.__iter__()
 
-    def values(self):
+    # TODO: Revisit typing of return value
+    def values(self) -> Any:
         """g._node.values()"""
         logger.debug("NodeDict.values()")
         self.__fetch_all()
-        return self.data.values()
+        yield from self.data.values()
 
-    def items(self, data: str | None = None, default: Any | None = None):
+    # TODO: Revisit typing of return value
+    def items(self, data: str | None = None, default: Any | None = None) -> Any:
         """g._node.items() or G._node.items(data='foo')"""
         if data is None:
             logger.debug("NodeDict.items(data=None)")
             self.__fetch_all()
-            return self.data.items()
-
-        logger.debug(f"NodeDict.items(data={data})")
-        v_cols = list(self.graph.vertex_collections())
-        return aql_fetch_data(self.db, v_cols, data, default, is_edge=False)
+            yield from self.data.items()
+        else:
+            logger.debug(f"NodeDict.items(data={data})")
+            v_cols = list(self.graph.vertex_collections())
+            result = aql_fetch_data(self.db, v_cols, data, default)
+            yield from result.items()
 
     def __fetch_all(self):
         logger.debug("NodeDict.__fetch_all()")
@@ -359,8 +494,11 @@ class NodeDict(UserDict):
                 self.data[node_id] = node_attr_dict
 
 
-class NodeAttrDict(UserDict):
-    """The inner-level of the dict of dict structure representing the nodes (vertices) of a graph.
+class EdgeAttrDict(UserDict[str, Any]):
+    """The innermost-level of the dict of dict of dict structure
+    representing the Adjacency List of a graph.
+
+    The innermost-dict is keyed by the edge attribute key.
 
     :param db: The ArangoDB database.
     :type db: StandardDatabase
@@ -368,34 +506,43 @@ class NodeAttrDict(UserDict):
     :type graph: Graph
     """
 
-    def __init__(self, db: StandardDatabase, graph: Graph, *args, **kwargs):
-        logger.debug("NodeAttrDict.__init__")
+    def __init__(
+        self,
+        db: StandardDatabase,
+        graph: Graph,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        logger.debug("EdgeAttrDict.__init__")
+
+        super().__init__(*args, **kwargs)
+        self.data: dict[str, Any] = {}
 
         self.db = db
         self.graph = graph
-        self.node_id: str | None = None
-
-        super().__init__(*args, **kwargs)
+        self.edge_id: str
 
     @key_is_string
     def __contains__(self, key: str) -> bool:
-        """'foo' in G._node['node/1']"""
+        """'foo' in G._adj['node/1']['node/2']"""
         if key in self.data:
-            logger.debug(f"cached in NodeAttrDict.__contains__({key})")
+            logger.debug(f"cached in EdgeAttrDict({self.edge_id}).__contains__({key})")
             return True
 
-        logger.debug("aql_doc_has_key in NodeAttrDict.__contains__")
-        return aql_doc_has_key(self.db, self.node_id, key)
+        logger.debug(f"aql_doc_has_key in EdgeAttrDict({self.edge_id}).__contains__")
+        return aql_doc_has_key(self.db, self.edge_id, key)
 
     @key_is_string
     def __getitem__(self, key: str) -> Any:
-        """G._node['node/1']['foo']"""
+        """G._adj['node/1']['node/2']['foo']"""
         if value := self.data.get(key):
-            logger.debug(f"cached in NodeAttrDict.__getitem__({key})")
+            logger.debug(f"cached in EdgeAttrDict({self.edge_id}).__getitem__({key})")
             return value
 
-        logger.debug(f"aql_doc_get_key in NodeAttrDict.__getitem__({key})")
-        result = aql_doc_get_key(self.db, self.node_id, key)
+        logger.debug(
+            f"aql_doc_get_key in EdgeAttrDict({self.edge_id}).__getitem__({key})"
+        )
+        result = aql_doc_get_key(self.db, self.edge_id, key)
 
         if not result:
             raise KeyError(key)
@@ -407,71 +554,369 @@ class NodeAttrDict(UserDict):
     @key_is_string
     @key_is_not_reserved
     # @value_is_json_serializable # TODO?
-    def __setitem__(self, key: str, value: Any):
-        """G._node['node/1']['foo'] = 'bar'"""
+    def __setitem__(self, key: str, value: Any) -> None:
+        """G._adj['node/1']['node/2']['foo'] = 'bar'"""
         self.data[key] = value
-        logger.debug(f"doc_update in NodeAttrDict.__setitem__({key})")
-        doc_update(self.db, self.node_id, {key: value})
+        logger.debug(f"doc_update in EdgeAttrDict({self.edge_id}).__setitem__({key})")
+        doc_update(self.db, self.edge_id, {key: value})
 
     @key_is_string
     @key_is_not_reserved
-    def __delitem__(self, key: str):
-        """del G._node['node/1']['foo']"""
+    def __delitem__(self, key: str) -> None:
+        """del G._adj['node/1']['node/2']['foo']"""
         self.data.pop(key, None)
-        logger.debug(f"doc_update in NodeAttrDict({self.node_id}).__delitem__({key})")
-        doc_update(self.db, self.node_id, {key: None})
+        logger.debug(f"doc_update in EdgeAttrDict({self.edge_id}).__delitem__({key})")
+        doc_update(self.db, self.edge_id, {key: None})
 
     def __iter__(self) -> Iterator[str]:
-        """for key in G._node['node/1']"""
-        logger.debug(f"NodeAttrDict({self.node_id}).__iter__")
-        for key in aql_doc_get_keys(self.db, self.node_id):
-            yield key
+        """for key in G._adj['node/1']['node/2']"""
+        logger.debug(f"EEdgeAttrDict({self.edge_id}).__iter__")
+        yield from aql_doc_get_keys(self.db, self.edge_id)
 
     def __len__(self) -> int:
-        """len(G._node['node/1'])"""
-        logger.debug(f"NodeAttrDict({self.node_id}).__len__")
-        return aql_doc_get_length(self.db, self.node_id)
+        """len(G._adj['node/1']['node/'2])"""
+        logger.debug(f"EdgeAttrDict({self.edge_id}).__len__")
+        return aql_doc_get_length(self.db, self.edge_id)
 
-    def keys(self):
-        """G._node['node/1'].keys()"""
-        logger.debug(f"NodeAttrDict({self.node_id}).keys()")
+    # TODO: Revisit typing of return value
+    def keys(self) -> Any:
+        """G._adj['node/1']['node/'2].keys()"""
+        logger.debug(f"EdgeAttrDict({self.edge_id}).keys()")
         return self.__iter__()
 
-    def values(self):
-        """G._node['node/1'].values()"""
-        logger.debug(f"NodeAttrDict({self.node_id}).values()")
-        self.data = self.db.document(self.node_id)
-        return self.data.values()
+    # TODO: Revisit typing of return value
+    def values(self) -> Any:
+        """G._adj['node/1']['node/'2].values()"""
+        logger.debug(f"EdgeAttrDict({self.edge_id}).values()")
+        self.data = self.db.document(self.edge_id)
+        yield from self.data.values()
 
-    def items(self):
-        """G._node['node/1'].items()"""
-        logger.debug(f"NodeAttrDict({self.node_id}).items()")
-        self.data = self.db.document(self.node_id)
-        return self.data.items()
+    # TODO: Revisit typing of return value
+    def items(self) -> Any:
+        """G._adj['node/1']['node/'2].items()"""
+        logger.debug(f"EdgeAttrDict({self.edge_id}).items()")
+        self.data = self.db.document(self.edge_id)
+        yield from self.data.items()
 
-    def clear(self):
-        """G._node['node/1'].clear()"""
+    def clear(self) -> None:
+        """G._adj['node/1']['node/'2].clear()"""
         self.data.clear()
-        logger.debug(f"cleared NodeAttrDict({self.node_id})")
+        logger.debug(f"cleared EdgeAttrDict({self.edge_id})")
 
-        # if clear_remote:
-        #     doc_insert(self.db, self.node_id, silent=True, overwrite=True)
-
-    def update(self, attrs: dict[str, Any]):
-        """G._node['node/1'].update({'foo': 'bar'})"""
+    @keys_are_strings
+    @keys_are_not_reserved
+    def update(self, attrs: Any) -> None:
+        """G._adj['node/1']['node/'2].update({'foo': 'bar'})"""
         if attrs:
             self.data.update(attrs)
 
-            if not self.node_id:
-                logger.debug(f"Node ID not set, skipping NodeAttrDict(?).update()")
+            if not hasattr(self, "edge_id"):
+                logger.debug("Edge ID not set, skipping EdgeAttrDict(?).update()")
                 return
 
-            logger.debug(f"NodeAttrDict({self.node_id}).update({attrs})")
-            doc_update(self.db, self.node_id, attrs)
+            logger.debug(f"EdgeAttrDict({self.edge_id}).update({attrs})")
+            doc_update(self.db, self.edge_id, attrs)
 
 
-class AdjListOuterDict(UserDict):
-    """The outer-level of the dict of dict of dict structure representing the Adjacency List of a graph.
+class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
+    """The inner-level of the dict of dict of dict structure
+    representing the Adjacency List of a graph.
+
+    The inner-dict is keyed by the node ID of the destination node.
+
+    :param db: The ArangoDB database.
+    :type db: StandardDatabase
+    :param graph: The ArangoDB graph.
+    :type graph: Graph
+    :param default_node_type: The default node type.
+    :type default_node_type: str
+    :param edge_type_func: The function to generate the edge type.
+    :type edge_type_func: Callable[[str, str], str]
+    """
+
+    def __init__(
+        self,
+        db: StandardDatabase,
+        graph: Graph,
+        default_node_type: str,
+        edge_type_func: Callable[[str, str], str],
+        adjlist_outer_dict: AdjListOuterDict | None,
+        *args: Any,
+        **kwargs: Any,
+    ):
+        logger.debug("AdjListInnerDict.__init__")
+
+        super().__init__(*args, **kwargs)
+        self.data: dict[str, EdgeAttrDict] = {}
+
+        self.db = db
+        self.graph = graph
+        self.default_node_type = default_node_type
+        self.edge_type_func = edge_type_func
+        self.adjlist_outer_dict = adjlist_outer_dict
+
+        self.src_node_id: str
+
+        self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
+
+        self.FETCHED_ALL_DATA = False
+
+    def __get_mirrored_edge_attr_dict(self, dst_node_id: str) -> EdgeAttrDict | None:
+        if self.adjlist_outer_dict is None:
+            return None
+
+        logger.debug(f"checking for mirrored edge ({self.src_node_id}, {dst_node_id})")
+        if dst_node_id in self.adjlist_outer_dict.data:
+            if self.src_node_id in self.adjlist_outer_dict.data[dst_node_id].data:
+                return self.adjlist_outer_dict.data[dst_node_id].data[self.src_node_id]
+
+        return None
+
+    def __repr__(self) -> str:
+        return f"'{self.src_node_id}'"
+
+    def __str__(self) -> str:
+        return f"'{self.src_node_id}'"
+
+    @key_is_string
+    def __contains__(self, key: str) -> bool:
+        """'node/2' in G.adj['node/1']"""
+        dst_node_id = get_node_id(key, self.default_node_type)
+
+        if dst_node_id in self.data:
+            logger.debug(f"cached in AdjListInnerDict.__contains__({dst_node_id})")
+            return True
+
+        logger.debug(f"aql_edge_exists in AdjListInnerDict.__contains__({dst_node_id})")
+
+        result = aql_edge_exists(
+            self.db,
+            self.src_node_id,
+            dst_node_id,
+            self.graph.name,
+            direction="ANY",
+        )
+
+        return result if result else False
+
+    @key_is_string
+    def __getitem__(self, key: str) -> EdgeAttrDict:
+        """g._adj['node/1']['node/2']"""
+        dst_node_id = get_node_id(key, self.default_node_type)
+
+        if dst_node_id in self.data:
+            m = f"cached in AdjListInnerDict({self.src_node_id}).__getitem__({dst_node_id})"  # noqa
+            logger.debug(m)
+            return self.data[dst_node_id]
+
+        if mirrored_edge_attr_dict := self.__get_mirrored_edge_attr_dict(dst_node_id):
+            logger.debug("No need to fetch the edge, as it is already cached")
+            self.data[dst_node_id] = mirrored_edge_attr_dict
+            return mirrored_edge_attr_dict
+
+        m = f"aql_edge_get in AdjListInnerDict({self.src_node_id}).__getitem__({dst_node_id})"  # noqa
+        edge = aql_edge_get(
+            self.db,
+            self.src_node_id,
+            dst_node_id,
+            self.graph.name,
+            direction="ANY",
+        )
+
+        if not edge:
+            raise KeyError(key)
+
+        edge_attr_dict = self.edge_attr_dict_factory()
+        edge_attr_dict.edge_id = edge["_id"]
+        edge_attr_dict.data = edge
+
+        self.data[dst_node_id] = edge_attr_dict
+
+        return edge_attr_dict
+
+    @key_is_string
+    def __setitem__(self, key: str, value: dict[str, Any] | EdgeAttrDict) -> None:
+        """g._adj['node/1']['node/2'] = {'foo': 'bar'}"""
+        assert isinstance(value, EdgeAttrDict)
+        logger.debug(f"AdjListInnerDict({self.src_node_id}).__setitem__({key})")
+
+        src_node_type = self.src_node_id.split("/")[0]
+        dst_node_type, dst_node_id = get_node_type_and_id(key, self.default_node_type)
+
+        if mirrored_edge_attr_dict := self.__get_mirrored_edge_attr_dict(dst_node_id):
+            logger.debug("No need to create a new edge, as it already exists")
+            self.data[dst_node_id] = mirrored_edge_attr_dict
+            return
+
+        edge_type = value.data.get("_edge_type")
+        if edge_type is None:
+            edge_type = self.edge_type_func(src_node_type, dst_node_type)
+            logger.debug(f"No edge type specified, so generated: {edge_type})")
+
+        edge_id: str | None
+        if hasattr(value, "edge_id"):
+            m = f"edge id found, deleting ({self.src_node_id, dst_node_id})"
+            logger.debug(m)
+            self.graph.delete_edge(value.edge_id)
+
+        elif edge_id := aql_edge_id(
+            self.db,
+            self.src_node_id,
+            dst_node_id,
+            self.graph.name,
+            direction="ANY",
+        ):
+            m = f"existing edge found, deleting ({self.src_node_id, dst_node_id})"
+            logger.debug(m)
+            self.graph.delete_edge(edge_id)
+
+        edge_data = value.data
+        logger.debug(f"graph.link({self.src_node_id}, {dst_node_id})")
+        edge = self.graph.link(edge_type, self.src_node_id, dst_node_id, edge_data)
+
+        edge_attr_dict = self.edge_attr_dict_factory()
+        edge_attr_dict.edge_id = edge["_id"]
+        edge_attr_dict.data = {
+            **edge_data,
+            **edge,
+            "_from": self.src_node_id,
+            "_to": dst_node_id,
+        }
+
+        self.data[dst_node_id] = edge_attr_dict
+
+    @key_is_string
+    def __delitem__(self, key: str) -> None:
+        """del g._adj['node/1']['node/2']"""
+        dst_node_id = get_node_id(key, self.default_node_type)
+        self.data.pop(dst_node_id, None)
+
+        if self.__get_mirrored_edge_attr_dict(dst_node_id):
+            m = "No need to delete the edge, as the next del will take care of it"
+            logger.debug(m)
+            return
+
+        logger.debug(f"fetching edge ({self.src_node_id, dst_node_id})")
+        edge_id = aql_edge_id(
+            self.db,
+            self.src_node_id,
+            dst_node_id,
+            self.graph.name,
+            direction="ANY",
+        )
+
+        if not edge_id:
+            m = f"edge not found, AdjListInnerDict({self.src_node_id}).__delitem__({dst_node_id})"  # noqa
+            logger.debug(m)
+            return
+
+        logger.debug(f"graph.delete_edge({edge_id})")
+        self.graph.delete_edge(edge_id)
+
+    def __len__(self) -> int:
+        """len(g._adj['node/1'])"""
+        assert self.src_node_id
+
+        if self.FETCHED_ALL_DATA:
+            m = f"Already fetched data, skipping AdjListInnerDict({self.src_node_id}).__len__"  # noqa
+            logger.debug(m)
+            return len(self.data)
+
+        query = """
+            RETURN LENGTH(
+                FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
+                    RETURN 1
+            )
+        """
+
+        bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
+
+        logger.debug(f"aql_single in AdjListInnerDict({self.src_node_id}).__len__")
+        result = aql_single(self.db, query, bind_vars)
+
+        if result is None:
+            return 0
+
+        return int(result)
+
+    def __iter__(self) -> Iterator[str]:
+        """for k in g._adj['node/1']"""
+        if self.FETCHED_ALL_DATA:
+            m = f"Already fetched data, skipping AdjListInnerDict({self.src_node_id}).__iter__"  # noqa
+            logger.debug(m)
+            yield from self.data.keys()
+
+        else:
+            query = """
+                FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
+                    RETURN e._to
+            """
+
+            bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
+
+            logger.debug(f"aql in AdjListInnerDict({self.src_node_id}).__iter__")
+            yield from aql(self.db, query, bind_vars)
+
+    # TODO: Revisit typing of return value
+    def keys(self) -> Any:
+        """g._adj['node/1'].keys()"""
+        logger.debug(f"AdjListInnerDict({self.src_node_id}).keys()")
+        return self.__iter__()
+
+    def clear(self) -> None:
+        """G._adj['node/1'].clear()"""
+        self.data.clear()
+        self.FETCHED_ALL_DATA = False
+        logger.debug(f"cleared AdjListInnerDict({self.src_node_id})")
+
+    @keys_are_strings
+    def update(self, edges: Any) -> None:
+        """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
+        raise NotImplementedError("AdjListInnerDict.update()")
+
+    # TODO: Revisit typing of return value
+    def values(self) -> Any:
+        """g._adj['node/1'].values()"""
+        logger.debug(f"AdjListInnerDict({self.src_node_id}).values()")
+        self.__fetch_all()
+        yield from self.data.values()
+
+    # TODO: Revisit typing of return value
+    def items(self) -> Any:
+        """g._adj['node/1'].items()"""
+        logger.debug(f"AdjListInnerDict({self.src_node_id}).items()")
+        self.__fetch_all()
+        yield from self.data.items()
+
+    def __fetch_all(self) -> None:
+        logger.debug(f"AdjListInnerDict({self.src_node_id}).__fetch_all()")
+
+        if self.FETCHED_ALL_DATA:
+            logger.debug("Already fetched data, skipping fetch")
+            return
+
+        self.clear()
+
+        query = """
+            FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
+                RETURN e
+        """
+
+        bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
+
+        for edge in aql(self.db, query, bind_vars):
+            edge_attr_dict = self.edge_attr_dict_factory()
+            edge_attr_dict.edge_id = edge["_id"]
+            edge_attr_dict.data = edge
+
+            self.data[edge["_to"]] = edge_attr_dict
+
+        self.FETCHED_ALL_DATA = True
+
+
+class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
+    """The outer-level of the dict of dict of dict structure
+    representing the Adjacency List of a graph.
 
     The outer-dict is keyed by the node ID of the source node.
 
@@ -491,12 +936,13 @@ class AdjListOuterDict(UserDict):
         graph: Graph,
         default_node_type: str,
         edge_type_func: Callable[[str, str], str],
-        *args,
-        **kwargs,
+        *args: Any,
+        **kwargs: Any,
     ):
         logger.debug("AdjListOuterDict.__init__")
 
         super().__init__(*args, **kwargs)
+        self.data: dict[str, AdjListInnerDict] = {}
 
         self.db = db
         self.graph = graph
@@ -508,14 +954,14 @@ class AdjListOuterDict(UserDict):
 
         self.FETCHED_ALL_DATA = False
 
-    # def __repr__(self) -> str:
-    #     return f"'{self.graph.name}'"
+    def __repr__(self) -> str:
+        return f"'{self.graph.name}'"
 
-    # def __str__(self) -> str:
-    #     return f"'{self.graph.name}'"
+    def __str__(self) -> str:
+        return f"'{self.graph.name}'"
 
     @key_is_string
-    def __contains__(self, key) -> bool:
+    def __contains__(self, key: str) -> bool:
         """'node/1' in G.adj"""
         node_id = get_node_id(key, self.default_node_type)
 
@@ -524,7 +970,7 @@ class AdjListOuterDict(UserDict):
             return True
 
         logger.debug("graph.has_vertex in AdjListOuterDict.__contains__")
-        return self.graph.has_vertex(node_id)
+        return bool(self.graph.has_vertex(node_id))
 
     @key_is_string
     def __getitem__(self, key: str) -> AdjListInnerDict:
@@ -547,12 +993,12 @@ class AdjListOuterDict(UserDict):
         raise KeyError(key)
 
     @key_is_string
-    def __setitem__(self, src_key: str, adjlist_inner_dict: AdjListInnerDict):
+    def __setitem__(self, src_key: str, adjlist_inner_dict: AdjListInnerDict) -> None:
         """
         g._adj['node/1'] = AdjListInnerDict()
         """
         assert isinstance(adjlist_inner_dict, AdjListInnerDict)
-        assert not adjlist_inner_dict.src_node_id
+        assert not hasattr(adjlist_inner_dict, "src_node_id")
 
         logger.debug(f"AdjListOuterDict.__setitem__({src_key})")
 
@@ -562,7 +1008,6 @@ class AdjListOuterDict(UserDict):
 
         # NOTE: this might not actually be needed...
         results = {}
-        edge_dict: dict[str, Any]
         for dst_key, edge_dict in adjlist_inner_dict.data.items():
             dst_node_type, dst_node_id = get_node_type_and_id(
                 dst_key, self.default_node_type
@@ -583,7 +1028,7 @@ class AdjListOuterDict(UserDict):
         self.data[src_node_id] = adjlist_inner_dict
 
     @key_is_string
-    def __delitem__(self, key: Any) -> None:
+    def __delitem__(self, key: str) -> None:
         """
         del G._adj['node/1']
         """
@@ -613,15 +1058,15 @@ class AdjListOuterDict(UserDict):
 
         else:
             for collection in self.graph.vertex_collections():
-                for id in self.graph.vertex_collection(collection).ids():
-                    yield id
+                yield from self.graph.vertex_collection(collection).ids()
 
-    def keys(self):
+    # TODO: Revisit typing of return value
+    def keys(self) -> Any:
         """g._adj.keys()"""
         logger.debug("AdjListOuterDict.keys()")
         return self.__iter__()
 
-    def clear(self):
+    def clear(self) -> None:
         """g._node.clear()"""
         self.data.clear()
         self.FETCHED_ALL_DATA = False
@@ -632,29 +1077,37 @@ class AdjListOuterDict(UserDict):
         #         self.graph.edge_collection(ed["edge_collection"]).truncate()
 
     @keys_are_strings
-    def update(self, edges: dict[str, dict[str, dict[str, Any]]]):
+    def update(self, edges: Any) -> None:
         """g._adj.update({'node/1': {'node/2': {'foo': 'bar'}})"""
         raise NotImplementedError("AdjListOuterDict.update()")
 
-    def values(self):
+    # TODO: Revisit typing of return value
+    def values(self) -> Any:
         """g._adj.values()"""
         logger.debug("AdjListOuterDict.values()")
         self.__fetch_all()
-        return self.data.values()
+        yield from self.data.values()
 
-    def items(self, data: str | None = None, default: Any | None = None):
+    # TODO: Revisit typing of return value
+    def items(self, data: str | None = None, default: Any | None = None) -> Any:
+        # TODO: Revisit typing
+        # -> (
+        #     Generator[tuple[str, AdjListInnerDict], None, None]
+        #     | Generator[tuple[str, str, Any], None, None]
+        # ):
         """g._adj.items() or G._adj.items(data='foo')"""
         if data is None:
             logger.debug("AdjListOuterDict.items(data=None)")
             self.__fetch_all()
-            return self.data.items()
+            yield from self.data.items()
 
-        logger.debug(f"AdjListOuterDict.items(data={data})")
-        e_cols = [ed["edge_collection"] for ed in self.graph.edge_definitions()]
-        result = aql_fetch_data(self.db, e_cols, data, default, is_edge=True)
-        yield from result
+        else:
+            logger.debug(f"AdjListOuterDict.items(data={data})")
+            e_cols = [ed["edge_collection"] for ed in self.graph.edge_definitions()]
+            result = aql_fetch_data_edge(self.db, e_cols, data, default)
+            yield from result
 
-    # TODO: Revisit
+    # TODO: Revisit this logic
     def __fetch_all(self) -> None:
         logger.debug("AdjListOuterDict.__fetch_all()")
 
@@ -696,401 +1149,3 @@ class AdjListOuterDict(UserDict):
                 self.data[dst_node_id].data[src_node_id] = edge_attr_dict
 
         self.FETCHED_ALL_DATA = True
-
-
-class AdjListInnerDict(UserDict):
-    """The inner-level of the dict of dict of dict structure representing the Adjacency List of a graph.
-
-    The inner-dict is keyed by the node ID of the destination node.
-
-    :param db: The ArangoDB database.
-    :type db: StandardDatabase
-    :param graph: The ArangoDB graph.
-    :type graph: Graph
-    :param default_node_type: The default node type.
-    :type default_node_type: str
-    :param edge_type_func: The function to generate the edge type.
-    :type edge_type_func: Callable[[str, str], str]
-    """
-
-    def __init__(
-        self,
-        db: StandardDatabase,
-        graph: Graph,
-        default_node_type: str,
-        edge_type_func: Callable[[str, str], str],
-        adjlist_outer_dict: AdjListOuterDict,
-        *args,
-        **kwargs,
-    ):
-        logger.debug("AdjListInnerDict.__init__")
-
-        super().__init__(*args, **kwargs)
-
-        self.db = db
-        self.graph = graph
-        self.default_node_type = default_node_type
-        self.edge_type_func = edge_type_func
-        self.adjlist_outer_dict = adjlist_outer_dict
-
-        self.src_node_id = None
-
-        self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
-
-        self.FETCHED_ALL_DATA = False
-
-    def __get_mirrored_edge_attr_dict(self, dst_node_id: str) -> bool:
-        logger.debug(f"checking for mirrored edge ({self.src_node_id}, {dst_node_id})")
-        if dst_node_id in self.adjlist_outer_dict.data:
-            if self.src_node_id in self.adjlist_outer_dict.data[dst_node_id].data:
-                return self.adjlist_outer_dict.data[dst_node_id].data[self.src_node_id]
-
-        return None
-
-    # def __repr__(self) -> str:
-    #     return f"'{self.src_node_id}'"
-
-    # def __str__(self) -> str:
-    #     return f"'{self.src_node_id}'"
-
-    @key_is_string
-    def __contains__(self, key) -> bool:
-        """'node/2' in G.adj['node/1']"""
-        dst_node_id = get_node_id(key, self.default_node_type)
-
-        if dst_node_id in self.data:
-            logger.debug(f"cached in AdjListInnerDict.__contains__({dst_node_id})")
-            return True
-
-        logger.debug(f"aql_edge_exists in AdjListInnerDict.__contains__({dst_node_id})")
-        return aql_edge_exists(
-            self.db,
-            self.src_node_id,
-            dst_node_id,
-            self.graph.name,
-            direction="ANY",
-        )
-
-    @key_is_string
-    def __getitem__(self, key) -> EdgeAttrDict:
-        """g._adj['node/1']['node/2']"""
-        dst_node_id = get_node_id(key, self.default_node_type)
-
-        if dst_node_id in self.data:
-            m = f"cached in AdjListInnerDict({self.src_node_id}).__getitem__({dst_node_id})"
-            logger.debug(m)
-            return self.data[dst_node_id]
-
-        if mirrored_edge_attr_dict := self.__get_mirrored_edge_attr_dict(dst_node_id):
-            logger.debug("No need to fetch the edge, as it is already cached")
-            self.data[dst_node_id] = mirrored_edge_attr_dict
-            return mirrored_edge_attr_dict
-
-        m = f"aql_edge_get in AdjListInnerDict({self.src_node_id}).__getitem__({dst_node_id})"
-        edge = aql_edge_get(
-            self.db,
-            self.src_node_id,
-            dst_node_id,
-            self.graph.name,
-            direction="ANY",
-        )
-
-        if not edge:
-            raise KeyError(key)
-
-        edge_attr_dict = self.edge_attr_dict_factory()
-        edge_attr_dict.edge_id = edge["_id"]
-        edge_attr_dict.data = edge
-
-        self.data[dst_node_id] = edge_attr_dict
-
-        return edge_attr_dict
-
-    @key_is_string
-    def __setitem__(self, key: str, value: dict | EdgeAttrDict):
-        """g._adj['node/1']['node/2'] = {'foo': 'bar'}"""
-        assert isinstance(value, EdgeAttrDict)
-        logger.debug(f"AdjListInnerDict({self.src_node_id}).__setitem__({key})")
-
-        src_node_type = self.src_node_id.split("/")[0]
-        dst_node_type, dst_node_id = get_node_type_and_id(key, self.default_node_type)
-
-        if mirrored_edge_attr_dict := self.__get_mirrored_edge_attr_dict(dst_node_id):
-            logger.debug("No need to create a new edge, as it already exists")
-            self.data[dst_node_id] = mirrored_edge_attr_dict
-            return
-
-        edge_type = value.data.get("_edge_type")
-        if edge_type is None:
-            edge_type = self.edge_type_func(src_node_type, dst_node_type)
-            logger.debug(f"No edge type specified, so generated: {edge_type})")
-
-        if edge_id := value.edge_id:
-            m = f"edge id found, deleting ({self.src_node_id, dst_node_id})"
-            logger.debug(m)
-            self.graph.delete_edge(edge_id)
-
-        elif edge_id := aql_edge_id(
-            self.db,
-            self.src_node_id,
-            dst_node_id,
-            self.graph.name,
-            direction="ANY",
-        ):
-            m = f"existing edge found, deleting ({self.src_node_id, dst_node_id})"
-            logger.debug(m)
-            self.graph.delete_edge(edge_id)
-
-        edge_data = value.data
-        logger.debug(f"graph.link({self.src_node_id}, {dst_node_id})")
-        edge = self.graph.link(edge_type, self.src_node_id, dst_node_id, edge_data)
-
-        edge_attr_dict = self.edge_attr_dict_factory()
-        edge_attr_dict.edge_id = edge["_id"]
-        edge_attr_dict.data = {
-            **edge_data,
-            **edge,
-            "_from": self.src_node_id,
-            "_to": dst_node_id,
-        }
-
-        self.data[dst_node_id] = edge_attr_dict
-
-    @key_is_string
-    def __delitem__(self, key: Any) -> None:
-        """del g._adj['node/1']['node/2']"""
-        dst_node_id = get_node_id(key, self.default_node_type)
-        self.data.pop(dst_node_id, None)
-
-        if self.__get_mirrored_edge_attr_dict(dst_node_id):
-            m = "No need to delete the edge, as the next del will take care of it"
-            logger.debug(m)
-            return
-
-        logger.debug(f"fetching edge ({self.src_node_id, dst_node_id})")
-        edge_id = aql_edge_id(
-            self.db,
-            self.src_node_id,
-            dst_node_id,
-            self.graph.name,
-            direction="ANY",
-        )
-
-        if not edge_id:
-            m = f"edge not found, AdjListInnerDict({self.src_node_id}).__delitem__({dst_node_id})"
-            logger.debug(m)
-            return
-
-        logger.debug(f"graph.delete_edge({edge_id})")
-        self.graph.delete_edge(edge_id)
-
-    def __len__(self) -> int:
-        """len(g._adj['node/1'])"""
-        assert self.src_node_id
-
-        if self.FETCHED_ALL_DATA:
-            m = f"Already fetched data, skipping AdjListInnerDict({self.src_node_id}).__len__"
-            logger.debug(m)
-            return len(self.data)
-
-        query = """
-            RETURN LENGTH(
-                FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
-                    RETURN 1
-            )
-        """
-
-        bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
-
-        logger.debug(f"aql_single in AdjListInnerDict({self.src_node_id}).__len__")
-        count = aql_single(self.db, query, bind_vars)
-
-        return count if count is not None else 0
-
-    def __iter__(self) -> Iterator[str]:
-        """for k in g._adj['node/1']"""
-        if self.FETCHED_ALL_DATA:
-            m = f"Already fetched data, skipping AdjListInnerDict({self.src_node_id}).__iter__"
-            logger.debug(m)
-            yield from self.data.keys()
-
-        else:
-            query = """
-                FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
-                    RETURN e._to
-            """
-
-            bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
-
-            logger.debug(f"aql in AdjListInnerDict({self.src_node_id}).__iter__")
-            yield from aql(self.db, query, bind_vars)
-
-    def keys(self):
-        """g._adj['node/1'].keys()"""
-        logger.debug(f"AdjListInnerDict({self.src_node_id}).keys()")
-        return self.__iter__()
-
-    def clear(self):
-        """G._adj['node/1'].clear()"""
-        self.data.clear()
-        self.FETCHED_ALL_DATA = False
-        logger.debug(f"cleared AdjListInnerDict({self.src_node_id})")
-
-    def update(self, edges: dict[str, dict[str, Any]]):
-        """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
-        raise NotImplementedError("AdjListInnerDict.update()")
-
-    def values(self):
-        """g._adj['node/1'].values()"""
-        logger.debug(f"AdjListInnerDict({self.src_node_id}).values()")
-        self.__fetch_all()
-        return self.data.values()
-
-    def items(self):
-        """g._adj['node/1'].items()"""
-        logger.debug(f"AdjListInnerDict({self.src_node_id}).items()")
-        self.__fetch_all()
-        return self.data.items()
-
-    def __fetch_all(self):
-        logger.debug(f"AdjListInnerDict({self.src_node_id}).__fetch_all()")
-
-        if self.FETCHED_ALL_DATA:
-            logger.debug("Already fetched data, skipping fetch")
-            return
-
-        self.clear()
-
-        query = """
-            FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
-                RETURN e
-        """
-
-        bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
-
-        for edge in aql(self.db, query, bind_vars):
-            edge_attr_dict = self.edge_attr_dict_factory()
-            edge_attr_dict.edge_id = edge["_id"]
-            edge_attr_dict.data = edge
-
-            self.data[edge["_to"]] = edge_attr_dict
-
-        self.FETCHED_ALL_DATA = True
-
-
-class EdgeAttrDict(UserDict):
-    """The innermost-level of the dict of dict of dict structure representing the Adjacency List of a graph.
-
-    The innermost-dict is keyed by the edge attribute key.
-
-    :param db: The ArangoDB database.
-    :type db: StandardDatabase
-    :param graph: The ArangoDB graph.
-    :type graph: Graph
-    """
-
-    def __init__(
-        self,
-        db: StandardDatabase,
-        graph: Graph,
-        *args,
-        **kwargs,
-    ):
-        logger.debug("EdgeAttrDict.__init__")
-
-        super().__init__(*args, **kwargs)
-
-        self.db = db
-        self.graph = graph
-        self.edge_id: str | None = None
-
-    @key_is_string
-    def __contains__(self, key: str) -> bool:
-        """'foo' in G._adj['node/1']['node/2']"""
-        if key in self.data:
-            logger.debug(f"cached in EdgeAttrDict({self.edge_id}).__contains__({key})")
-            return True
-
-        logger.debug(f"aql_doc_has_key in EdgeAttrDict({self.edge_id}).__contains__")
-        return aql_doc_has_key(self.db, self.edge_id, key)
-
-    @key_is_string
-    def __getitem__(self, key: str) -> Any:
-        """G._adj['node/1']['node/2']['foo']"""
-        if value := self.data.get(key):
-            logger.debug(f"cached in EdgeAttrDict({self.edge_id}).__getitem__({key})")
-            return value
-
-        logger.debug(
-            f"aql_doc_get_key in EdgeAttrDict({self.edge_id}).__getitem__({key})"
-        )
-        result = aql_doc_get_key(self.db, self.edge_id, key)
-
-        if not result:
-            raise KeyError(key)
-
-        self.data[key] = result
-
-        return result
-
-    @key_is_string
-    @key_is_not_reserved
-    # @value_is_json_serializable # TODO?
-    def __setitem__(self, key: str, value: Any):
-        """G._adj['node/1']['node/2']['foo'] = 'bar'"""
-        self.data[key] = value
-        logger.debug(f"doc_update in EdgeAttrDict({self.edge_id}).__setitem__({key})")
-        doc_update(self.db, self.edge_id, {key: value})
-
-    @key_is_string
-    @key_is_not_reserved
-    def __delitem__(self, key: str):
-        """del G._adj['node/1']['node/2']['foo']"""
-        self.data.pop(key, None)
-        logger.debug(f"doc_update in EdgeAttrDict({self.edge_id}).__delitem__({key})")
-        doc_update(self.db, self.edge_id, {key: None})
-
-    def __iter__(self) -> Iterator[str]:
-        """for key in G._adj['node/1']['node/2']"""
-        logger.debug(f"EEdgeAttrDict({self.edge_id}).__iter__")
-        for key in aql_doc_get_keys(self.db, self.edge_id):
-            yield key
-
-    def __len__(self) -> int:
-        """len(G._adj['node/1']['node/'2])"""
-        logger.debug(f"EdgeAttrDict({self.edge_id}).__len__")
-        return aql_doc_get_length(self.db, self.edge_id)
-
-    def keys(self):
-        """G._adj['node/1']['node/'2].keys()"""
-        logger.debug(f"EdgeAttrDict({self.edge_id}).keys()")
-        return self.__iter__()
-
-    def values(self):
-        """G._adj['node/1']['node/'2].values()"""
-        logger.debug(f"EdgeAttrDict({self.edge_id}).values()")
-        self.data = self.db.document(self.edge_id)
-        return self.data.values()
-
-    def items(self):
-        """G._adj['node/1']['node/'2].items()"""
-        logger.debug(f"EdgeAttrDict({self.edge_id}).items()")
-        self.data = self.db.document(self.edge_id)
-        return self.data.items()
-
-    def clear(self):
-        """G._adj['node/1']['node/'2].clear()"""
-        self.data.clear()
-        logger.debug(f"cleared EdgeAttrDict({self.edge_id})")
-
-    def update(self, attrs: dict[str, Any]):
-        """G._adj['node/1']['node/'2].update({'foo': 'bar'})"""
-        if attrs:
-            self.data.update(attrs)
-
-            if not self.edge_id:
-                logger.debug("Edge ID not set, skipping EdgeAttrDict(?).update()")
-                return
-
-            logger.debug(f"EdgeAttrDict({self.edge_id}).update({attrs})")
-            doc_update(self.db, self.edge_id, attrs)

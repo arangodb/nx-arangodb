@@ -1,8 +1,11 @@
+# type: ignore
+# NOTE: NetworkX algorithms are not typed
+
 from collections import deque
 
 import networkx as nx
 
-from nx_arangodb.convert import _to_nxadb_graph, _to_nxcg_graph
+from nx_arangodb.convert import _to_nx_graph, _to_nxcg_graph
 from nx_arangodb.logger import logger
 from nx_arangodb.utils import _dtype_param, networkx_algorithm
 
@@ -50,7 +53,7 @@ def louvain_communities(
             seed=seed,
         )
 
-    G = _to_nxadb_graph(G, pull_graph=pull_graph_on_cpu)
+    G = _to_nx_graph(G, pull_graph=pull_graph_on_cpu)
 
     logger.debug("using nx.louvain_communities")
     return nx.community.louvain_communities.orig_func(

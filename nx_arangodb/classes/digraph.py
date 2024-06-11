@@ -1,17 +1,19 @@
 import os
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import networkx as nx
+import numpy as np
+import numpy.typing as npt
 from arango import ArangoClient
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from arango.exceptions import ServerConnectionError
 
 import nx_arangodb as nxadb
-from nx_arangodb.exceptions import *
+from nx_arangodb.exceptions import DatabaseNotSet, GraphNameNotSet
 from nx_arangodb.logger import logger
 
-networkx_api = nxadb.utils.decorators.networkx_class(nx.DiGraph)
+networkx_api = nxadb.utils.decorators.networkx_class(nx.DiGraph)  # type: ignore
 
 __all__ = ["DiGraph"]
 
@@ -22,15 +24,15 @@ class DiGraph(nx.DiGraph):
 
     @classmethod
     def to_networkx_class(cls) -> type[nx.DiGraph]:
-        return nx.DiGraph
+        return nx.DiGraph  # type: ignore[no-any-return]
 
     def __init__(
         self,
         graph_name: str | None = None,
         # default_node_type: str = "nxadb_nodes",
         # edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
-        *args,
-        **kwargs,
+        *args: Any,
+        **kwargs: Any,
     ):
         m = "Please note that nxadb.DiGraph has no ArangoDB CRUD support yet."
         logger.warning(m)
@@ -39,8 +41,8 @@ class DiGraph(nx.DiGraph):
             m = "Cannot pass both **incoming_graph_data** and **graph_name** yet"
             raise NotImplementedError(m)
 
-        self.__db = None
-        self.__graph_name = None
+        self.__db: StandardDatabase | None = None
+        self.__graph_name: str | None = None
         self.__graph_exists = False
 
         self.__set_db()
@@ -58,9 +60,9 @@ class DiGraph(nx.DiGraph):
         self.use_nx_cache = True
         self.use_coo_cache = True
 
-        self.src_indices = None
-        self.dst_indices = None
-        self.vertex_ids_to_index = None
+        self.src_indices: npt.NDArray[np.int64] | None = None
+        self.dst_indices: npt.NDArray[np.int64] | None = None
+        self.vertex_ids_to_index: dict[str, int] | None = None
 
         # self.default_node_type = default_node_type
         # self.edge_type_func = edge_type_func
@@ -99,7 +101,7 @@ class DiGraph(nx.DiGraph):
     # Setters #
     ###########
 
-    def __set_db(self, db: StandardDatabase | None = None):
+    def __set_db(self, db: StandardDatabase | None = None) -> None:
         if db is not None:
             if not isinstance(db, StandardDatabase):
                 m = "arango.database.StandardDatabase"
@@ -128,11 +130,10 @@ class DiGraph(nx.DiGraph):
             self.__db = None
             logger.warning(f"Could not connect to the database: {e}")
 
-    def __set_graph_name(self, graph_name: str | None = None):
+    def __set_graph_name(self, graph_name: str | None = None) -> None:
         if self.__db is None:
-            raise DatabaseNotSet(
-                "Cannot set graph name without setting the database first"
-            )
+            m = "Cannot set graph name without setting the database first"
+            raise DatabaseNotSet(m)
 
         if graph_name is None:
             self.__graph_exists = False
@@ -151,7 +152,7 @@ class DiGraph(nx.DiGraph):
     # ArangoDB Methods #
     ####################
 
-    def aql(self, query: str, bind_vars: dict | None = None, **kwargs) -> Cursor:
+    def aql(self, query: str, bind_vars: dict[str, Any] = {}, **kwargs: Any) -> Cursor:
         return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
 
     def pull(self, load_node_dict=True, load_adj_dict=True, load_coo=True):

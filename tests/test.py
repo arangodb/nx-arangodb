@@ -1,3 +1,5 @@
+from typing import Any
+
 import networkx as nx
 import pytest
 
@@ -6,7 +8,7 @@ import nx_arangodb as nxadb
 from .conftest import db
 
 
-def test_db(load_graph):
+def test_db(load_graph: Any) -> None:
     assert db.version()
 
 
@@ -50,15 +52,15 @@ def test_bc(load_graph):
     assert len(r_1) == len(r_5)
 
     try:
-        import phenolrs
+        import phenolrs  # noqa
     except ModuleNotFoundError:
-        return
+        pytest.skip("phenolrs not installed")
 
     G_4 = nxadb.Graph(graph_name="KarateGraph")
     r_6 = nx.betweenness_centrality(G_4)
 
     G_5 = nxadb.Graph(graph_name="KarateGraph")
-    r_7 = nxadb.betweenness_centrality(G_5, pull_graph_on_cpu=False)
+    r_7 = nxadb.betweenness_centrality(G_5, pull_graph_on_cpu=False)  # type: ignore
 
     G_6 = nxadb.DiGraph(graph_name="KarateGraph")
     r_8 = nx.betweenness_centrality(G_6)
@@ -68,7 +70,7 @@ def test_bc(load_graph):
     assert len(r_6) == len(r_7) == len(r_8) == len(G_4) > 0
 
 
-def test_pagerank(load_graph):
+def test_pagerank(load_graph: Any) -> None:
     G_1 = nx.karate_club_graph()
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
     G_3 = nxadb.Graph(graph_name="KarateGraph")
@@ -86,15 +88,15 @@ def test_pagerank(load_graph):
     assert len(r_1) == len(r_5)
 
     try:
-        import phenolrs
+        import phenolrs  # noqa
     except ModuleNotFoundError:
-        return
+        pytest.skip("phenolrs not installed")
 
     G_4 = nxadb.Graph(graph_name="KarateGraph")
     r_6 = nx.pagerank(G_4)
 
     G_5 = nxadb.Graph(graph_name="KarateGraph")
-    r_7 = nxadb.pagerank(G_5, pull_graph_on_cpu=False)
+    r_7 = nxadb.pagerank(G_5, pull_graph_on_cpu=False)  # type: ignore
 
     G_6 = nxadb.DiGraph(graph_name="KarateGraph")
     r_8 = nx.pagerank(G_6)
@@ -102,7 +104,7 @@ def test_pagerank(load_graph):
     assert len(r_6) == len(r_7) == len(r_8) == len(G_4) > 0
 
 
-def test_louvain(load_graph):
+def test_louvain(load_graph: Any) -> None:
     G_1 = nx.karate_club_graph()
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
     G_3 = nxadb.Graph(graph_name="KarateGraph")
@@ -120,15 +122,15 @@ def test_louvain(load_graph):
     assert len(r_5) > 0
 
     try:
-        import phenolrs
+        import phenolrs  # noqa
     except ModuleNotFoundError:
-        return
+        pytest.skip("phenolrs not installed")
 
     G_4 = nxadb.Graph(graph_name="KarateGraph")
     r_6 = nx.community.louvain_communities(G_4)
 
     G_5 = nxadb.Graph(graph_name="KarateGraph")
-    r_7 = nxadb.community.louvain_communities(G_5, pull_graph_on_cpu=False)
+    r_7 = nxadb.community.louvain_communities(G_5, pull_graph_on_cpu=False)  # type: ignore  # noqa
 
     G_6 = nxadb.DiGraph(graph_name="KarateGraph")
     r_8 = nx.community.louvain_communities(G_6)
@@ -139,7 +141,7 @@ def test_louvain(load_graph):
     assert len(r_8) > 0
 
 
-def test_shortest_path(load_graph):
+def test_shortest_path(load_graph: Any) -> None:
     G_1 = nxadb.Graph(graph_name="KarateGraph")
     G_2 = nxadb.DiGraph(graph_name="KarateGraph")
 
@@ -154,7 +156,7 @@ def test_shortest_path(load_graph):
     assert r_3 != r_4
 
 
-def test_graph_nodes_crud(load_graph):
+def test_graph_nodes_crud(load_graph: Any) -> None:
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
     G_2 = nx.Graph(nx.karate_club_graph())
 
@@ -254,7 +256,7 @@ def test_graph_nodes_crud(load_graph):
     assert not db.has_document(edge_id)
 
 
-def test_graph_edges_crud(load_graph):
+def test_graph_edges_crud(load_graph: Any) -> None:
     G_1 = nxadb.Graph(graph_name="KarateGraph")
     G_2 = nx.karate_club_graph()
 
@@ -306,7 +308,7 @@ def test_graph_edges_crud(load_graph):
 
     result = list(
         db.aql.execute(
-            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @src AND e._to == @dst RETURN e",
+            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @src AND e._to == @dst RETURN e",  # noqa
             bind_vars=bind_vars,
         )
     )
@@ -315,7 +317,7 @@ def test_graph_edges_crud(load_graph):
 
     result = list(
         db.aql.execute(
-            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @dst AND e._to == @src RETURN e",
+            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @dst AND e._to == @src RETURN e",  # noqa
             bind_vars=bind_vars,
         )
     )
@@ -370,7 +372,7 @@ def test_graph_edges_crud(load_graph):
     assert G_1["person/2"]["person/1"]["weight"] == new_weight
 
 
-def test_readme(load_graph):
+def test_readme(load_graph: Any) -> None:
     G = nxadb.Graph(graph_name="KarateGraph")
     G_nx = nx.karate_club_graph()
 
@@ -421,9 +423,9 @@ def test_readme(load_graph):
     assert len(G.edges) == len(G_nx.edges)
 
 
-def test_digraph_nodes_crud():
+def test_digraph_nodes_crud() -> None:
     pytest.skip("Not implemented yet")
 
 
-def test_digraph_edges_crud():
+def test_digraph_edges_crud() -> None:
     pytest.skip("Not implemented yet")

@@ -1,8 +1,10 @@
 import os
 from functools import cached_property
-from typing import Callable, ClassVar
+from typing import Any, Callable, ClassVar
 
 import networkx as nx
+import numpy as np
+import numpy.typing as npt
 from arango import ArangoClient
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
@@ -22,7 +24,7 @@ from .dict import (
 )
 from .reportviews import CustomEdgeView, CustomNodeView
 
-networkx_api = nxadb.utils.decorators.networkx_class(nx.Graph)
+networkx_api = nxadb.utils.decorators.networkx_class(nx.Graph)  # type: ignore
 
 __all__ = ["Graph"]
 
@@ -33,16 +35,16 @@ class Graph(nx.Graph):
 
     @classmethod
     def to_networkx_class(cls) -> type[nx.Graph]:
-        return nx.Graph
+        return nx.Graph  # type: ignore[no-any-return]
 
     def __init__(
         self,
         graph_name: str | None = None,
         default_node_type: str = "nxadb_nodes",
         edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
-        *args,
-        **kwargs,
-    ):
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         if kwargs.get("incoming_graph_data") is not None and graph_name is not None:
             m = "Cannot pass both **incoming_graph_data** and **graph_name** yet"
             raise NotImplementedError(m)
@@ -66,9 +68,9 @@ class Graph(nx.Graph):
         self.use_nx_cache = True
         self.use_coo_cache = True
 
-        self.src_indices = None
-        self.dst_indices = None
-        self.vertex_ids_to_index = None
+        self.src_indices: npt.NDArray[np.int64] | None = None
+        self.dst_indices: npt.NDArray[np.int64] | None = None
+        self.vertex_ids_to_index: dict[str, int] | None = None
 
         self.default_node_type = default_node_type
         self.edge_type_func = edge_type_func
@@ -151,7 +153,7 @@ class Graph(nx.Graph):
     # Setters #
     ###########
 
-    def __set_db(self, db: StandardDatabase | None = None):
+    def __set_db(self, db: StandardDatabase | None = None) -> None:
         if db is not None:
             if not isinstance(db, StandardDatabase):
                 m = "arango.database.StandardDatabase"
@@ -180,7 +182,7 @@ class Graph(nx.Graph):
             self.__db = None
             logger.warning(f"Could not connect to the database: {e}")
 
-    def __set_graph_name(self, graph_name: str | None = None):
+    def __set_graph_name(self, graph_name: str | None = None) -> None:
         if self.__db is None:
             m = "Cannot set graph name without setting the database first"
             raise DatabaseNotSet(m)
@@ -203,7 +205,7 @@ class Graph(nx.Graph):
     ####################
 
     # TODO: proper subgraphing!
-    def aql(self, query: str, bind_vars: dict | None = None, **kwargs) -> Cursor:
+    def aql(self, query: str, bind_vars: dict[str, Any] = {}, **kwargs: Any) -> Cursor:
         return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
 
     def pull(self, load_node_dict=True, load_adj_dict=True, load_coo=True):

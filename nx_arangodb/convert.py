@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import itertools
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
@@ -36,79 +36,23 @@ REQUIRED = ...
 
 def from_networkx(
     graph: nx.Graph,
-    edge_attrs: AttrKey | dict[AttrKey, EdgeValue | None] | None = None,
-    edge_dtypes: Dtype | dict[AttrKey, Dtype | None] | None = None,
-    *,
-    node_attrs: AttrKey | dict[AttrKey, NodeValue | None] | None = None,
-    node_dtypes: Dtype | dict[AttrKey, Dtype | None] | None = None,
-    preserve_all_attrs: bool = False,
-    preserve_edge_attrs: bool = False,
-    preserve_node_attrs: bool = False,
-    preserve_graph_attrs: bool = False,
+    *args: Any,
     as_directed: bool = False,
-    name: str | None = None,
-    graph_name: str | None = None,
-) -> nxadb.Graph:
-    """Convert a networkx graph to nx_arangodb graph; can convert all attributes.
+    **kwargs: Any,
+    # name: str | None = None,
+    # graph_name: str | None = None,
+) -> nxadb.Graph | nxadb.DiGraph:
+    """Convert a networkx graph to nx_arangodb graph.
 
     TEMPORARY ASSUMPTION: The nx_arangodb Graph is a subclass of networkx Graph.
     Therefore, I'm going to assume that we _should_ be able instantiate an
-    nx_arangodb Graph using the **incoming_graph_data** parameter. Let's try it!
+    nx_arangodb Graph using the **incoming_graph_data** parameter.
+
+    TODO: The actual implementation should store the graph in ArangoDB.
 
     Parameters
     ----------
     G : networkx.Graph
-    edge_attrs : str or dict, optional
-        Dict that maps edge attributes to default values if missing in ``G``.
-        If None, then no edge attributes will be converted.
-        If default value is None, then missing values are handled with a mask.
-        A default value of ``nxcg.convert.REQUIRED`` or ``...`` indicates that
-        all edges have data for this attribute, and raise `KeyError` if not.
-        For convenience, `edge_attrs` may be a single attribute with default 1;
-        for example ``edge_attrs="weight"``.
-    edge_dtypes : dtype or dict, optional
-    node_attrs : str or dict, optional
-        Dict that maps node attributes to default values if missing in ``G``.
-        If None, then no node attributes will be converted.
-        If default value is None, then missing values are handled with a mask.
-        A default value of ``nxcg.convert.REQUIRED`` or ``...`` indicates that
-        all edges have data for this attribute, and raise `KeyError` if not.
-        For convenience, `node_attrs` may be a single attribute with no default;
-        for example ``node_attrs="weight"``.
-    node_dtypes : dtype or dict, optional
-    preserve_all_attrs : bool, default False
-        If True, then equivalent to setting preserve_edge_attrs, preserve_node_attrs,
-        and preserve_graph_attrs to True.
-    preserve_edge_attrs : bool, default False
-        Whether to preserve all edge attributes.
-    preserve_node_attrs : bool, default False
-        Whether to preserve all node attributes.
-    preserve_graph_attrs : bool, default False
-        Whether to preserve all graph attributes.
-    as_directed : bool, default False
-        If True, then the returned graph will be directed regardless of input.
-        If False, then the returned graph type is determined by input graph.
-    name : str, optional
-        The name of the algorithm when dispatched from networkx.
-    graph_name : str, optional
-        The name of the graph argument geing converted when dispatched from networkx.
-
-    Returns
-    -------
-    nx_arangodb.Graph
-
-    Notes
-    -----
-    For optimal performance, be as specific as possible about what is being converted:
-
-    1. Do you need edge values? Creating a graph with just the structure is the fastest.
-    2. Do you know the edge attribute(s) you need? Specify with `edge_attrs`.
-    3. Do you know the default values? Specify with ``edge_attrs={weight: default}``.
-    4. Do you know if all edges have values? Specify with ``edge_attrs={weight: ...}``.
-    5. Do you know the dtype of attributes? Specify with `edge_dtypes`.
-
-    Conversely, using ``preserve_edge_attrs=True`` or ``preserve_all_attrs=True`` are
-    the slowest, but are also the most flexible and generic.
 
     See Also
     --------
@@ -241,10 +185,7 @@ def from_networkx_arangodb(
 
 
 def _to_nxadb_graph(
-    G,
-    edge_attr: AttrKey | None = None,
-    edge_default: EdgeValue | None = 1,
-    edge_dtype: Dtype | None = None,
+    G: Any,
     pull_graph: bool = True,
 ) -> nxadb.Graph | nxadb.DiGraph:
     """Ensure that input type is a nx_arangodb graph, and convert if necessary."""
@@ -254,22 +195,15 @@ def _to_nxadb_graph(
         return from_networkx_arangodb(G, pull_graph)
 
     if isinstance(G, nx.Graph):
-        return from_networkx(
-            G, {edge_attr: edge_default} if edge_attr is not None else None, edge_dtype
-        )
+        return from_networkx(G)
+
     # TODO: handle cugraph.Graph
     raise TypeError
 
 
 if GPU_ENABLED:
 
-    def _to_nxcg_graph(
-        G,
-        edge_attr: AttrKey | None = None,
-        edge_default: EdgeValue | None = 1,
-        edge_dtype: Dtype | None = None,
-        as_directed: bool = False,
-    ) -> nxcg.Graph | nxcg.DiGraph:
+    def _to_nxcg_graph(G: Any, as_directed: bool = False) -> nxcg.Graph | nxcg.DiGraph:
         """Ensure that input type is a nx_cugraph graph, and convert if necessary."""
         logger.debug(f"_to_nxcg_graph for {G.__class__.__name__}")
 
@@ -294,21 +228,8 @@ if GPU_ENABLED:
                 "nxadb.MultiGraph not yet supported for _to_nxcg_graph()"
             )
 
-        # If G is a networkx graph, or is a nxadb graph that doesn't point
-        # to an "existing" ArangoDB graph, then we just treat it as a normal
-        # networkx graph & convert it to nx_cugraph.
-        # TODO: Need to revisit the "existing" ArangoDB graph condition...
-        if isinstance(G, nx.Graph):
-            logger.debug("converting networkx graph to nx_cugraph graph")
-            return nxcg.convert.from_networkx(
-                G,
-                {edge_attr: edge_default} if edge_attr is not None else None,
-                edge_dtype,
-                as_directed=as_directed,
-            )
-
         # TODO: handle cugraph.Graph
-        raise TypeError
+        raise TypeError(f"Expected nx_arangodb.Graph or nx.Graph; got {type(G)}")
 
     def nxcg_from_networkx_arangodb(
         G: nxadb.Graph | nxadb.DiGraph, as_directed: bool = False
@@ -380,12 +301,6 @@ if GPU_ENABLED:
 
 else:
 
-    def _to_nxcg_graph(
-        G,
-        edge_attr: AttrKey | None = None,
-        edge_default: EdgeValue | None = 1,
-        edge_dtype: Dtype | None = None,
-        as_directed: bool = False,
-    ) -> nxcg.Graph | nxcg.DiGraph:
+    def _to_nxcg_graph(G: Any, as_directed: bool = False) -> nxcg.Graph | nxcg.DiGraph:
         m = "nx-cugraph is not installed; cannot convert to nx-cugraph graph"
         raise NotImplementedError(m)

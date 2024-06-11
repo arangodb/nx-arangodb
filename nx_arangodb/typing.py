@@ -7,6 +7,7 @@ from typing import TypeVar
 
 import cupy as cp
 import numpy as np
+import numpy.typing as npt
 
 AttrKey = TypeVar("AttrKey", bound=Hashable)
 EdgeKey = TypeVar("EdgeKey", bound=Hashable)
@@ -20,4 +21,4 @@ Dtype = TypeVar("Dtype")
 
 class any_ndarray:
     def __class_getitem__(cls, item):
-        return cp.ndarray[item] | np.ndarray[item]
+        return cp.ndarray[item] | npt.NDArray[item]

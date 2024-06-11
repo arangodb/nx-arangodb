@@ -1,3 +1,5 @@
+from typing import Any
+
 import networkx as nx
 import pytest
 
@@ -6,11 +8,11 @@ import nx_arangodb as nxadb
 from .conftest import db
 
 
-def test_db(load_graph):
+def test_db(load_graph: Any) -> None:
     assert db.version()
 
 
-def test_bc(load_graph):
+def test_bc(load_graph: Any) -> None:
     G_1 = nx.karate_club_graph()
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
 
@@ -30,7 +32,7 @@ def test_bc(load_graph):
     r_5 = nx.betweenness_centrality(G_3)
 
     G_4 = nxadb.Graph(graph_name="KarateGraph")
-    r_6 = nxadb.betweenness_centrality(G_4, pull_graph_on_cpu=False)
+    r_6 = nxadb.betweenness_centrality(G_4, pull_graph_on_cpu=False)  # type: ignore
 
     G_5 = nxadb.DiGraph(graph_name="KarateGraph")
     r_7 = nx.betweenness_centrality(G_5)
@@ -40,7 +42,7 @@ def test_bc(load_graph):
     assert len(r_5) == len(r_6) == len(r_7) > 0
 
 
-def test_pagerank(load_graph):
+def test_pagerank(load_graph: Any) -> None:
     G_1 = nx.karate_club_graph()
 
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
@@ -61,7 +63,7 @@ def test_pagerank(load_graph):
     r_5 = nx.pagerank(G_3)
 
     G_4 = nxadb.Graph(graph_name="KarateGraph")
-    r_6 = nxadb.pagerank(G_4, pull_graph_on_cpu=False)
+    r_6 = nxadb.pagerank(G_4, pull_graph_on_cpu=False)  # type: ignore
 
     G_5 = nxadb.DiGraph(graph_name="KarateGraph")
     r_7 = nx.pagerank(G_5)
@@ -69,7 +71,7 @@ def test_pagerank(load_graph):
     assert len(r_5) == len(r_6) == len(r_7) == len(G_4)
 
 
-def test_louvain(load_graph):
+def test_louvain(load_graph: Any) -> None:
     G_1 = nx.karate_club_graph()
 
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
@@ -93,7 +95,7 @@ def test_louvain(load_graph):
     r_5 = nx.community.louvain_communities(G_3)
 
     G_4 = nxadb.Graph(graph_name="KarateGraph")
-    r_6 = nxadb.community.louvain_communities(G_4, pull_graph_on_cpu=False)
+    r_6 = nxadb.community.louvain_communities(G_4, pull_graph_on_cpu=False)  # type: ignore  # noqa
 
     G_5 = nxadb.DiGraph(graph_name="KarateGraph")
     r_7 = nx.community.louvain_communities(G_5)
@@ -103,7 +105,7 @@ def test_louvain(load_graph):
     assert len(r_7) > 0
 
 
-def test_shortest_path(load_graph):
+def test_shortest_path(load_graph: Any) -> None:
     G_1 = nxadb.Graph(graph_name="KarateGraph")
     G_2 = nxadb.DiGraph(graph_name="KarateGraph")
 
@@ -118,7 +120,7 @@ def test_shortest_path(load_graph):
     assert r_3 != r_4
 
 
-def test_graph_nodes_crud(load_graph):
+def test_graph_nodes_crud(load_graph: Any) -> None:
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
     G_2 = nx.Graph(nx.karate_club_graph())
 
@@ -218,7 +220,7 @@ def test_graph_nodes_crud(load_graph):
     assert not db.has_document(edge_id)
 
 
-def test_graph_edges_crud(load_graph):
+def test_graph_edges_crud(load_graph: Any) -> None:
     G_1 = nxadb.Graph(graph_name="KarateGraph")
     G_2 = nx.karate_club_graph()
 
@@ -334,7 +336,7 @@ def test_graph_edges_crud(load_graph):
     assert G_1["person/2"]["person/1"]["weight"] == new_weight
 
 
-def test_readme(load_graph):
+def test_readme(load_graph: Any) -> None:
     G = nxadb.Graph(graph_name="KarateGraph")
     G_nx = nx.karate_club_graph()
 
@@ -385,9 +387,9 @@ def test_readme(load_graph):
     assert len(G.edges) == len(G_nx.edges)
 
 
-def test_digraph_nodes_crud():
+def test_digraph_nodes_crud() -> None:
     pytest.skip("Not implemented yet")
 
 
-def test_digraph_edges_crud():
+def test_digraph_edges_crud() -> None:
     pytest.skip("Not implemented yet")

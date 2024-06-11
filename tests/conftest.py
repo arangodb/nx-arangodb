@@ -6,10 +6,13 @@ import networkx as nx
 import pytest
 from adbnx_adapter import ADBNX_Adapter
 from arango import ArangoClient
+from arango.database import StandardDatabase
 
 from nx_arangodb.logger import logger
 
 logger.setLevel(logging.INFO)
+
+db: StandardDatabase
 
 
 def pytest_addoption(parser: Any) -> None:
@@ -46,7 +49,8 @@ def pytest_configure(config: Any) -> None:
 
 
 @pytest.fixture(scope="function")
-def load_graph():
+def load_graph() -> None:
+    global db
     db.delete_graph("KarateGraph", drop_collections=True, ignore_missing=True)
     adapter = ADBNX_Adapter(db)
     adapter.networkx_to_arangodb(

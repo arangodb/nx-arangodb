@@ -1,3 +1,6 @@
+# type: ignore
+# NOTE: NetworkX algorithms are not typed
+
 from collections import deque
 
 import networkx as nx

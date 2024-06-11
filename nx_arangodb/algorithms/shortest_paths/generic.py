@@ -1,3 +1,6 @@
+# type: ignore
+# NOTE: NetworkX algorithms are not typed
+
 import networkx as nx
 
 import nx_arangodb as nxadb

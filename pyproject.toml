@@ -113,6 +113,8 @@ exclude = [".git", ".idea", ".*_cache", "dist", "venv"]
 [tool.mypy]
 strict = true
 ignore_missing_imports = true
+disallow_untyped_defs = false
+disallow_untyped_calls = false
 implicit_reexport = true
 scripts_are_modules = true
 follow_imports = "skip"

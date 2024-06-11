@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+from typing import Any
 
 import networkx as nx
 
@@ -11,19 +12,17 @@ import nx_arangodb as nxadb
 class BackendInterface:
     # Required conversions
     @staticmethod
-    def convert_from_nx(graph, *args, edge_attrs=None, weight=None, **kwargs):
-        if weight is not None:
-            # MAINT: networkx 3.0, 3.1
-            # For networkx 3.0 and 3.1 compatibility
-            if edge_attrs is not None:
-                raise TypeError(
-                    "edge_attrs and weight arguments should not both be given"
-                )
-            edge_attrs = {weight: 1}
-        return nxadb.from_networkx(graph, *args, edge_attrs=edge_attrs, **kwargs)
+    def convert_from_nx(
+        graph: Any, *args: Any, **kwargs: Any
+    ) -> nxadb.Graph | nxadb.DiGraph:
+        return nxadb.from_networkx(graph, *args, **kwargs)
 
     @staticmethod
-    def convert_to_nx(obj, *, name: str | None = None):
+    def convert_to_nx(
+        obj: nx.Graph | nx.DiGraph | nxadb.Graph | nxadb.DiGraph,
+        *,
+        name: str | None = None,
+    ) -> nx.Graph | nx.DiGraph:
         if isinstance(obj, nxadb.Graph):
             return nxadb.to_networkx(obj)
         return obj

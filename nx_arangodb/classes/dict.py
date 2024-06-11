@@ -662,11 +662,11 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
 
         return None
 
-    # def __repr__(self) -> str:
-    #     return f"'{self.src_node_id}'"
+    def __repr__(self) -> str:
+        return f"'{self.src_node_id}'"
 
-    # def __str__(self) -> str:
-    #     return f"'{self.src_node_id}'"
+    def __str__(self) -> str:
+        return f"'{self.src_node_id}'"
 
     @key_is_string
     def __contains__(self, key: str) -> bool:
@@ -943,11 +943,11 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
         self.FETCHED_ALL_DATA = False
 
-    # def __repr__(self) -> str:
-    #     return f"'{self.graph.name}'"
+    def __repr__(self) -> str:
+        return f"'{self.graph.name}'"
 
-    # def __str__(self) -> str:
-    #     return f"'{self.graph.name}'"
+    def __str__(self) -> str:
+        return f"'{self.graph.name}'"
 
     @key_is_string
     def __contains__(self, key: str) -> bool:

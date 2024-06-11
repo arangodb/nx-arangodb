@@ -24,7 +24,7 @@ def shortest_path(
 ):
     """limited version of nx.shortest_path"""
 
-    if not G.graph_exists:
+    if not G.graph_exists_in_db:
         return nx.shortest_path.orig_func(
             G, source=source, target=target, weight=weight, method=method
         )

@@ -45,7 +45,7 @@ def get_arangodb_graph(
     - Destination Indices (COO)
     - Node-ID-to-index mapping (COO)
     """
-    if not G.graph_exists:
+    if not G.graph_exists_in_db:
         raise GraphDoesNotExist(
             "Graph does not exist in the database. Can't load graph."
         )

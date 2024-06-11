@@ -121,7 +121,7 @@ def from_networkx_arangodb(
     if not isinstance(G, (nxadb.Graph, nxadb.DiGraph)):
         raise TypeError(f"Expected nx_arangodb.(Graph || DiGraph); got {type(G)}")
 
-    if not G.graph_exists:
+    if not G.graph_exists_in_db:
         logger.debug("graph does not exist, nothing to pull")
         return G
 
@@ -209,7 +209,7 @@ if GPU_ENABLED:
             # which converts the ArangoDB graph to a NetworkX graph, and then we convert
             # the NetworkX graph to an nx_cugraph graph.
             # TODO: Implement a direct conversion from ArangoDB to nx_cugraph
-            if G.graph_exists:
+            if G.graph_exists_in_db:
                 logger.debug("converting nx_arangodb graph to nx_cugraph graph")
                 return nxcg_from_networkx_arangodb(G, as_directed=as_directed)
 

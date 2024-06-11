@@ -48,7 +48,7 @@ class Graph(nx.Graph):
     ):
         self.__db = None
         self.__graph_name = None
-        self.__graph_exists = False
+        self.__graph_exists_in_db = False
 
         self.__set_db()
         if self.__db is not None:
@@ -74,7 +74,7 @@ class Graph(nx.Graph):
         self.default_edge_type = edge_type_func(default_node_type, default_node_type)
 
         incoming_graph_data = kwargs.get("incoming_graph_data")
-        if self.__graph_exists:
+        if self.__graph_exists_in_db:
             self.adb_graph = self.db.graph(graph_name)
             self.__create_default_collections()
             self.__set_factory_methods()
@@ -104,7 +104,7 @@ class Graph(nx.Graph):
             )
 
             self.__set_factory_methods()
-            self.__graph_exists = True
+            self.__graph_exists_in_db = True
             del kwargs["incoming_graph_data"]
 
         # self.__qa_chain = None
@@ -174,8 +174,8 @@ class Graph(nx.Graph):
         return self.__graph_name
 
     @property
-    def graph_exists(self) -> bool:
-        return self.__graph_exists
+    def graph_exists_in_db(self) -> bool:
+        return self.__graph_exists_in_db
 
     ###########
     # Setters #
@@ -216,7 +216,7 @@ class Graph(nx.Graph):
             raise DatabaseNotSet(m)
 
         if graph_name is None:
-            self.__graph_exists = False
+            self.__graph_exists_in_db = False
             logger.warning(f"**graph_name** not set for {self.__class__.__name__}")
             return
 
@@ -224,9 +224,9 @@ class Graph(nx.Graph):
             raise TypeError("**graph_name** must be a string")
 
         self.__graph_name = graph_name
-        self.__graph_exists = self.db.has_graph(graph_name)
+        self.__graph_exists_in_db = self.db.has_graph(graph_name)
 
-        logger.info(f"Graph '{graph_name}' exists: {self.__graph_exists}")
+        logger.info(f"Graph '{graph_name}' exists: {self.__graph_exists_in_db}")
 
     ####################
     # ArangoDB Methods #
@@ -239,7 +239,7 @@ class Graph(nx.Graph):
     # NOTE: Ignore this for now
     # def chat(self, prompt: str) -> str:
     #     if self.__qa_chain is None:
-    #         if not self.__graph_exists:
+    #         if not self.__graph_exists_in_db:
     #             return "Could not initialize QA chain: Graph does not exist"
 
     #         # try:
@@ -328,7 +328,7 @@ class Graph(nx.Graph):
 
     @cached_property
     def nodes(self):
-        if self.graph_exists:
+        if self.graph_exists_in_db:
             logger.warning("nxadb.CustomNodeView is currently EXPERIMENTAL")
             return CustomNodeView(self)
 
@@ -336,7 +336,7 @@ class Graph(nx.Graph):
 
     @cached_property
     def edges(self):
-        if self.graph_exists:
+        if self.graph_exists_in_db:
             logger.warning("nxadb.CustomEdgeView is currently EXPERIMENTAL")
             return CustomEdgeView(self)
 

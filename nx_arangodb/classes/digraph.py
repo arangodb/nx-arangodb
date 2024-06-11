@@ -43,7 +43,7 @@ class DiGraph(nx.DiGraph):
 
         self.__db: StandardDatabase | None = None
         self.__graph_name: str | None = None
-        self.__graph_exists = False
+        self.__graph_exists_in_db = False
 
         self.__set_db()
         if self.__db is not None:
@@ -68,7 +68,7 @@ class DiGraph(nx.DiGraph):
         # self.edge_type_func = edge_type_func
         # self.default_edge_type = edge_type_func(default_node_type, default_node_type)
 
-        if self.__graph_exists:
+        if self.__graph_exists_in_db:
             self.adb_graph = self.db.graph(graph_name)
             # self.__create_default_collections()
             # self.__set_factory_methods()
@@ -94,8 +94,8 @@ class DiGraph(nx.DiGraph):
         return self.__graph_name
 
     @property
-    def graph_exists(self) -> bool:
-        return self.__graph_exists
+    def graph_exists_in_db(self) -> bool:
+        return self.__graph_exists_in_db
 
     ###########
     # Setters #
@@ -136,7 +136,7 @@ class DiGraph(nx.DiGraph):
             raise DatabaseNotSet(m)
 
         if graph_name is None:
-            self.__graph_exists = False
+            self.__graph_exists_in_db = False
             logger.warning(f"**graph_name** not set for {self.__class__.__name__}")
             return
 
@@ -144,9 +144,9 @@ class DiGraph(nx.DiGraph):
             raise TypeError("**graph_name** must be a string")
 
         self.__graph_name = graph_name
-        self.__graph_exists = self.db.has_graph(graph_name)
+        self.__graph_exists_in_db = self.db.has_graph(graph_name)
 
-        logger.info(f"Graph '{graph_name}' exists: {self.__graph_exists}")
+        logger.info(f"Graph '{graph_name}' exists: {self.__graph_exists_in_db}")
 
     ####################
     # ArangoDB Methods #

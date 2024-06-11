@@ -1,3 +1,8 @@
+"""
+A collection of CRUD functions for the ArangoDB graph database.
+Used by the nx_arangodb Graph, DiGraph, MultiGraph, and MultiDiGraph classes.
+"""
+
 from __future__ import annotations
 
 from collections import UserDict

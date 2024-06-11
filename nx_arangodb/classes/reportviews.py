@@ -1,3 +1,8 @@
+"""
+An override of the NodeView, NodeDataView, EdgeView, and EdgeDataView classes
+to allow for custom data filtering in the database instead of in Python.
+"""
+
 from __future__ import annotations
 
 import networkx as nx

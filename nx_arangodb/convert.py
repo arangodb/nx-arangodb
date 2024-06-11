@@ -84,23 +84,18 @@ def from_networkx(
     return klass(incoming_graph_data=graph)
 
 
-def to_networkx(G: nxadb.Graph, *, sort_edges: bool = False) -> nx.Graph:
+def to_networkx(G: nxadb.Graph, *args: Any, **kwargs: Any) -> nx.Graph:
     """Convert a nx_arangodb graph to networkx graph.
 
     All edge and node attributes and ``G.graph`` properties are converted.
 
     TEMPORARY ASSUMPTION: The nx_arangodb Graph is a subclass of networkx Graph.
     Therefore, I'm going to assume that we _should_ be able instantiate an
-    nx Graph using the **incoming_graph_data** parameter. Let's try it!
+    nx Graph using the **incoming_graph_data** parameter.
 
     Parameters
     ----------
     G : nx_arangodb.Graph
-    sort_edges : bool, default False
-        Whether to sort the edge data of the input graph by (src, dst) indices
-        before converting. This can be useful to convert to networkx graphs
-        that iterate over edges consistently since edges are stored in dicts
-        in the order they were added.
 
     Returns
     -------
@@ -120,7 +115,7 @@ def to_networkx(G: nxadb.Graph, *, sort_edges: bool = False) -> nx.Graph:
 
 def from_networkx_arangodb(
     G: nxadb.Graph | nxadb.DiGraph, pull_graph: bool
-) -> nxadb.Graph | nxadb.DiGraph:
+) -> nx.Graph | nx.DiGraph:
     logger.debug(f"from_networkx_arangodb for {G.__class__.__name__}")
 
     if not isinstance(G, (nxadb.Graph, nxadb.DiGraph)):
@@ -162,9 +157,9 @@ def from_networkx_arangodb(
         logger.debug("creating nx graph from loaded ArangoDB data...")
         print("Creating nx graph from loaded ArangoDB data...")
         start_time = time.time()
-        result: nxadb.Graph | nxadb.DiGraph = nx.convert.from_dict_of_dicts(
+        result: nx.Graph = nx.convert.from_dict_of_dicts(
             adj_dict,
-            create_using=G.__class__,
+            create_using=G.to_networkx_class(),
             multigraph_input=G.is_multigraph(),
         )
 
@@ -179,18 +174,18 @@ def from_networkx_arangodb(
         raise nx.NetworkXError("Input is not a correct NetworkX graph.") from err
 
 
-def _to_nxadb_graph(
+def _to_nx_graph(
     G: Any,
     pull_graph: bool = True,
-) -> nxadb.Graph | nxadb.DiGraph:
-    """Ensure that input type is a nx_arangodb graph, and convert if necessary."""
-    logger.debug(f"_to_nxadb_graph for {G.__class__.__name__}")
+) -> nx.Graph | nx.DiGraph:
+    """Ensure that input type is an nx graph, and convert if necessary."""
+    logger.debug(f"_to_nx_graph for {G.__class__.__name__}")
 
     if isinstance(G, (nxadb.Graph, nxadb.DiGraph)):
         return from_networkx_arangodb(G, pull_graph)
 
     if isinstance(G, nx.Graph):
-        return from_networkx(G)
+        return G
 
     # TODO: handle cugraph.Graph
     raise TypeError

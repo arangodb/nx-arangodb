@@ -1,3 +1,8 @@
+"""
+A collection of dictionary-like objects for interacting with ArangoDB.
+Used as the underlying data structure for NetworkX-ArangoDB graphs.
+"""
+
 from __future__ import annotations
 
 from collections import UserDict, defaultdict

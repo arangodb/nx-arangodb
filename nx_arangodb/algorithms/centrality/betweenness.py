@@ -3,7 +3,7 @@
 
 import networkx as nx
 
-from nx_arangodb.convert import _to_nxadb_graph, _to_nxcg_graph
+from nx_arangodb.convert import _to_nx_graph, _to_nxcg_graph
 from nx_arangodb.logger import logger
 from nx_arangodb.utils import networkx_algorithm
 
@@ -43,7 +43,7 @@ def betweenness_centrality(
         print("Running nxcg.betweenness_centrality()")
         return nxcg.betweenness_centrality(G, k=k, normalized=normalized, weight=weight)
 
-    G = _to_nxadb_graph(G, pull_graph=pull_graph_on_cpu)
+    G = _to_nx_graph(G, pull_graph=pull_graph_on_cpu)
 
     logger.debug("using nx.betweenness_centrality")
     return nx.betweenness_centrality.orig_func(

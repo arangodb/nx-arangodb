@@ -86,9 +86,12 @@ def get_arangodb_graph(
 def key_is_string(func: Callable[..., Any]) -> Any:
     """Decorator to check if the key is a string."""
 
-    def wrapper(self: Any, key: str, *args: Any, **kwargs: Any) -> Any:
+    def wrapper(self: Any, key: Any, *args: Any, **kwargs: Any) -> Any:
         if not isinstance(key, str):
-            raise TypeError(f"'{key}' is not a string.")
+            if not isinstance(key, int):
+                raise TypeError(f"{key} cannot be casted to string.")
+
+            key = str(key)
 
         return func(self, key, *args, **kwargs)
 
@@ -101,7 +104,10 @@ def keys_are_strings(func: Callable[..., Any]) -> Any:
     def wrapper(self: Any, dict: dict[Any, Any], *args: Any, **kwargs: Any) -> Any:
         for key in dict:
             if not isinstance(key, str):
-                raise TypeError(f"'{key}' is not a string.")
+                if not isinstance(key, (int, float)):
+                    raise TypeError(f"{key} cannot be casted to string.")
+
+                dict[str(key)] = dict.pop(key)
 
         return func(self, dict, *args, **kwargs)
 

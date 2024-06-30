@@ -88,7 +88,7 @@ def key_is_string(func: Callable[..., Any]) -> Any:
 
     def wrapper(self: Any, key: Any, *args: Any, **kwargs: Any) -> Any:
         if not isinstance(key, str):
-            if not isinstance(key, int):
+            if not isinstance(key, (int, float)):
                 raise TypeError(f"{key} cannot be casted to string.")
 
             key = str(key)

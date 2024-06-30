@@ -123,3 +123,6 @@ node_modules/
 *_results.txt
 
 *.egg-info
+
+# VSCode
+.vscode/

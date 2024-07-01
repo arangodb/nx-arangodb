@@ -29,7 +29,7 @@ class DiGraph(nx.DiGraph):
     def __init__(
         self,
         graph_name: str | None = None,
-        # default_node_type: str = "nxadb_nodes",
+        # default_node_type: str = "node",
         # edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
         *args: Any,
         **kwargs: Any,

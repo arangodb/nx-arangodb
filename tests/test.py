@@ -1,11 +1,14 @@
 from typing import Any
 
 import networkx as nx
+import pandas as pd
 import pytest
 
 import nx_arangodb as nxadb
 
 from .conftest import db
+
+G_NX = nx.karate_club_graph()
 
 
 def test_db(load_graph: Any) -> None:
@@ -17,25 +20,23 @@ def test_load_graph_from_nxadb():
 
     db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
 
-    G_nx = nx.karate_club_graph()
-
     _ = nxadb.Graph(
         graph_name=graph_name,
-        incoming_graph_data=G_nx,
+        incoming_graph_data=G_NX,
         default_node_type="person",
     )
 
     assert db.has_graph(graph_name)
     assert db.has_collection("person")
     assert db.has_collection("person_to_person")
-    assert db.collection("person").count() == len(G_nx.nodes)
-    assert db.collection("person_to_person").count() == len(G_nx.edges)
+    assert db.collection("person").count() == len(G_NX.nodes)
+    assert db.collection("person_to_person").count() == len(G_NX.edges)
 
     db.delete_graph(graph_name, drop_collections=True)
 
 
 def test_bc(load_graph):
-    G_1 = nx.karate_club_graph()
+    G_1 = G_NX
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
     G_3 = nxadb.Graph(graph_name="KarateGraph")
 
@@ -71,7 +72,7 @@ def test_bc(load_graph):
 
 
 def test_pagerank(load_graph: Any) -> None:
-    G_1 = nx.karate_club_graph()
+    G_1 = G_NX
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
     G_3 = nxadb.Graph(graph_name="KarateGraph")
 
@@ -105,7 +106,7 @@ def test_pagerank(load_graph: Any) -> None:
 
 
 def test_louvain(load_graph: Any) -> None:
-    G_1 = nx.karate_club_graph()
+    G_1 = G_NX
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
     G_3 = nxadb.Graph(graph_name="KarateGraph")
 
@@ -158,7 +159,7 @@ def test_shortest_path(load_graph: Any) -> None:
 
 def test_graph_nodes_crud(load_graph: Any) -> None:
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
-    G_2 = nx.Graph(nx.karate_club_graph())
+    G_2 = nx.Graph(G_NX)
 
     assert G_1.graph_name == "KarateGraph"
     assert G_1.graph["foo"] == "bar"
@@ -258,7 +259,7 @@ def test_graph_nodes_crud(load_graph: Any) -> None:
 
 def test_graph_edges_crud(load_graph: Any) -> None:
     G_1 = nxadb.Graph(graph_name="KarateGraph")
-    G_2 = nx.karate_club_graph()
+    G_2 = G_NX
 
     assert len(G_1.adj) == len(G_2.adj)
     assert len(G_1.edges) == len(G_2.edges)
@@ -373,12 +374,11 @@ def test_graph_edges_crud(load_graph: Any) -> None:
 
 
 def test_readme(load_graph: Any) -> None:
-    G = nxadb.Graph(graph_name="KarateGraph")
-    G_nx = nx.karate_club_graph()
+    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
 
-    assert len(G.nodes) == len(G_nx.nodes)
-    assert len(G.adj) == len(G_nx.adj)
-    assert len(G.edges) == len(G_nx.edges)
+    assert len(G.nodes) == len(G_NX.nodes)
+    assert len(G.adj) == len(G_NX.adj)
+    assert len(G.edges) == len(G_NX.edges)
 
     G.nodes(data="club", default="unknown")
     G.edges(data="weight", default=1000)
@@ -386,6 +386,8 @@ def test_readme(load_graph: Any) -> None:
     G.nodes["person/1"]
     G.adj["person/1"]
     G.edges[("person/1", "person/3")]
+
+    assert G.nodes["1"] == G.nodes["person/1"] == G.nodes[1]
 
     G.nodes["person/1"]["name"] = "John Doe"
     G.nodes["person/1"].update({"age": 40})
@@ -418,9 +420,54 @@ def test_readme(load_graph: Any) -> None:
 
     G.clear()
 
-    assert len(G.nodes) == len(G_nx.nodes)
-    assert len(G.adj) == len(G_nx.adj)
-    assert len(G.edges) == len(G_nx.edges)
+    assert len(G.nodes) == len(G_NX.nodes)
+    assert len(G.adj) == len(G_NX.adj)
+    assert len(G.edges) == len(G_NX.edges)
+
+
+@pytest.mark.parametrize(
+    "data_type, incoming_graph_data, has_club, has_weight",
+    [
+        ("dict of dicts", nx.karate_club_graph()._adj, False, True),
+        (
+            "dict of lists",
+            {k: list(v) for k, v in G_NX._adj.items()},
+            False,
+            False,
+        ),
+        ("container of edges", list(G_NX.edges), False, False),
+        ("iterator of edges", iter(G_NX.edges), False, False),
+        ("generator of edges", (e for e in G_NX.edges), False, False),
+        ("2D numpy array", nx.to_numpy_array(G_NX), False, True),
+        (
+            "scipy sparse array",
+            nx.to_scipy_sparse_array(G_NX),
+            False,
+            True,
+        ),
+        ("Pandas EdgeList", nx.to_pandas_edgelist(G_NX), False, True),
+        # TODO: Address **nx.relabel.relabel_nodes** issue
+        # ("Pandas Adjacency", nx.to_pandas_adjacency(G_NX), False, True),
+    ],
+)
+def test_incoming_graph_data_not_nx_graph(
+    data_type: str, incoming_graph_data: Any, has_club: bool, has_weight: bool
+) -> None:
+    # See nx.convert.to_networkx_graph for the official supported types
+    name = "KarateGraph"
+    db.delete_graph(name, drop_collections=True, ignore_missing=True)
+
+    try:
+        G = nxadb.Graph(incoming_graph_data=incoming_graph_data, graph_name=name)
+    except Exception as e:
+        m = f"Failed to create graph with incoming_graph_data of type '{data_type}': {e}"  # noqa
+        pytest.fail(m)
+
+    assert len(G.nodes) == len(G_NX.nodes) == db.collection(G.default_node_type).count()
+    assert len(G.adj) == len(G_NX.adj) == db.collection(G.default_node_type).count()
+    assert len(G.edges) == len(G_NX.edges) == db.collection(G.default_edge_type).count()
+    assert has_club == ("club" in G.nodes["0"])
+    assert has_weight == ("weight" in G.adj["0"]["1"])
 
 
 def test_digraph_nodes_crud() -> None:

@@ -78,7 +78,7 @@ class Graph(nx.Graph):
 
         incoming_graph_data = kwargs.get("incoming_graph_data")
         if self.__graph_exists_in_db:
-            if incoming_graph_data:
+            if incoming_graph_data is not None:
                 m = "Cannot pass both **incoming_graph_data** and **graph_name** yet if the already graph exists"  # noqa: E501
                 raise NotImplementedError(m)
 
@@ -86,7 +86,7 @@ class Graph(nx.Graph):
             self.__create_default_collections()
             self.__set_factory_methods()
 
-        elif self.__graph_name and incoming_graph_data:
+        elif self.__graph_name and incoming_graph_data is not None:
             # TODO: Parameterize the edge definitions
             # How can we work with a heterogenous **incoming_graph_data**?
             edge_definitions = [

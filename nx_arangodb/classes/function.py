@@ -101,15 +101,29 @@ def key_is_string(func: Callable[..., Any]) -> Any:
 def keys_are_strings(func: Callable[..., Any]) -> Any:
     """Decorator to check if the keys are strings."""
 
-    def wrapper(self: Any, dict: dict[Any, Any], *args: Any, **kwargs: Any) -> Any:
-        for key in dict:
+    def wrapper(
+        self: Any, data: dict[Any, Any] | zip[Any], *args: Any, **kwargs: Any
+    ) -> Any:
+        data_dict = {}
+
+        items: Any
+        if isinstance(data, dict):
+            items = data.items()
+        elif isinstance(data, zip):
+            items = list(data)
+        else:
+            raise TypeError(f"Decorator found unsupported type: {type(data)}.")
+
+        for key, value in items:
             if not isinstance(key, str):
                 if not isinstance(key, (int, float)):
                     raise TypeError(f"{key} cannot be casted to string.")
 
-                dict[str(key)] = dict.pop(key)
+                key = str(key)
 
-        return func(self, dict, *args, **kwargs)
+            data_dict[key] = value
+
+        return func(self, data_dict, *args, **kwargs)
 
     return wrapper
 
@@ -132,12 +146,22 @@ def key_is_not_reserved(func: Callable[..., Any]) -> Any:
 def keys_are_not_reserved(func: Any) -> Any:
     """Decorator to check if the keys are not reserved."""
 
-    def wrapper(self: Any, dict: dict[Any, Any], *args: Any, **kwargs: Any) -> Any:
-        for key in dict:
+    def wrapper(
+        self: Any, data: dict[Any, Any] | zip[Any], *args: Any, **kwargs: Any
+    ) -> Any:
+        keys: Any
+        if isinstance(data, dict):
+            keys = data.keys()
+        elif isinstance(data, zip):
+            keys = (key for key, _ in list(data))
+        else:
+            raise TypeError(f"Decorator found unsupported type: {type(data)}.")
+
+        for key in keys:
             if key in RESERVED_KEYS:
                 raise KeyError(f"'{key}' is a reserved key.")
 
-        return func(self, dict, *args, **kwargs)
+        return func(self, data, *args, **kwargs)
 
     return wrapper
 

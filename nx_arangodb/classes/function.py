@@ -86,9 +86,12 @@ def get_arangodb_graph(
 def key_is_string(func: Callable[..., Any]) -> Any:
     """Decorator to check if the key is a string."""
 
-    def wrapper(self: Any, key: str, *args: Any, **kwargs: Any) -> Any:
+    def wrapper(self: Any, key: Any, *args: Any, **kwargs: Any) -> Any:
         if not isinstance(key, str):
-            raise TypeError(f"'{key}' is not a string.")
+            if not isinstance(key, (int, float)):
+                raise TypeError(f"{key} cannot be casted to string.")
+
+            key = str(key)
 
         return func(self, key, *args, **kwargs)
 
@@ -98,12 +101,29 @@ def key_is_string(func: Callable[..., Any]) -> Any:
 def keys_are_strings(func: Callable[..., Any]) -> Any:
     """Decorator to check if the keys are strings."""
 
-    def wrapper(self: Any, dict: dict[Any, Any], *args: Any, **kwargs: Any) -> Any:
-        for key in dict:
-            if not isinstance(key, str):
-                raise TypeError(f"'{key}' is not a string.")
+    def wrapper(
+        self: Any, data: dict[Any, Any] | zip[Any], *args: Any, **kwargs: Any
+    ) -> Any:
+        data_dict = {}
 
-        return func(self, dict, *args, **kwargs)
+        items: Any
+        if isinstance(data, dict):
+            items = data.items()
+        elif isinstance(data, zip):
+            items = list(data)
+        else:
+            raise TypeError(f"Decorator found unsupported type: {type(data)}.")
+
+        for key, value in items:
+            if not isinstance(key, str):
+                if not isinstance(key, (int, float)):
+                    raise TypeError(f"{key} cannot be casted to string.")
+
+                key = str(key)
+
+            data_dict[key] = value
+
+        return func(self, data_dict, *args, **kwargs)
 
     return wrapper
 
@@ -126,12 +146,22 @@ def key_is_not_reserved(func: Callable[..., Any]) -> Any:
 def keys_are_not_reserved(func: Any) -> Any:
     """Decorator to check if the keys are not reserved."""
 
-    def wrapper(self: Any, dict: dict[Any, Any], *args: Any, **kwargs: Any) -> Any:
-        for key in dict:
+    def wrapper(
+        self: Any, data: dict[Any, Any] | zip[Any], *args: Any, **kwargs: Any
+    ) -> Any:
+        keys: Any
+        if isinstance(data, dict):
+            keys = data.keys()
+        elif isinstance(data, zip):
+            keys = (key for key, _ in list(data))
+        else:
+            raise TypeError(f"Decorator found unsupported type: {type(data)}.")
+
+        for key in keys:
             if key in RESERVED_KEYS:
                 raise KeyError(f"'{key}' is a reserved key.")
 
-        return func(self, dict, *args, **kwargs)
+        return func(self, data, *args, **kwargs)
 
     return wrapper
 
@@ -229,7 +259,6 @@ def aql_edge_get(
     graph_name: str,
     direction: str,
 ) -> Any | None:
-    # TODO: need the use of DISTINCT
     return_clause = "DISTINCT e" if direction == "ANY" else "e"
     return aql_edge(
         db,
@@ -248,7 +277,6 @@ def aql_edge_id(
     graph_name: str,
     direction: str,
 ) -> str | None:
-    # TODO: need the use of DISTINCT
     return_clause = "DISTINCT e._id" if direction == "ANY" else "e._id"
     result = aql_edge(
         db,

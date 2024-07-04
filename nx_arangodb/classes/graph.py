@@ -41,8 +41,9 @@ class Graph(nx.Graph):
     def __init__(
         self,
         graph_name: str | None = None,
-        default_node_type: str = "nxadb_node",
+        default_node_type: str = "node",
         edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
+        db: StandardDatabase | None = None,
         *args: Any,
         **kwargs: Any,
     ):
@@ -50,7 +51,7 @@ class Graph(nx.Graph):
         self.__graph_name = None
         self.__graph_exists_in_db = False
 
-        self.__set_db()
+        self.__set_db(db)
         if self.__db is not None:
             self.__set_graph_name(graph_name)
 
@@ -73,41 +74,47 @@ class Graph(nx.Graph):
         self.edge_type_func = edge_type_func
         self.default_edge_type = edge_type_func(default_node_type, default_node_type)
 
+        # self.__qa_chain = None
+
         incoming_graph_data = kwargs.get("incoming_graph_data")
         if self.__graph_exists_in_db:
-            self.adb_graph = self.db.graph(graph_name)
-            self.__create_default_collections()
-            self.__set_factory_methods()
-
-            if incoming_graph_data:
+            if incoming_graph_data is not None:
                 m = "Cannot pass both **incoming_graph_data** and **graph_name** yet if the already graph exists"  # noqa: E501
                 raise NotImplementedError(m)
 
-        elif self.__graph_name and incoming_graph_data:
-            if not isinstance(incoming_graph_data, nx.Graph):
-                m = f"Type of **incoming_graph_data** not supported yet ({type(incoming_graph_data)})"  # noqa: E501
-                raise NotImplementedError(m)
+            self.adb_graph = self.db.graph(self.__graph_name)
+            self.__create_default_collections()
+            self.__set_factory_methods()
 
-            adapter = ADBNX_Adapter(self.db)
-            self.adb_graph = adapter.networkx_to_arangodb(
-                graph_name,
-                incoming_graph_data,
-                # TODO: Parameterize the edge definitions
-                # How can we work with a heterogenous **incoming_graph_data**?
-                edge_definitions=[
-                    {
-                        "edge_collection": self.default_edge_type,
-                        "from_vertex_collections": [self.default_node_type],
-                        "to_vertex_collections": [self.default_node_type],
-                    }
-                ],
-            )
+        elif self.__graph_name and incoming_graph_data is not None:
+            # TODO: Parameterize the edge definitions
+            # How can we work with a heterogenous **incoming_graph_data**?
+            edge_definitions = [
+                {
+                    "edge_collection": self.default_edge_type,
+                    "from_vertex_collections": [self.default_node_type],
+                    "to_vertex_collections": [self.default_node_type],
+                }
+            ]
+
+            if isinstance(incoming_graph_data, nx.Graph):
+                self.adb_graph = ADBNX_Adapter(self.db).networkx_to_arangodb(
+                    self.__graph_name,
+                    incoming_graph_data,
+                    edge_definitions=edge_definitions,
+                )
+
+                # No longer need this (we've already populated the graph)
+                del kwargs["incoming_graph_data"]
+
+            else:
+                self.adb_graph = self.db.create_graph(
+                    self.__graph_name,
+                    edge_definitions=edge_definitions,
+                )
 
             self.__set_factory_methods()
             self.__graph_exists_in_db = True
-            del kwargs["incoming_graph_data"]
-
-        # self.__qa_chain = None
 
         super().__init__(*args, **kwargs)
 
@@ -187,6 +194,7 @@ class Graph(nx.Graph):
                 m = "arango.database.StandardDatabase"
                 raise TypeError(m)
 
+            db.version()
             self.__db = db
             return
 
@@ -232,7 +240,6 @@ class Graph(nx.Graph):
     # ArangoDB Methods #
     ####################
 
-    # TODO: proper subgraphing!
     def aql(self, query: str, bind_vars: dict[str, Any] = {}, **kwargs: Any) -> Cursor:
         return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
 
@@ -267,12 +274,12 @@ class Graph(nx.Graph):
         :param load_node_dict: Load the node dictionary.
             Enabling this option will clear the existing node dictionary,
             and replace it with the node data from the database. Comes with
-            a remote reference to the database. <--- TODO: Should we paramaterize this?
+            a remote reference to the database.
         :type load_node_dict: bool
         :param load_adj_dict: Load the adjacency dictionary.
             Enabling this option will clear the existing adjacency dictionary,
             and replace it with the edge data from the database. Comes with
-            a remote reference to the database. <--- TODO: Should we paramaterize this?
+            a remote reference to the database.
         :type load_adj_dict: bool
         :param load_coo: Load the COO representation. If False, the src & dst
             indices will be empty, along with the node-ID-to-index mapping.

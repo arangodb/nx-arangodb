@@ -52,6 +52,7 @@ dev = [
     "Flake8-pyproject",
     "isort",
     "mypy",
+    "pandas",
 ]
 gpu = [
     "nx-cugraph-cu12 @ https://pypi.nvidia.com"

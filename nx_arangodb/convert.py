@@ -44,12 +44,6 @@ def from_networkx(
 ) -> nxadb.Graph | nxadb.DiGraph:
     """Convert a networkx graph to nx_arangodb graph.
 
-    TEMPORARY ASSUMPTION: The nx_arangodb Graph is a subclass of networkx Graph.
-    Therefore, I'm going to assume that we _should_ be able instantiate an
-    nx_arangodb Graph using the **incoming_graph_data** parameter.
-
-    TODO: The actual implementation should store the graph in ArangoDB.
-
     Parameters
     ----------
     G : networkx.Graph
@@ -187,8 +181,7 @@ def _to_nx_graph(
     if isinstance(G, nx.Graph):
         return G
 
-    # TODO: handle cugraph.Graph
-    raise TypeError
+    raise TypeError(f"Expected nx_arangodb.Graph or nx.Graph; got {type(G)}")
 
 
 if GPU_ENABLED:

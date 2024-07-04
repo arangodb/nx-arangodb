@@ -249,6 +249,8 @@ class NodeAttrDict(UserDict[str, Any]):
 
     @logger_debug
     def __init__(self, db: StandardDatabase, graph: Graph, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self.data: dict[str, Any] = {}
 
         self.db = db
         self.graph = graph
@@ -258,9 +260,6 @@ class NodeAttrDict(UserDict[str, Any]):
         # e.g G._node['node/1']['object']['foo'] = 'bar'
         # In this case, parent_keys would be ['object']
         self.parent_keys: list[str] = []
-
-        super().__init__(*args, **kwargs)
-        self.data: dict[str, Any] = {}
         self.node_attr_dict_factory = node_attr_dict_factory(self.db, self.graph)
 
     @key_is_string
@@ -336,7 +335,6 @@ class NodeAttrDict(UserDict[str, Any]):
     # # TODO: Revisit typing of return value
     # def values(self) -> Any:
     #     """G._node['node/1'].values()"""
-    #     breakpoint()
     #     self.data = self.db.document(self.node_id)
     #     yield from self.data.values()
 
@@ -380,7 +378,7 @@ class NodeAttrDict(UserDict[str, Any]):
         self.data.update(build_node_attr_dict_data(self, attrs))
 
         if not self.node_id:
-            logger.warning("Node ID not set, skipping NodeAttrDict(?).update()")
+            logger.debug("Node ID not set, skipping NodeAttrDict(?).update()")
             return
 
         update_dict = get_update_dict(self.parent_keys, attrs)
@@ -437,13 +435,13 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         """G._node['node/1']"""
         node_id = get_node_id(key, self.default_node_type)
 
-        if value := self.data.get(node_id):
-            return value
+        if vertex := self.data.get(node_id):
+            return vertex
 
-        if value := self.graph.vertex(node_id):
+        if vertex := self.graph.vertex(node_id):
             node_attr_dict: NodeAttrDict = self.node_attr_dict_factory()
             node_attr_dict.node_id = node_id
-            node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, value)
+            node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, vertex)
             self.data[node_id] = node_attr_dict
 
             return node_attr_dict
@@ -573,6 +571,36 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 #############
 
 
+def process_edge_attr_dict_value(parent: EdgeAttrDict, key: str, value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+
+    edge_attr_dict = parent.edge_attr_dict_factory()
+    edge_attr_dict.edge_id = parent.edge_id
+    edge_attr_dict.parent_keys = parent.parent_keys + [key]
+    edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, value)
+
+    return edge_attr_dict
+
+
+def build_edge_attr_dict_data(
+    parent: EdgeAttrDict, data: dict[str, Any]
+) -> dict[str, Any | EdgeAttrDict]:
+    """Recursively build an EdgeAttrDict from a dict.
+
+    It's possible that **value** is a nested dict, so we need to
+    recursively build a EdgeAttrDict for each nested dict.
+
+    Returns the parent EdgeAttrDict.
+    """
+    edge_attr_dict_data = {}
+    for key, value in data.items():
+        edge_attr_dict_value = process_edge_attr_dict_value(parent, key, value)
+        edge_attr_dict_data[key] = edge_attr_dict_value
+
+    return edge_attr_dict_data
+
+
 class EdgeAttrDict(UserDict[str, Any]):
     """The innermost-level of the dict of dict of dict structure
     representing the Adjacency List of a graph.
@@ -600,6 +628,12 @@ class EdgeAttrDict(UserDict[str, Any]):
         self.graph = graph
         self.edge_id: str | None = None
 
+        # NodeAttrDict may be a child of another NodeAttrDict
+        # e.g G._adj['node/1']['node/2']['object']['foo'] = 'bar'
+        # In this case, parent_keys would be ['object']
+        self.parent_keys: list[str] = []
+        self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
+
     @key_is_string
     @logger_debug
     def __contains__(self, key: str) -> bool:
@@ -623,9 +657,10 @@ class EdgeAttrDict(UserDict[str, Any]):
         if not result:
             raise KeyError(key)
 
-        self.data[key] = result
+        edge_attr_dict_value = process_edge_attr_dict_value(self, key, result)
+        self.data[key] = edge_attr_dict_value
 
-        return result
+        return edge_attr_dict_value
 
     @key_is_string
     @key_is_not_reserved
@@ -634,8 +669,10 @@ class EdgeAttrDict(UserDict[str, Any]):
     def __setitem__(self, key: str, value: Any) -> None:
         """G._adj['node/1']['node/2']['foo'] = 'bar'"""
         assert self.edge_id
-        self.data[key] = value
-        self.data["_rev"] = doc_update(self.db, self.edge_id, {key: value})
+        edge_attr_dict_value = process_edge_attr_dict_value(self, key, value)
+        update_dict = get_update_dict(self.parent_keys, {key: value})
+        self.data[key] = edge_attr_dict_value
+        self.data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
 
     @key_is_string
     @key_is_not_reserved
@@ -644,7 +681,8 @@ class EdgeAttrDict(UserDict[str, Any]):
         """del G._adj['node/1']['node/2']['foo']"""
         assert self.edge_id
         self.data.pop(key, None)
-        self.data["_rev"] = doc_update(self.db, self.edge_id, {key: None})
+        update_dict = get_update_dict(self.parent_keys, {key: None})
+        self.data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
 
     # @logger_debug
     # def __iter__(self) -> Iterator[str]:
@@ -691,14 +729,14 @@ class EdgeAttrDict(UserDict[str, Any]):
         if not attrs:
             return
 
-        self.data.update(attrs)
+        self.data.update(build_edge_attr_dict_data(self, attrs))
 
         if not self.edge_id:
-            logger.warning("Edge ID not set, skipping EdgeAttrDict(?).update()")
+            logger.debug("Edge ID not set, skipping EdgeAttrDict(?).update()")
             return
 
-        assert self.edge_id
-        self.data["_rev"] = doc_update(self.db, self.edge_id, attrs)
+        update_dict = get_update_dict(self.parent_keys, attrs)
+        self.data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
 
 
 class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
@@ -733,13 +771,12 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
 
         self.db = db
         self.graph = graph
-        self.default_node_type = default_node_type
         self.edge_type_func = edge_type_func
-        self.adjlist_outer_dict = adjlist_outer_dict
+        self.default_node_type = default_node_type
+        self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
 
         self.src_node_id: str | None = None
-
-        self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
+        self.adjlist_outer_dict = adjlist_outer_dict
 
         self.FETCHED_ALL_DATA = False
 
@@ -786,16 +823,16 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
     @logger_debug
     def __getitem__(self, key: str) -> EdgeAttrDict:
         """g._adj['node/1']['node/2']"""
-        assert self.src_node_id
         dst_node_id = get_node_id(key, self.default_node_type)
 
-        if dst_node_id in self.data:
-            return self.data[dst_node_id]
+        if edge := self.data.get(dst_node_id):
+            return edge
 
-        if mirrored_edge_attr_dict := self.__get_mirrored_edge_attr_dict(dst_node_id):
-            self.data[dst_node_id] = mirrored_edge_attr_dict
-            return mirrored_edge_attr_dict  # type: ignore # false positive
+        if edge := self.__get_mirrored_edge_attr_dict(dst_node_id):
+            self.data[dst_node_id] = edge
+            return edge  # type: ignore # false positive
 
+        assert self.src_node_id
         edge = aql_edge_get(
             self.db,
             self.src_node_id,
@@ -809,8 +846,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
 
         edge_attr_dict = self.edge_attr_dict_factory()
         edge_attr_dict.edge_id = edge["_id"]
-        edge_attr_dict.data = edge
-
+        edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
         self.data[dst_node_id] = edge_attr_dict
 
         return edge_attr_dict
@@ -825,8 +861,8 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         src_node_type = self.src_node_id.split("/")[0]
         dst_node_type, dst_node_id = get_node_type_and_id(key, self.default_node_type)
 
-        if mirrored_edge_attr_dict := self.__get_mirrored_edge_attr_dict(dst_node_id):
-            self.data[dst_node_id] = mirrored_edge_attr_dict
+        if edge := self.__get_mirrored_edge_attr_dict(dst_node_id):
+            self.data[dst_node_id] = edge
             return
 
         edge_type = value.data.get("_edge_type")
@@ -851,13 +887,8 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
 
         edge_attr_dict = self.edge_attr_dict_factory()
         edge_attr_dict.edge_id = edge["_id"]
-        edge_attr_dict.data = {
-            **edge_data,
-            **edge,
-            "_from": self.src_node_id,
-            "_to": dst_node_id,
-        }
-
+        edge_data = {**edge_data, **edge, "_from": self.src_node_id, "_to": dst_node_id}
+        edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge_data)
         self.data[dst_node_id] = edge_attr_dict
 
     @key_is_string
@@ -1013,8 +1044,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
         self.db = db
         self.graph = graph
-        self.default_node_type = default_node_type
         self.edge_type_func = edge_type_func
+        self.default_node_type = default_node_type
         self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(
             db, graph, default_node_type, edge_type_func, self
         )

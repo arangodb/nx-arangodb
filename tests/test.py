@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 import nx_arangodb as nxadb
+from nx_arangodb.classes.dict import EdgeAttrDict, NodeAttrDict
 
 from .conftest import db
 
@@ -217,8 +218,6 @@ def test_graph_nodes_crud(load_graph: Any) -> None:
     len(G_1.nodes) == len(G_2.nodes) + 1
     G_1.clear()
     assert G_1.nodes["person/35"]["foo"] == {"bar": "baz"}
-    # TODO: Support this use case:
-    # G_1.nodes["person/35"]["foo"]["bar"] = "baz2"
 
     G_1.add_nodes_from(["1", "2", "3"], foo="bar")
     G_1.clear()
@@ -255,6 +254,31 @@ def test_graph_nodes_crud(load_graph: Any) -> None:
     G_1.remove_node("person/1")
     assert not db.has_document("person/1")
     assert not db.has_document(edge_id)
+
+    G_1.nodes["person/2"]["object"] = {"foo": "bar", "bar": "foo"}
+    assert "_rev" not in G_1.nodes["person/2"]["object"]
+    assert isinstance(G_1.nodes["person/2"]["object"], NodeAttrDict)
+    assert db.document("person/2")["object"] == {"foo": "bar", "bar": "foo"}
+
+    G_1.nodes["person/2"]["object"]["foo"] = "baz"
+    assert db.document("person/2")["object"]["foo"] == "baz"
+
+    del G_1.nodes["person/2"]["object"]["foo"]
+    assert "_rev" not in G_1.nodes["person/2"]["object"]
+    assert isinstance(G_1.nodes["person/2"]["object"], NodeAttrDict)
+    assert "foo" not in db.document("person/2")["object"]
+
+    G_1.nodes["person/2"]["object"].update({"sub_object": {"foo": "bar"}})
+    assert "_rev" not in G_1.nodes["person/2"]["object"]["sub_object"]
+    assert isinstance(G_1.nodes["person/2"]["object"]["sub_object"], NodeAttrDict)
+    assert db.document("person/2")["object"]["sub_object"]["foo"] == "bar"
+
+    G_1.clear()
+
+    assert G_1.nodes["person/2"]["object"]["sub_object"]["foo"] == "bar"
+    G_1.nodes["person/2"]["object"]["sub_object"]["foo"] = "baz"
+    assert "_rev" not in G_1.nodes["person/2"]["object"]["sub_object"]
+    assert db.document("person/2")["object"]["sub_object"]["foo"] == "baz"
 
 
 def test_graph_edges_crud(load_graph: Any) -> None:
@@ -371,6 +395,32 @@ def test_graph_edges_crud(load_graph: Any) -> None:
     G_1.clear()
     assert G_1["person/1"]["person/2"]["weight"] == new_weight
     assert G_1["person/2"]["person/1"]["weight"] == new_weight
+
+    edge_id = G_1["person/1"]["person/2"]["_id"]
+    G_1["person/1"]["person/2"]["object"] = {"foo": "bar", "bar": "foo"}
+    assert "_rev" not in G_1["person/1"]["person/2"]["object"]
+    assert isinstance(G_1["person/1"]["person/2"]["object"], EdgeAttrDict)
+    assert db.document(edge_id)["object"] == {"foo": "bar", "bar": "foo"}
+
+    G_1["person/1"]["person/2"]["object"]["foo"] = "baz"
+    assert db.document(edge_id)["object"]["foo"] == "baz"
+
+    del G_1["person/1"]["person/2"]["object"]["foo"]
+    assert "_rev" not in G_1["person/1"]["person/2"]["object"]
+    assert isinstance(G_1["person/1"]["person/2"]["object"], EdgeAttrDict)
+    assert "foo" not in db.document(edge_id)["object"]
+
+    G_1["person/1"]["person/2"]["object"].update({"sub_object": {"foo": "bar"}})
+    assert "_rev" not in G_1["person/1"]["person/2"]["object"]["sub_object"]
+    assert isinstance(G_1["person/1"]["person/2"]["object"]["sub_object"], EdgeAttrDict)
+    assert db.document(edge_id)["object"]["sub_object"]["foo"] == "bar"
+
+    G_1.clear()
+
+    assert G_1["person/1"]["person/2"]["object"]["sub_object"]["foo"] == "bar"
+    G_1["person/1"]["person/2"]["object"]["sub_object"]["foo"] = "baz"
+    assert "_rev" not in G_1["person/1"]["person/2"]["object"]["sub_object"]
+    assert db.document(edge_id)["object"]["sub_object"]["foo"] == "baz"
 
 
 def test_readme(load_graph: Any) -> None:

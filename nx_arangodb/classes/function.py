@@ -15,6 +15,7 @@ from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 import nx_arangodb as nxadb
+from nx_arangodb.logger import logger
 
 from ..exceptions import (
     AQLMultipleResultsFound,
@@ -94,6 +95,16 @@ def key_is_string(func: Callable[..., Any]) -> Any:
             key = str(key)
 
         return func(self, key, *args, **kwargs)
+
+    return wrapper
+
+
+def logger_debug(func: Callable[..., Any]) -> Any:
+    """Decorator to log debug messages."""
+
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+        logger.debug(f"{func.__name__} - {args} - {kwargs}")
+        return func(self, *args, **kwargs)
 
     return wrapper
 
@@ -204,35 +215,58 @@ def aql_single(
     return result[0]
 
 
-def aql_doc_has_key(db: StandardDatabase, id: str, key: str) -> bool:
+def aql_doc_has_key(
+    db: StandardDatabase, id: str, key: str, nested_keys: list[str] = []
+) -> bool:
     """Checks if a document has a key."""
-    query = "RETURN HAS(DOCUMENT(@id), @key)"
+    nested_keys_str = "." + ".".join(nested_keys) if nested_keys else ""
+    query = f"RETURN HAS(DOCUMENT(@id){nested_keys_str}, @key)"
     bind_vars = {"id": id, "key": key}
     result = aql_single(db, query, bind_vars)
     return bool(result) if result is not None else False
 
 
-def aql_doc_get_key(db: StandardDatabase, id: str, key: str) -> Any:
+def aql_doc_get_key(
+    db: StandardDatabase, id: str, key: str, nested_keys: list[str] = []
+) -> Any:
     """Gets a key from a document."""
-    query = "RETURN DOCUMENT(@id).@key"
+    nested_keys_str = "." + ".".join(nested_keys) if nested_keys else ""
+    query = f"RETURN DOCUMENT(@id){nested_keys_str}.@key"
     bind_vars = {"id": id, "key": key}
     return aql_single(db, query, bind_vars)
 
 
-def aql_doc_get_keys(db: StandardDatabase, id: str) -> list[str]:
+def aql_doc_get_items(
+    db: StandardDatabase, id: str, nested_key: list[str] = []
+) -> dict[str, Any]:
+    """Gets the items of a document."""
+    nested_key_str = "." + ".".join(nested_key) if nested_key else ""
+    query = f"RETURN DOCUMENT(@id){nested_key_str}"
+    bind_vars = {"id": id}
+    result = aql_single(db, query, bind_vars)
+    return result or {}
+
+
+def aql_doc_get_keys(
+    db: StandardDatabase, id: str, nested_keys: list[str] = []
+) -> list[str]:
     """Gets the keys of a document."""
-    query = "RETURN ATTRIBUTES(DOCUMENT(@id))"
+    nested_keys_str = "." + ".".join(nested_keys) if nested_keys else ""
+    query = f"RETURN ATTRIBUTES(DOCUMENT(@id){nested_keys_str})"
     bind_vars = {"id": id}
     result = aql_single(db, query, bind_vars)
-    return list(result) if result is not None else []
+    return list(result or [])
 
 
-def aql_doc_get_length(db: StandardDatabase, id: str) -> int:
+def aql_doc_get_length(
+    db: StandardDatabase, id: str, nested_keys: list[str] = []
+) -> int:
     """Gets the length of a document."""
-    query = "RETURN LENGTH(DOCUMENT(@id))"
+    nested_keys_str = "." + ".".join(nested_keys) if nested_keys else ""
+    query = f"RETURN LENGTH(DOCUMENT(@id){nested_keys_str})"
     bind_vars = {"id": id}
     result = aql_single(db, query, bind_vars)
-    return int(result) if result is not None else 0
+    return int(result or 0)
 
 
 def aql_edge_exists(
@@ -375,9 +409,10 @@ def aql_fetch_data_edge(
 
 def doc_update(
     db: StandardDatabase, id: str, data: dict[str, Any], **kwargs: Any
-) -> None:
+) -> str:
     """Updates a document in the collection."""
-    db.update_document({**data, "_id": id}, keep_none=False, silent=True, **kwargs)
+    res = db.update_document({**data, "_id": id}, keep_none=False, **kwargs)
+    return str(res["_rev"])
 
 
 def doc_delete(db: StandardDatabase, id: str, **kwargs: Any) -> None:

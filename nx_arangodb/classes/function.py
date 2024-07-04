@@ -259,7 +259,6 @@ def aql_edge_get(
     graph_name: str,
     direction: str,
 ) -> Any | None:
-    # TODO: need the use of DISTINCT
     return_clause = "DISTINCT e" if direction == "ANY" else "e"
     return aql_edge(
         db,
@@ -278,7 +277,6 @@ def aql_edge_id(
     graph_name: str,
     direction: str,
 ) -> str | None:
-    # TODO: need the use of DISTINCT
     return_clause = "DISTINCT e._id" if direction == "ANY" else "e._id"
     result = aql_edge(
         db,

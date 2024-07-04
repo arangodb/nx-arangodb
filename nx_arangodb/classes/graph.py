@@ -240,7 +240,6 @@ class Graph(nx.Graph):
     # ArangoDB Methods #
     ####################
 
-    # TODO: proper subgraphing!
     def aql(self, query: str, bind_vars: dict[str, Any] = {}, **kwargs: Any) -> Cursor:
         return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
 
@@ -275,12 +274,12 @@ class Graph(nx.Graph):
         :param load_node_dict: Load the node dictionary.
             Enabling this option will clear the existing node dictionary,
             and replace it with the node data from the database. Comes with
-            a remote reference to the database. <--- TODO: Should we paramaterize this?
+            a remote reference to the database.
         :type load_node_dict: bool
         :param load_adj_dict: Load the adjacency dictionary.
             Enabling this option will clear the existing adjacency dictionary,
             and replace it with the edge data from the database. Comes with
-            a remote reference to the database. <--- TODO: Should we paramaterize this?
+            a remote reference to the database.
         :type load_adj_dict: bool
         :param load_coo: Load the COO representation. If False, the src & dst
             indices will be empty, along with the node-ID-to-index mapping.

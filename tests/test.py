@@ -457,11 +457,7 @@ def test_incoming_graph_data_not_nx_graph(
     name = "KarateGraph"
     db.delete_graph(name, drop_collections=True, ignore_missing=True)
 
-    try:
-        G = nxadb.Graph(incoming_graph_data=incoming_graph_data, graph_name=name)
-    except Exception as e:
-        m = f"Failed to create graph with incoming_graph_data of type '{data_type}': {e}"  # noqa
-        pytest.fail(m)
+    G = nxadb.Graph(incoming_graph_data=incoming_graph_data, graph_name=name)
 
     assert len(G.nodes) == len(G_NX.nodes) == db.collection(G.default_node_type).count()
     assert len(G.adj) == len(G_NX.adj) == db.collection(G.default_node_type).count()

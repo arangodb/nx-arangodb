@@ -183,13 +183,13 @@ class GraphDict(UserDict[str, Any]):
         self.data.update(attrs)
         self.data["_rev"] = doc_update(self.db, self.graph_id, attrs)
 
-    @logger_debug
-    def clear(self) -> None:
-        """G.graph.clear()"""
-        self.data.clear()
+    # @logger_debug
+    # def clear(self) -> None:
+    #     """G.graph.clear()"""
+    #     self.data.clear()
 
-        # if clear_remote:
-        #     doc_insert(self.db, self.COLLECTION_NAME, self.graph_id, silent=True)
+    #     # if clear_remote:
+    #     #     doc_insert(self.db, self.COLLECTION_NAME, self.graph_id, silent=True)
 
 
 ########
@@ -363,13 +363,13 @@ class NodeAttrDict(UserDict[str, Any]):
     # def push():
     # pass
 
-    @logger_debug
-    def clear(self) -> None:
-        """G._node['node/1'].clear()"""
-        self.data.clear()
+    # @logger_debug
+    # def clear(self) -> None:
+    #     """G._node['node/1'].clear()"""
+    #     self.data.clear()
 
-        # if clear_remote:
-        #     doc_insert(self.db, self.node_id, silent=True, overwrite=True)
+    #     # if clear_remote:
+    #     #     doc_insert(self.db, self.node_id, silent=True, overwrite=True)
 
     @keys_are_strings
     @keys_are_not_reserved
@@ -423,6 +423,8 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         self.graph = graph
         self.default_node_type = default_node_type
         self.node_attr_dict_factory = node_attr_dict_factory(self.db, self.graph)
+
+        self.FETCHED_ALL_DATA = False
 
     @key_is_string
     @logger_debug
@@ -516,13 +518,22 @@ class NodeDict(UserDict[str, NodeAttrDict]):
     @logger_debug
     def __iter__(self) -> Iterator[str]:
         """iter(g._node)"""
-        for collection in self.graph.vertex_collections():
-            yield from self.graph.vertex_collection(collection).ids()
+        if self.FETCHED_ALL_DATA:
+            yield from self.data.keys()
+        else:
+            for collection in self.graph.vertex_collections():
+                yield from self.graph.vertex_collection(collection).ids()
+
+    @logger_debug
+    def keys(self) -> Any:
+        """g._node.keys()"""
+        return self.__iter__()
 
     @logger_debug
     def clear(self) -> None:
         """g._node.clear()"""
         self.data.clear()
+        self.FETCHED_ALL_DATA = False
 
         # if clear_remote:
         #     for collection in self.graph.vertex_collections():
@@ -534,16 +545,13 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         """g._node.update({'node/1': {'foo': 'bar'}, 'node/2': {'baz': 'qux'}})"""
         raise NotImplementedError("NodeDict.update()")
 
-    @logger_debug
-    def keys(self) -> Any:
-        """g._node.keys()"""
-        return self.__iter__()
-
     # TODO: Revisit typing of return value
     @logger_debug
     def values(self) -> Any:
         """g._node.values()"""
-        self.__fetch_all()
+        if not self.FETCHED_ALL_DATA:
+            self.__fetch_all()
+
         yield from self.data.values()
 
     # TODO: Revisit typing of return value
@@ -551,7 +559,9 @@ class NodeDict(UserDict[str, NodeAttrDict]):
     def items(self, data: str | None = None, default: Any | None = None) -> Any:
         """g._node.items() or G._node.items(data='foo')"""
         if data is None:
-            self.__fetch_all()
+            if not self.FETCHED_ALL_DATA:
+                self.__fetch_all()
+
             yield from self.data.items()
         else:
             v_cols = list(self.graph.vertex_collections())
@@ -570,6 +580,8 @@ class NodeDict(UserDict[str, NodeAttrDict]):
                 node_attr_dict.data = doc
 
                 self.data[node_id] = node_attr_dict
+
+        self.FETCHED_ALL_DATA = True
 
 
 #############
@@ -730,10 +742,10 @@ class EdgeAttrDict(UserDict[str, Any]):
     #     self.data = self.db.document(self.edge_id)
     #     yield from self.data.items()
 
-    @logger_debug
-    def clear(self) -> None:
-        """G._adj['node/1']['node/'2].clear()"""
-        self.data.clear()
+    # @logger_debug
+    # def clear(self) -> None:
+    #     """G._adj['node/1']['node/'2].clear()"""
+    #     self.data.clear()
 
     @keys_are_strings
     @keys_are_not_reserved
@@ -994,14 +1006,18 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
     @logger_debug
     def values(self) -> Any:
         """g._adj['node/1'].values()"""
-        self.__fetch_all()
+        if not self.FETCHED_ALL_DATA:
+            self.__fetch_all()
+
         yield from self.data.values()
 
     # TODO: Revisit typing of return value
     @logger_debug
     def items(self) -> Any:
         """g._adj['node/1'].items()"""
-        self.__fetch_all()
+        if not self.FETCHED_ALL_DATA:
+            self.__fetch_all()
+
         yield from self.data.items()
 
     @logger_debug
@@ -1196,7 +1212,9 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     @logger_debug
     def values(self) -> Any:
         """g._adj.values()"""
-        self.__fetch_all()
+        if not self.FETCHED_ALL_DATA:
+            self.__fetch_all()
+
         yield from self.data.values()
 
     # TODO: Revisit typing of return value
@@ -1209,7 +1227,9 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         # ):
         """g._adj.items() or G._adj.items(data='foo')"""
         if data is None:
-            self.__fetch_all()
+            if not self.FETCHED_ALL_DATA:
+                self.__fetch_all()
+
             yield from self.data.items()
 
         else:

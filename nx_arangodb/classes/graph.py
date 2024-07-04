@@ -12,8 +12,9 @@ from arango.database import StandardDatabase
 from arango.exceptions import ServerConnectionError
 
 import nx_arangodb as nxadb
-from nx_arangodb.exceptions import DatabaseNotSet, GraphNameNotSet
+from nx_arangodb.exceptions import DatabaseNotSet, GraphDoesNotExist, GraphNameNotSet
 from nx_arangodb.logger import logger
+# from networkx.utils import Config
 
 from .dict import (
     adjlist_inner_dict_factory,
@@ -286,13 +287,23 @@ class Graph(nx.Graph):
             Used for nx-cuGraph compatibility.
         :type load_coo: bool
         """
+        if not self.graph_exists_in_db:
+            m = "Graph does not exist in the database. Can't load graph."
+            raise GraphDoesNotExist(m)
+
         node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = (
             nxadb.classes.function.get_arangodb_graph(
-                self,
+                self._host,
+                self._username,
+                self._password,
+                self._db_name,
+                self.adb_graph,
                 load_node_dict=load_node_dict,
                 load_adj_dict=load_adj_dict,
                 load_adj_dict_as_directed=False,
                 load_coo=load_coo,
+                parallelism=self.graph_loader_parallelism,
+                batch_size=self.graph_loader_batch_size,
             )
         )
 

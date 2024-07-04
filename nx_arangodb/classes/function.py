@@ -13,6 +13,7 @@ import numpy.typing as npt
 from arango.collection import StandardCollection
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
+from arango.graph import Graph
 
 import nx_arangodb as nxadb
 from nx_arangodb.logger import logger
@@ -25,11 +26,17 @@ from ..exceptions import (
 
 
 def get_arangodb_graph(
-    G: nxadb.Graph | nxadb.DiGraph,
+    host: str,
+    username: str,
+    password: str,
+    db_name: str,
+    adb_graph: Graph,
     load_node_dict: bool,
     load_adj_dict: bool,
     load_adj_dict_as_directed: bool,
     load_coo: bool,
+    parallelism: int | None,
+    batch_size: int | None,
 ) -> Tuple[
     dict[str, dict[str, Any]],
     dict[str, dict[str, dict[str, Any]]],
@@ -46,12 +53,6 @@ def get_arangodb_graph(
     - Destination Indices (COO)
     - Node-ID-to-index mapping (COO)
     """
-    if not G.graph_exists_in_db:
-        raise GraphDoesNotExist(
-            "Graph does not exist in the database. Can't load graph."
-        )
-
-    adb_graph = G.db.graph(G.graph_name)
     v_cols = adb_graph.vertex_collections()
     edge_definitions = adb_graph.edge_definitions()
     e_cols = {c["edge_collection"] for c in edge_definitions}
@@ -64,18 +65,18 @@ def get_arangodb_graph(
     from phenolrs.networkx_loader import NetworkXLoader
 
     kwargs = {}
-    if G.graph_loader_parallelism is not None:
-        kwargs["parallelism"] = G.graph_loader_parallelism
-    if G.graph_loader_batch_size is not None:
-        kwargs["batch_size"] = G.graph_loader_batch_size
+    if parallelism:
+        kwargs["parallelism"] = parallelism
+    if batch_size:
+        kwargs["batch_size"] = batch_size
 
     # TODO: Remove ignore when phenolrs is published
     return NetworkXLoader.load_into_networkx(  # type: ignore
-        G.db.name,
-        metagraph,
-        [G._host],
-        username=G._username,
-        password=G._password,
+        db_name,
+        metagraph=metagraph,
+        hosts=[host],
+        username=username,
+        password=password,
         load_node_dict=load_node_dict,
         load_adj_dict=load_adj_dict,
         load_adj_dict_as_directed=load_adj_dict_as_directed,

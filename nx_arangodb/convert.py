@@ -136,11 +136,17 @@ def from_networkx_arangodb(
     print(f"Fetching {G.graph_name} as Node & Adj dictionaries...")
     start_time = time.time()
     node_dict, adj_dict, _, _, _ = nxadb.classes.function.get_arangodb_graph(
-        G,
+        host=G._host,
+        username=G._username,
+        password=G._password,
+        db_name=G._db_name,
+        adb_graph=G.adb_graph,
         load_node_dict=True,
         load_adj_dict=True,
         load_adj_dict_as_directed=G.is_directed(),
         load_coo=False,
+        parallelism=G.graph_loader_parallelism,
+        batch_size=G.graph_loader_batch_size,
     )
     end_time = time.time()
     logger.debug(f"load took {end_time - start_time} seconds")
@@ -238,11 +244,17 @@ if GPU_ENABLED:
             start_time = time.time()
             _, _, src_indices, dst_indices, vertex_ids_to_index = (
                 nxadb.classes.function.get_arangodb_graph(
-                    G,
+                    host=G._host,
+                    username=G._username,
+                    password=G._password,
+                    db_name=G._db_name,
+                    adb_graph=G.adb_graph,
                     load_node_dict=False,
                     load_adj_dict=False,
                     load_adj_dict_as_directed=G.is_directed(),
                     load_coo=True,
+                    parallelism=G.graph_loader_parallelism,
+                    batch_size=G.graph_loader_batch_size,
                 )
             )
             end_time = time.time()

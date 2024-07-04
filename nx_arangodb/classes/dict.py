@@ -33,6 +33,7 @@ from .function import (
     doc_get_or_insert,
     doc_insert,
     doc_update,
+    get_arangodb_graph,
     get_node_id,
     get_node_type_and_id,
     key_is_not_reserved,
@@ -472,7 +473,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         node_attr_dict = self.node_attr_dict_factory()
         node_attr_dict.node_id = node_id
-        node_attr_dict.data = result
+        node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, result)
 
         self.data[node_id] = node_attr_dict
 
@@ -1022,9 +1023,6 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
 
     @logger_debug
     def __fetch_all(self) -> None:
-        if self.FETCHED_ALL_DATA:
-            return
-
         self.clear()
 
         query = """
@@ -1240,9 +1238,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     # TODO: Revisit this logic
     @logger_debug
     def __fetch_all(self) -> None:
-        if self.FETCHED_ALL_DATA:
-            return
-
         self.clear()
         # items = defaultdict(dict)
         for ed in self.graph.edge_definitions():

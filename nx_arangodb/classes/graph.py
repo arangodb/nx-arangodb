@@ -10,11 +10,11 @@ from arango import ArangoClient
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from arango.exceptions import ServerConnectionError
+from networkx.utils import Config
 
 import nx_arangodb as nxadb
 from nx_arangodb.exceptions import DatabaseNotSet, GraphDoesNotExist, GraphNameNotSet
 from nx_arangodb.logger import logger
-# from networkx.utils import Config
 
 from .dict import (
     adjlist_inner_dict_factory,
@@ -86,6 +86,7 @@ class Graph(nx.Graph):
             self.adb_graph = self.db.graph(self.__graph_name)
             self.__create_default_collections()
             self.__set_factory_methods()
+            self.__set_arangodb_backend_config()
 
         elif self.__graph_name and incoming_graph_data is not None:
             # TODO: Parameterize the edge definitions
@@ -115,6 +116,7 @@ class Graph(nx.Graph):
                 )
 
             self.__set_factory_methods()
+            self.__set_arangodb_backend_config()
             self.__graph_exists_in_db = True
 
         super().__init__(*args, **kwargs)
@@ -122,6 +124,22 @@ class Graph(nx.Graph):
     #######################
     # Init helper methods #
     #######################
+
+    def __set_arangodb_backend_config(self) -> None:
+        if not all([self._host, self._username, self._password, self._db_name]):
+            m = "Must set all environment variables to use the ArangoDB Backend with an existing graph"  # noqa: E501
+            raise OSError(m)
+
+        config = Config(
+            host=self._host,
+            username=self._username,
+            password=self._password,
+            db_name=self._db_name,
+            load_parallelism=self.graph_loader_parallelism,
+            load_batch_size=self.graph_loader_batch_size,
+        )
+
+        nx.config.backends.arangodb = config
 
     def __set_factory_methods(self) -> None:
         """Set the factory methods for the graph, _node, and _adj dictionaries.
@@ -190,6 +208,11 @@ class Graph(nx.Graph):
     ###########
 
     def __set_db(self, db: StandardDatabase | None = None) -> None:
+        self._host = os.getenv("DATABASE_HOST")
+        self._username = os.getenv("DATABASE_USERNAME")
+        self._password = os.getenv("DATABASE_PASSWORD")
+        self._db_name = os.getenv("DATABASE_NAME")
+
         if db is not None:
             if not isinstance(db, StandardDatabase):
                 m = "arango.database.StandardDatabase"
@@ -199,11 +222,6 @@ class Graph(nx.Graph):
             self.__db = db
             return
 
-        self._host = os.getenv("DATABASE_HOST")
-        self._username = os.getenv("DATABASE_USERNAME")
-        self._password = os.getenv("DATABASE_PASSWORD")
-        self._db_name = os.getenv("DATABASE_NAME")
-
         # TODO: Raise a custom exception if any of the environment
         # variables are missing. For now, we'll just set db to None.
         if not all([self._host, self._username, self._password, self._db_name]):
@@ -211,13 +229,9 @@ class Graph(nx.Graph):
             logger.warning("Database environment variables not set")
             return
 
-        try:
-            self.__db = ArangoClient(hosts=self._host, request_timeout=None).db(
-                self._db_name, self._username, self._password, verify=True
-            )
-        except ServerConnectionError as e:
-            self.__db = None
-            logger.warning(f"Could not connect to the database: {e}")
+        self.__db = ArangoClient(hosts=self._host, request_timeout=None).db(
+            self._db_name, self._username, self._password, verify=True
+        )
 
     def __set_graph_name(self, graph_name: str | None = None) -> None:
         if self.__db is None:
@@ -244,7 +258,7 @@ class Graph(nx.Graph):
     def aql(self, query: str, bind_vars: dict[str, Any] = {}, **kwargs: Any) -> Cursor:
         return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
 
-    # NOTE: Ignore this for now
+    # NOTE: OUT OF SERVICE
     # def chat(self, prompt: str) -> str:
     #     if self.__qa_chain is None:
     #         if not self.__graph_exists_in_db:
@@ -269,76 +283,72 @@ class Graph(nx.Graph):
 
     #     print(result["result"])
 
-    def pull(self, load_node_dict=True, load_adj_dict=True, load_coo=True):
-        """Load the graph from the ArangoDB database, and update existing graph object.
+    # NOTE: OUT OF SERVICE
+    # def pull(self, load_node_dict=True, load_adj_dict=True, load_coo=True):
+    #     """Load the graph from the ArangoDB database, and 
+    # update existing graph object.
 
-        :param load_node_dict: Load the node dictionary.
-            Enabling this option will clear the existing node dictionary,
-            and replace it with the node data from the database. Comes with
-            a remote reference to the database.
-        :type load_node_dict: bool
-        :param load_adj_dict: Load the adjacency dictionary.
-            Enabling this option will clear the existing adjacency dictionary,
-            and replace it with the edge data from the database. Comes with
-            a remote reference to the database.
-        :type load_adj_dict: bool
-        :param load_coo: Load the COO representation. If False, the src & dst
-            indices will be empty, along with the node-ID-to-index mapping.
-            Used for nx-cuGraph compatibility.
-        :type load_coo: bool
-        """
-        if not self.graph_exists_in_db:
-            m = "Graph does not exist in the database. Can't load graph."
-            raise GraphDoesNotExist(m)
+    #     :param load_node_dict: Load the node dictionary.
+    #         Enabling this option will clear the existing node dictionary,
+    #         and replace it with the node data from the database. Comes with
+    #         a remote reference to the database.
+    #     :type load_node_dict: bool
+    #     :param load_adj_dict: Load the adjacency dictionary.
+    #         Enabling this option will clear the existing adjacency dictionary,
+    #         and replace it with the edge data from the database. Comes with
+    #         a remote reference to the database.
+    #     :type load_adj_dict: bool
+    #     :param load_coo: Load the COO representation. If False, the src & dst
+    #         indices will be empty, along with the node-ID-to-index mapping.
+    #         Used for nx-cuGraph compatibility.
+    #     :type load_coo: bool
+    #     """
+    #     if not self.graph_exists_in_db:
+    #         m = "Graph does not exist in the database. Can't load graph."
+    #         raise GraphDoesNotExist(m)
 
-        node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = (
-            nxadb.classes.function.get_arangodb_graph(
-                self._host,
-                self._username,
-                self._password,
-                self._db_name,
-                self.adb_graph,
-                load_node_dict=load_node_dict,
-                load_adj_dict=load_adj_dict,
-                load_adj_dict_as_directed=False,
-                load_coo=load_coo,
-                parallelism=self.graph_loader_parallelism,
-                batch_size=self.graph_loader_batch_size,
-            )
-        )
+    #     node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = (
+    #         nxadb.classes.function.get_arangodb_graph(
+    #             self.adb_graph,
+    #             load_node_dict=load_node_dict,
+    #             load_adj_dict=load_adj_dict,
+    #             load_adj_dict_as_directed=False,
+    #             load_coo=load_coo,
+    #         )
+    #     )
 
-        if load_node_dict:
-            self._node.clear()
+    #     if load_node_dict:
+    #         self._node.clear()
 
-            for node_id, node_data in node_dict.items():
-                node_attr_dict = self.node_attr_dict_factory()
-                node_attr_dict.node_id = node_id
-                node_attr_dict.data = node_data
-                self._node.data[node_id] = node_attr_dict
+    #         for node_id, node_data in node_dict.items():
+    #             node_attr_dict = self.node_attr_dict_factory()
+    #             node_attr_dict.node_id = node_id
+    #             node_attr_dict.data = node_data
+    #             self._node.data[node_id] = node_attr_dict
 
-        if load_adj_dict:
-            self._adj.clear()
+    #     if load_adj_dict:
+    #         self._adj.clear()
 
-            for src_node_id, dst_dict in adj_dict.items():
-                adjlist_inner_dict = self.adjlist_inner_dict_factory()
-                adjlist_inner_dict.src_node_id = src_node_id
+    #         for src_node_id, dst_dict in adj_dict.items():
+    #             adjlist_inner_dict = self.adjlist_inner_dict_factory()
+    #             adjlist_inner_dict.src_node_id = src_node_id
 
-                self._adj.data[src_node_id] = adjlist_inner_dict
+    #             self._adj.data[src_node_id] = adjlist_inner_dict
 
-                for dst_id, edge_data in dst_dict.items():
-                    edge_attr_dict = self.edge_attr_dict_factory()
-                    edge_attr_dict.edge_id = edge_data["_id"]
-                    edge_attr_dict.data = edge_data
+    #             for dst_id, edge_data in dst_dict.items():
+    #                 edge_attr_dict = self.edge_attr_dict_factory()
+    #                 edge_attr_dict.edge_id = edge_data["_id"]
+    #                 edge_attr_dict.data = edge_data
 
-                    adjlist_inner_dict.data[dst_id] = edge_attr_dict
+    #                 adjlist_inner_dict.data[dst_id] = edge_attr_dict
 
-        if load_coo:
-            self.src_indices = src_indices
-            self.dst_indices = dst_indices
-            self.vertex_ids_to_index = vertex_ids_to_indices
+    #     if load_coo:
+    #         self.src_indices = src_indices
+    #         self.dst_indices = dst_indices
+    #         self.vertex_ids_to_index = vertex_ids_to_indices
 
-    def push(self):
-        raise NotImplementedError("What would this look like?")
+    # def push(self):
+    #     raise NotImplementedError("What would this look like?")
 
     #####################
     # nx.Graph Overides #

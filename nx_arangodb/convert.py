@@ -133,45 +133,40 @@ def from_networkx_arangodb(
     #     return G
 
     logger.debug("pulling as NetworkX Graph...")
-    print(f"Fetching {G.graph_name} as Node & Adj dictionaries...")
+    print(f"Fetching {G.graph_name} as dictionaries...")
     start_time = time.time()
-    node_dict, adj_dict, _, _, _ = nxadb.classes.function.get_arangodb_graph(
-        host=G._host,
-        username=G._username,
-        password=G._password,
-        db_name=G._db_name,
+    _, adj_dict, _, _, _ = nxadb.classes.function.get_arangodb_graph(
         adb_graph=G.adb_graph,
-        load_node_dict=True,
+        load_node_dict=False,  # TODO: Should we load node dict?
         load_adj_dict=True,
         load_adj_dict_as_directed=G.is_directed(),
         load_coo=False,
-        parallelism=G.graph_loader_parallelism,
-        batch_size=G.graph_loader_batch_size,
     )
     end_time = time.time()
     logger.debug(f"load took {end_time - start_time} seconds")
-    print(f"ADB -> Node & Adj load took {end_time - start_time} seconds")
+    print(f"ADB -> Dictionaries load took {end_time - start_time} seconds")
 
-    # Copied from nx.convert.to_networkx_graph
-    try:
-        logger.debug("creating nx graph from loaded ArangoDB data...")
-        print("Creating nx graph from loaded ArangoDB data...")
-        start_time = time.time()
-        result: nx.Graph = nx.convert.from_dict_of_dicts(
-            adj_dict,
-            create_using=G.to_networkx_class(),
-            multigraph_input=G.is_multigraph(),
-        )
+    return G.to_networkx_class()(incoming_graph_data=adj_dict)
 
-        for n, dd in node_dict.items():
-            result._node[n].update(dd)
-        end_time = time.time()
-        print(f"NX Graph creation took {end_time - start_time}")
+    # try:
+    #     logger.debug("creating nx graph from loaded ArangoDB data...")
+    #     print("Creating nx graph from loaded ArangoDB data...")
+    #     start_time = time.time()
+    #     result: nx.Graph = nx.convert.from_dict_of_dicts(
+    #         adj_dict,
+    #         create_using=G.to_networkx_class(),
+    #         multigraph_input=G.is_multigraph(),
+    #     )
 
-        return result
+    #     for n, dd in node_dict.items():
+    #         result._node[n].update(dd)
+    #     end_time = time.time()
+    #     print(f"NX Graph creation took {end_time - start_time}")
 
-    except Exception as err:
-        raise nx.NetworkXError("Input is not a correct NetworkX graph.") from err
+    #     return result
+
+    # except Exception as err:
+    #     raise nx.NetworkXError("Input is not a correct NetworkX graph.") from err
 
 
 def _to_nx_graph(
@@ -244,17 +239,11 @@ if GPU_ENABLED:
             start_time = time.time()
             _, _, src_indices, dst_indices, vertex_ids_to_index = (
                 nxadb.classes.function.get_arangodb_graph(
-                    host=G._host,
-                    username=G._username,
-                    password=G._password,
-                    db_name=G._db_name,
                     adb_graph=G.adb_graph,
                     load_node_dict=False,
                     load_adj_dict=False,
                     load_adj_dict_as_directed=G.is_directed(),
                     load_coo=True,
-                    parallelism=G.graph_loader_parallelism,
-                    batch_size=G.graph_loader_batch_size,
                 )
             )
             end_time = time.time()

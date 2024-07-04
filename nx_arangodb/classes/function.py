@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections import UserDict
 from typing import Any, Callable, Tuple
 
+import networkx as nx
 import numpy as np
 import numpy.typing as npt
 from arango.collection import StandardCollection
@@ -26,17 +27,11 @@ from ..exceptions import (
 
 
 def get_arangodb_graph(
-    host: str,
-    username: str,
-    password: str,
-    db_name: str,
     adb_graph: Graph,
     load_node_dict: bool,
     load_adj_dict: bool,
     load_adj_dict_as_directed: bool,
     load_coo: bool,
-    parallelism: int | None,
-    batch_size: int | None,
 ) -> Tuple[
     dict[str, dict[str, Any]],
     dict[str, dict[str, dict[str, Any]]],
@@ -64,19 +59,26 @@ def get_arangodb_graph(
 
     from phenolrs.networkx_loader import NetworkXLoader
 
+    config = nx.config.backends.arangodb
+
     kwargs = {}
-    if parallelism:
+    if parallelism := config.get("load_parallelism"):
         kwargs["parallelism"] = parallelism
-    if batch_size:
+    if batch_size := config.get("load_batch_size"):
         kwargs["batch_size"] = batch_size
+
+    assert config.db_name
+    assert config.host
+    assert config.username
+    assert config.password
 
     # TODO: Remove ignore when phenolrs is published
     return NetworkXLoader.load_into_networkx(  # type: ignore
-        db_name,
+        config.db_name,
         metagraph=metagraph,
-        hosts=[host],
-        username=username,
-        password=password,
+        hosts=[config.host],
+        username=config.username,
+        password=config.password,
         load_node_dict=load_node_dict,
         load_adj_dict=load_adj_dict,
         load_adj_dict_as_directed=load_adj_dict_as_directed,

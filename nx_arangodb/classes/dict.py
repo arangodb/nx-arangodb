@@ -202,6 +202,7 @@ def process_node_attr_dict_value(parent: NodeAttrDict, key: str, value: Any) -> 
         return value
 
     node_attr_dict = parent.node_attr_dict_factory()
+    node_attr_dict.root = parent.root or parent
     node_attr_dict.node_id = parent.node_id
     node_attr_dict.parent_keys = parent.parent_keys + [key]
     node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, value)
@@ -258,7 +259,9 @@ class NodeAttrDict(UserDict[str, Any]):
 
         # NodeAttrDict may be a child of another NodeAttrDict
         # e.g G._node['node/1']['object']['foo'] = 'bar'
-        # In this case, parent_keys would be ['object']
+        # In this case, **parent_keys** would be ['object']
+        # and **root** would be G._node['node/1']
+        self.root: NodeAttrDict | None = None
         self.parent_keys: list[str] = []
         self.node_attr_dict_factory = node_attr_dict_factory(self.db, self.graph)
 
@@ -270,7 +273,7 @@ class NodeAttrDict(UserDict[str, Any]):
             return True
 
         assert self.node_id
-        return aql_doc_has_key(self.db, self.node_id, key)
+        return aql_doc_has_key(self.db, self.node_id, key, self.parent_keys)
 
     @key_is_string
     @logger_debug
@@ -280,7 +283,7 @@ class NodeAttrDict(UserDict[str, Any]):
             return value
 
         assert self.node_id
-        result = aql_doc_get_key(self.db, self.node_id, key)
+        result = aql_doc_get_key(self.db, self.node_id, key, self.parent_keys)
 
         if not result:
             raise KeyError(key)
@@ -304,7 +307,8 @@ class NodeAttrDict(UserDict[str, Any]):
         node_attr_dict_value = process_node_attr_dict_value(self, key, value)
         update_dict = get_update_dict(self.parent_keys, {key: value})
         self.data[key] = node_attr_dict_value
-        self.data["_rev"] = doc_update(self.db, self.node_id, update_dict)
+        root_data = self.root.data if self.root else self.data
+        root_data["_rev"] = doc_update(self.db, self.node_id, update_dict)
 
     @key_is_string
     @key_is_not_reserved
@@ -314,7 +318,8 @@ class NodeAttrDict(UserDict[str, Any]):
         assert self.node_id
         self.data.pop(key, None)
         update_dict = get_update_dict(self.parent_keys, {key: None})
-        self.data["_rev"] = doc_update(self.db, self.node_id, update_dict)
+        root_data = self.root.data if self.root else self.data
+        root_data["_rev"] = doc_update(self.db, self.node_id, update_dict)
 
     # @logger_debug
     # def __iter__(self) -> Iterator[str]:
@@ -382,7 +387,8 @@ class NodeAttrDict(UserDict[str, Any]):
             return
 
         update_dict = get_update_dict(self.parent_keys, attrs)
-        self.data["_rev"] = doc_update(self.db, self.node_id, update_dict)
+        root_data = self.root.data if self.root else self.data
+        root_data["_rev"] = doc_update(self.db, self.node_id, update_dict)
 
 
 class NodeDict(UserDict[str, NodeAttrDict]):
@@ -576,6 +582,7 @@ def process_edge_attr_dict_value(parent: EdgeAttrDict, key: str, value: Any) -> 
         return value
 
     edge_attr_dict = parent.edge_attr_dict_factory()
+    edge_attr_dict.root = parent.root or parent
     edge_attr_dict.edge_id = parent.edge_id
     edge_attr_dict.parent_keys = parent.parent_keys + [key]
     edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, value)
@@ -591,7 +598,10 @@ def build_edge_attr_dict_data(
     It's possible that **value** is a nested dict, so we need to
     recursively build a EdgeAttrDict for each nested dict.
 
-    Returns the parent EdgeAttrDict.
+    :param parent: The parent EdgeAttrDict.
+    :type parent: EdgeAttrDict
+    :param data: The data to build the EdgeAttrDict from.
+    :type data: dict[str, Any]
     """
     edge_attr_dict_data = {}
     for key, value in data.items():
@@ -630,7 +640,9 @@ class EdgeAttrDict(UserDict[str, Any]):
 
         # NodeAttrDict may be a child of another NodeAttrDict
         # e.g G._adj['node/1']['node/2']['object']['foo'] = 'bar'
-        # In this case, parent_keys would be ['object']
+        # In this case, **parent_keys** would be ['object']
+        # and **root** would be G._adj['node/1']['node/2']
+        self.root: EdgeAttrDict | None = None
         self.parent_keys: list[str] = []
         self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
 
@@ -642,7 +654,7 @@ class EdgeAttrDict(UserDict[str, Any]):
             return True
 
         assert self.edge_id
-        return aql_doc_has_key(self.db, self.edge_id, key)
+        return aql_doc_has_key(self.db, self.edge_id, key, self.parent_keys)
 
     @key_is_string
     @logger_debug
@@ -652,7 +664,7 @@ class EdgeAttrDict(UserDict[str, Any]):
             return value
 
         assert self.edge_id
-        result = aql_doc_get_key(self.db, self.edge_id, key)
+        result = aql_doc_get_key(self.db, self.edge_id, key, self.parent_keys)
 
         if not result:
             raise KeyError(key)
@@ -672,7 +684,8 @@ class EdgeAttrDict(UserDict[str, Any]):
         edge_attr_dict_value = process_edge_attr_dict_value(self, key, value)
         update_dict = get_update_dict(self.parent_keys, {key: value})
         self.data[key] = edge_attr_dict_value
-        self.data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
+        root_data = self.root.data if self.root else self.data
+        root_data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
 
     @key_is_string
     @key_is_not_reserved
@@ -682,7 +695,8 @@ class EdgeAttrDict(UserDict[str, Any]):
         assert self.edge_id
         self.data.pop(key, None)
         update_dict = get_update_dict(self.parent_keys, {key: None})
-        self.data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
+        root_data = self.root.data if self.root else self.data
+        root_data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
 
     # @logger_debug
     # def __iter__(self) -> Iterator[str]:
@@ -736,7 +750,8 @@ class EdgeAttrDict(UserDict[str, Any]):
             return
 
         update_dict = get_update_dict(self.parent_keys, attrs)
-        self.data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
+        root_data = self.root.data if self.root else self.data
+        root_data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
 
 
 class AdjListInnerDict(UserDict[str, EdgeAttrDict]):

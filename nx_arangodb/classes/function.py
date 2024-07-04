@@ -215,17 +215,23 @@ def aql_single(
     return result[0]
 
 
-def aql_doc_has_key(db: StandardDatabase, id: str, key: str) -> bool:
+def aql_doc_has_key(
+    db: StandardDatabase, id: str, key: str, nested_keys: list[str] = []
+) -> bool:
     """Checks if a document has a key."""
-    query = "RETURN HAS(DOCUMENT(@id), @key)"
+    nested_keys_str = "." + ".".join(nested_keys) if nested_keys else ""
+    query = f"RETURN HAS(DOCUMENT(@id){nested_keys_str}, @key)"
     bind_vars = {"id": id, "key": key}
     result = aql_single(db, query, bind_vars)
     return bool(result) if result is not None else False
 
 
-def aql_doc_get_key(db: StandardDatabase, id: str, key: str) -> Any:
+def aql_doc_get_key(
+    db: StandardDatabase, id: str, key: str, nested_keys: list[str] = []
+) -> Any:
     """Gets a key from a document."""
-    query = "RETURN DOCUMENT(@id).@key"
+    nested_keys_str = "." + ".".join(nested_keys) if nested_keys else ""
+    query = f"RETURN DOCUMENT(@id){nested_keys_str}.@key"
     bind_vars = {"id": id, "key": key}
     return aql_single(db, query, bind_vars)
 

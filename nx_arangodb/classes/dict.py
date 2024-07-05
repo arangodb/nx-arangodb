@@ -143,8 +143,8 @@ class GraphDict(UserDict[str, Any]):
     def __getitem__(self, key: str) -> Any:
         """G.graph['foo']"""
 
-        if value := self.data.get(key):
-            return value
+        if key in self.data:
+            return self.data[key]
 
         result = aql_doc_get_key(self.db, self.graph_id, key)
 
@@ -280,8 +280,8 @@ class NodeAttrDict(UserDict[str, Any]):
     @logger_debug
     def __getitem__(self, key: str) -> Any:
         """G._node['node/1']['foo']"""
-        if value := self.data.get(key):
-            return value
+        if key in self.data:
+            return self.data[key]
 
         assert self.node_id
         result = aql_doc_get_key(self.db, self.node_id, key, self.parent_keys)
@@ -447,8 +447,8 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         """G._node['node/1']"""
         node_id = get_node_id(key, self.default_node_type)
 
-        if vertex := self.data.get(node_id):
-            return vertex
+        if node_id in self.data:
+            return self.data[node_id]
 
         if self.FETCHED_ALL_DATA:
             raise KeyError(key)
@@ -685,8 +685,8 @@ class EdgeAttrDict(UserDict[str, Any]):
     @logger_debug
     def __getitem__(self, key: str) -> Any:
         """G._adj['node/1']['node/2']['foo']"""
-        if value := self.data.get(key):
-            return value
+        if key in self.data:
+            return self.data[key]
 
         assert self.edge_id
         result = aql_doc_get_key(self.db, self.edge_id, key, self.parent_keys)
@@ -868,8 +868,8 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         """g._adj['node/1']['node/2']"""
         dst_node_id = get_node_id(key, self.default_node_type)
 
-        if edge := self.data.get(dst_node_id):
-            return edge
+        if dst_node_id in self.data:
+            return self.data[dst_node_id]
 
         if edge := self.__get_mirrored_edge_attr_dict(dst_node_id):
             self.data[dst_node_id] = edge
@@ -1128,8 +1128,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         """G.adj["node/1"]"""
         node_id = get_node_id(key, self.default_node_type)
 
-        if value := self.data.get(node_id):
-            return value
+        if node_id in self.data:
+            return self.data[node_id]
 
         if self.FETCHED_ALL_DATA:
             raise KeyError(key)

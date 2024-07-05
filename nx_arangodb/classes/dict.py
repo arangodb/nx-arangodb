@@ -571,7 +571,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
     @logger_debug
     def __fetch_all(self):
-        self.data.clear()
+        self.clear()
 
         node_dict, _, _, _, _ = get_arangodb_graph(
             self.graph,

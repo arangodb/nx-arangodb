@@ -33,6 +33,7 @@ from .function import (
     doc_get_or_insert,
     doc_insert,
     doc_update,
+    get_arangodb_graph,
     get_node_id,
     get_node_type_and_id,
     key_is_not_reserved,
@@ -321,56 +322,6 @@ class NodeAttrDict(UserDict[str, Any]):
         root_data = self.root.data if self.root else self.data
         root_data["_rev"] = doc_update(self.db, self.node_id, update_dict)
 
-    # @logger_debug
-    # def __iter__(self) -> Iterator[str]:
-    #     """for key in G._node['node/1']"""
-    #     yield from aql_doc_get_keys(self.db, self.node_id, self.parent_keys)
-
-    # @logger_debug
-    # def __len__(self) -> int:
-    #     """len(G._node['node/1'])"""
-    #     return aql_doc_get_length(self.db, self.node_id, self.parent_keys)
-
-    # @logger_debug
-    # def keys(self) -> Any:
-    #     """G._node['node/1'].keys()"""
-    #     yield from self.__iter__()
-
-    # @logger_debug
-    # # TODO: Revisit typing of return value
-    # def values(self) -> Any:
-    #     """G._node['node/1'].values()"""
-    #     self.data = self.db.document(self.node_id)
-    #     yield from self.data.values()
-
-    # @logger_debug
-    # # TODO: Revisit typing of return value
-    # def items(self) -> Any:
-    #     """G._node['node/1'].items()"""
-
-    #     # TODO: Revisit this lazy hack
-    #     if self.parent_keys:
-    #         yield from self.data.items()
-    #     else:
-    #         self.data = self.db.document(self.node_id)
-    #         yield from self.data.items()
-
-    # ?
-    # def pull():
-    # pass
-
-    # ?
-    # def push():
-    # pass
-
-    # @logger_debug
-    # def clear(self) -> None:
-    #     """G._node['node/1'].clear()"""
-    #     self.data.clear()
-
-    #     # if clear_remote:
-    #     #     doc_insert(self.db, self.node_id, silent=True, overwrite=True)
-
     @keys_are_strings
     @keys_are_not_reserved
     # @values_are_json_serializable # TODO?
@@ -435,6 +386,9 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         if node_id in self.data:
             return True
 
+        if self.FETCHED_ALL_DATA:
+            return False
+
         return bool(self.graph.has_vertex(node_id))
 
     @key_is_string
@@ -445,6 +399,9 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         if vertex := self.data.get(node_id):
             return vertex
+
+        if self.FETCHED_ALL_DATA:
+            raise KeyError(key)
 
         if vertex := self.graph.vertex(node_id):
             node_attr_dict: NodeAttrDict = self.node_attr_dict_factory()
@@ -472,7 +429,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         node_attr_dict = self.node_attr_dict_factory()
         node_attr_dict.node_id = node_id
-        node_attr_dict.data = result
+        node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, result)
 
         self.data[node_id] = node_attr_dict
 
@@ -570,16 +527,23 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
     @logger_debug
     def __fetch_all(self):
-        self.data.clear()
-        for collection in self.graph.vertex_collections():
-            for doc in self.graph.vertex_collection(collection).all():
-                node_id = doc["_id"]
+        self.clear()
 
-                node_attr_dict = self.node_attr_dict_factory()
-                node_attr_dict.node_id = node_id
-                node_attr_dict.data = doc
+        node_dict, _, _, _, _ = get_arangodb_graph(
+            self.graph,
+            load_node_dict=True,
+            load_adj_dict=False,
+            load_adj_dict_as_directed=False,  # not used
+            load_adj_dict_as_multigraph=False,  # not used
+            load_coo=False,
+        )
 
-                self.data[node_id] = node_attr_dict
+        for node_id, node_data in node_dict.items():
+            node_attr_dict = self.node_attr_dict_factory()
+            node_attr_dict.node_id = node_id
+            node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, node_data)
+
+            self.data[node_id] = node_attr_dict
 
         self.FETCHED_ALL_DATA = True
 
@@ -710,43 +674,6 @@ class EdgeAttrDict(UserDict[str, Any]):
         root_data = self.root.data if self.root else self.data
         root_data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
 
-    # @logger_debug
-    # def __iter__(self) -> Iterator[str]:
-    #     """for key in G._adj['node/1']['node/2']"""
-    #     assert self.edge_id
-    #     yield from aql_doc_get_keys(self.db, self.edge_id)
-
-    # @logger_debug
-    # def __len__(self) -> int:
-    #     """len(G._adj['node/1']['node/'2])"""
-    #     assert self.edge_id
-    #     return aql_doc_get_length(self.db, self.edge_id)
-
-    # # TODO: Revisit typing of return value
-    # @logger_debug
-    # def keys(self) -> Any:
-    #     """G._adj['node/1']['node/'2].keys()"""
-    #     return self.__iter__()
-
-    # # TODO: Revisit typing of return value
-    # @logger_debug
-    # def values(self) -> Any:
-    #     """G._adj['node/1']['node/'2].values()"""
-    #     self.data = self.db.document(self.edge_id)
-    #     yield from self.data.values()
-
-    # # TODO: Revisit typing of return value
-    # @logger_debug
-    # def items(self) -> Any:
-    #     """G._adj['node/1']['node/'2].items()"""
-    #     self.data = self.db.document(self.edge_id)
-    #     yield from self.data.items()
-
-    # @logger_debug
-    # def clear(self) -> None:
-    #     """G._adj['node/1']['node/'2].clear()"""
-    #     self.data.clear()
-
     @keys_are_strings
     @keys_are_not_reserved
     @logger_debug
@@ -836,6 +763,9 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         if dst_node_id in self.data:
             return True
 
+        if self.FETCHED_ALL_DATA:
+            return False
+
         result = aql_edge_exists(
             self.db,
             self.src_node_id,
@@ -858,6 +788,9 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         if edge := self.__get_mirrored_edge_attr_dict(dst_node_id):
             self.data[dst_node_id] = edge
             return edge  # type: ignore # false positive
+
+        if self.FETCHED_ALL_DATA:
+            raise KeyError(key)
 
         assert self.src_node_id
         edge = aql_edge_get(
@@ -1022,8 +955,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
 
     @logger_debug
     def __fetch_all(self) -> None:
-        if self.FETCHED_ALL_DATA:
-            return
+        assert self.src_node_id
 
         self.clear()
 
@@ -1037,8 +969,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         for edge in aql(self.db, query, bind_vars):
             edge_attr_dict = self.edge_attr_dict_factory()
             edge_attr_dict.edge_id = edge["_id"]
-            edge_attr_dict.data = edge
-
+            edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
             self.data[edge["_to"]] = edge_attr_dict
 
         self.FETCHED_ALL_DATA = True
@@ -1100,6 +1031,9 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         if node_id in self.data:
             return True
 
+        if self.FETCHED_ALL_DATA:
+            return False
+
         return bool(self.graph.has_vertex(node_id))
 
     @key_is_string
@@ -1114,7 +1048,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         if self.graph.has_vertex(node_id):
             adjlist_inner_dict: AdjListInnerDict = self.adjlist_inner_dict_factory()
             adjlist_inner_dict.src_node_id = node_id
-
             self.data[node_id] = adjlist_inner_dict
 
             return adjlist_inner_dict
@@ -1237,29 +1170,32 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             result = aql_fetch_data_edge(self.db, e_cols, data, default)
             yield from result
 
-    # TODO: Revisit this logic
     @logger_debug
     def __fetch_all(self) -> None:
-        if self.FETCHED_ALL_DATA:
-            return
-
         self.clear()
-        # items = defaultdict(dict)
-        for ed in self.graph.edge_definitions():
-            collection = ed["edge_collection"]
 
-            for edge in self.graph.edge_collection(collection):
-                src_node_id = edge["_from"]
-                dst_node_id = edge["_to"]
+        _, adj_dict, _, _, _ = get_arangodb_graph(
+            self.graph,
+            load_node_dict=False,
+            load_adj_dict=True,
+            load_adj_dict_as_directed=False,  # TODO: Abstract based on Graph type
+            load_adj_dict_as_multigraph=False,  # TODO: Abstract based on Graph type
+            load_coo=False,
+        )
 
-                # items[src_node_id][dst_node_id] = edge
-                # items[dst_node_id][src_node_id] = edge
+        for src_node_id, inner_dict in adj_dict.items():
+            for dst_node_id, edge in inner_dict.items():
+
+                if src_node_id in self.data:
+                    if dst_node_id in self.data[src_node_id].data:
+                        continue
 
                 if src_node_id in self.data:
                     src_inner_dict = self.data[src_node_id]
                 else:
                     src_inner_dict = self.adjlist_inner_dict_factory()
                     src_inner_dict.src_node_id = src_node_id
+                    src_inner_dict.FETCHED_ALL_DATA = True
                     self.data[src_node_id] = src_inner_dict
 
                 if dst_node_id in self.data:
@@ -1267,11 +1203,12 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
                 else:
                     dst_inner_dict = self.adjlist_inner_dict_factory()
                     dst_inner_dict.src_node_id = dst_node_id
+                    src_inner_dict.FETCHED_ALL_DATA = True
                     self.data[dst_node_id] = dst_inner_dict
 
                 edge_attr_dict = src_inner_dict.edge_attr_dict_factory()
                 edge_attr_dict.edge_id = edge["_id"]
-                edge_attr_dict.data = edge
+                edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
 
                 self.data[src_node_id].data[dst_node_id] = edge_attr_dict
                 self.data[dst_node_id].data[src_node_id] = edge_attr_dict

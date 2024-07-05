@@ -154,6 +154,3 @@ class DiGraph(nx.DiGraph):
 
     def aql(self, query: str, bind_vars: dict[str, Any] = {}, **kwargs: Any) -> Cursor:
         return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
-
-    def pull(self, load_node_dict=True, load_adj_dict=True, load_coo=True):
-        raise NotImplementedError("nxadb.DiGraph.pull() is not implemented yet.")

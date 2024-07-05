@@ -8,11 +8,13 @@ from __future__ import annotations
 from collections import UserDict
 from typing import Any, Callable, Tuple
 
+import networkx as nx
 import numpy as np
 import numpy.typing as npt
 from arango.collection import StandardCollection
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
+from arango.graph import Graph
 
 import nx_arangodb as nxadb
 from nx_arangodb.logger import logger
@@ -25,10 +27,11 @@ from ..exceptions import (
 
 
 def get_arangodb_graph(
-    G: nxadb.Graph | nxadb.DiGraph,
+    adb_graph: Graph,
     load_node_dict: bool,
     load_adj_dict: bool,
     load_adj_dict_as_directed: bool,
+    load_adj_dict_as_multigraph: bool,
     load_coo: bool,
 ) -> Tuple[
     dict[str, dict[str, Any]],
@@ -46,12 +49,6 @@ def get_arangodb_graph(
     - Destination Indices (COO)
     - Node-ID-to-index mapping (COO)
     """
-    if not G.graph_exists_in_db:
-        raise GraphDoesNotExist(
-            "Graph does not exist in the database. Can't load graph."
-        )
-
-    adb_graph = G.db.graph(G.graph_name)
     v_cols = adb_graph.vertex_collections()
     edge_definitions = adb_graph.edge_definitions()
     e_cols = {c["edge_collection"] for c in edge_definitions}
@@ -63,22 +60,30 @@ def get_arangodb_graph(
 
     from phenolrs.networkx_loader import NetworkXLoader
 
+    config = nx.config.backends.arangodb
+
     kwargs = {}
-    if G.graph_loader_parallelism is not None:
-        kwargs["parallelism"] = G.graph_loader_parallelism
-    if G.graph_loader_batch_size is not None:
-        kwargs["batch_size"] = G.graph_loader_batch_size
+    if parallelism := config.get("load_parallelism"):
+        kwargs["parallelism"] = parallelism
+    if batch_size := config.get("load_batch_size"):
+        kwargs["batch_size"] = batch_size
+
+    assert config.db_name
+    assert config.host
+    assert config.username
+    assert config.password
 
     # TODO: Remove ignore when phenolrs is published
     return NetworkXLoader.load_into_networkx(  # type: ignore
-        G.db.name,
-        metagraph,
-        [G._host],
-        username=G._username,
-        password=G._password,
+        config.db_name,
+        metagraph=metagraph,
+        hosts=[config.host],
+        username=config.username,
+        password=config.password,
         load_node_dict=load_node_dict,
         load_adj_dict=load_adj_dict,
         load_adj_dict_as_directed=load_adj_dict_as_directed,
+        load_adj_dict_as_multigraph=load_adj_dict_as_multigraph,
         load_coo=load_coo,
         **kwargs,
     )
@@ -103,7 +108,7 @@ def logger_debug(func: Callable[..., Any]) -> Any:
     """Decorator to log debug messages."""
 
     def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
-        logger.debug(f"{func.__name__} - {args} - {kwargs}")
+        logger.debug(f"{type(self)}.{func.__name__} - {args} - {kwargs}")
         return func(self, *args, **kwargs)
 
     return wrapper

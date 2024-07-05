@@ -285,7 +285,7 @@ class Graph(nx.Graph):
 
     # NOTE: OUT OF SERVICE
     # def pull(self, load_node_dict=True, load_adj_dict=True, load_coo=True):
-    #     """Load the graph from the ArangoDB database, and 
+    #     """Load the graph from the ArangoDB database, and
     # update existing graph object.
 
     #     :param load_node_dict: Load the node dictionary.

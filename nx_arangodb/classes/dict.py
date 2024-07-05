@@ -436,6 +436,9 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         if node_id in self.data:
             return True
 
+        if self.FETCHED_ALL_DATA:
+            return False
+
         return bool(self.graph.has_vertex(node_id))
 
     @key_is_string
@@ -446,6 +449,9 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         if vertex := self.data.get(node_id):
             return vertex
+
+        if self.FETCHED_ALL_DATA:
+            raise KeyError(key)
 
         if vertex := self.graph.vertex(node_id):
             node_attr_dict: NodeAttrDict = self.node_attr_dict_factory()
@@ -843,6 +849,9 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         if dst_node_id in self.data:
             return True
 
+        if self.FETCHED_ALL_DATA:
+            return False
+
         result = aql_edge_exists(
             self.db,
             self.src_node_id,
@@ -865,6 +874,9 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         if edge := self.__get_mirrored_edge_attr_dict(dst_node_id):
             self.data[dst_node_id] = edge
             return edge  # type: ignore # false positive
+
+        if self.FETCHED_ALL_DATA:
+            raise KeyError(key)
 
         assert self.src_node_id
         edge = aql_edge_get(
@@ -1105,6 +1117,9 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         if node_id in self.data:
             return True
 
+        if self.FETCHED_ALL_DATA:
+            return False
+
         return bool(self.graph.has_vertex(node_id))
 
     @key_is_string
@@ -1115,6 +1130,9 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
         if value := self.data.get(node_id):
             return value
+
+        if self.FETCHED_ALL_DATA:
+            raise KeyError(key)
 
         if self.graph.has_vertex(node_id):
             adjlist_inner_dict: AdjListInnerDict = self.adjlist_inner_dict_factory()
@@ -1266,6 +1284,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
                 else:
                     src_inner_dict = self.adjlist_inner_dict_factory()
                     src_inner_dict.src_node_id = src_node_id
+                    src_inner_dict.FETCHED_ALL_DATA = True
                     self.data[src_node_id] = src_inner_dict
 
                 if dst_node_id in self.data:
@@ -1273,6 +1292,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
                 else:
                     dst_inner_dict = self.adjlist_inner_dict_factory()
                     dst_inner_dict.src_node_id = dst_node_id
+                    src_inner_dict.FETCHED_ALL_DATA = True
                     self.data[dst_node_id] = dst_inner_dict
 
                 edge_attr_dict = src_inner_dict.edge_attr_dict_factory()

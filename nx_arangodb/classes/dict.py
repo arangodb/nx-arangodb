@@ -572,15 +572,21 @@ class NodeDict(UserDict[str, NodeAttrDict]):
     @logger_debug
     def __fetch_all(self):
         self.data.clear()
-        for collection in self.graph.vertex_collections():
-            for doc in self.graph.vertex_collection(collection).all():
-                node_id = doc["_id"]
 
-                node_attr_dict = self.node_attr_dict_factory()
-                node_attr_dict.node_id = node_id
-                node_attr_dict.data = doc
+        node_dict, _, _, _, _ = get_arangodb_graph(
+            self.graph,
+            load_node_dict=True,
+            load_adj_dict=False,
+            load_adj_dict_as_directed=False,
+            load_coo=False,
+        )
 
-                self.data[node_id] = node_attr_dict
+        for node_id, node_data in node_dict.items():
+            node_attr_dict = self.node_attr_dict_factory()
+            node_attr_dict.node_id = node_id
+            node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, node_data)
+
+            self.data[node_id] = node_attr_dict
 
         self.FETCHED_ALL_DATA = True
 
@@ -1023,6 +1029,8 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
 
     @logger_debug
     def __fetch_all(self) -> None:
+        assert self.src_node_id
+
         self.clear()
 
         query = """
@@ -1035,8 +1043,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         for edge in aql(self.db, query, bind_vars):
             edge_attr_dict = self.edge_attr_dict_factory()
             edge_attr_dict.edge_id = edge["_id"]
-            edge_attr_dict.data = edge
-
+            edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
             self.data[edge["_to"]] = edge_attr_dict
 
         self.FETCHED_ALL_DATA = True
@@ -1235,20 +1242,24 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             result = aql_fetch_data_edge(self.db, e_cols, data, default)
             yield from result
 
-    # TODO: Revisit this logic
     @logger_debug
     def __fetch_all(self) -> None:
         self.clear()
-        # items = defaultdict(dict)
-        for ed in self.graph.edge_definitions():
-            collection = ed["edge_collection"]
 
-            for edge in self.graph.edge_collection(collection):
-                src_node_id = edge["_from"]
-                dst_node_id = edge["_to"]
+        _, adj_dict, _, _, _ = get_arangodb_graph(
+            self.graph,
+            load_node_dict=False,
+            load_adj_dict=True,
+            load_adj_dict_as_directed=False,  # TODO: Abstract based on Graph type
+            load_coo=False,
+        )
 
-                # items[src_node_id][dst_node_id] = edge
-                # items[dst_node_id][src_node_id] = edge
+        for src_node_id, inner_dict in adj_dict.items():
+            for dst_node_id, edge in inner_dict.items():
+
+                if src_node_id in self.data:
+                    if dst_node_id in self.data[src_node_id].data:
+                        continue
 
                 if src_node_id in self.data:
                     src_inner_dict = self.data[src_node_id]
@@ -1266,7 +1277,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
                 edge_attr_dict = src_inner_dict.edge_attr_dict_factory()
                 edge_attr_dict.edge_id = edge["_id"]
-                edge_attr_dict.data = edge
+                edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
 
                 self.data[src_node_id].data[dst_node_id] = edge_attr_dict
                 self.data[dst_node_id].data[src_node_id] = edge_attr_dict

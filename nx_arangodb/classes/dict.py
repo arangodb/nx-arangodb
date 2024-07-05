@@ -322,56 +322,6 @@ class NodeAttrDict(UserDict[str, Any]):
         root_data = self.root.data if self.root else self.data
         root_data["_rev"] = doc_update(self.db, self.node_id, update_dict)
 
-    # @logger_debug
-    # def __iter__(self) -> Iterator[str]:
-    #     """for key in G._node['node/1']"""
-    #     yield from aql_doc_get_keys(self.db, self.node_id, self.parent_keys)
-
-    # @logger_debug
-    # def __len__(self) -> int:
-    #     """len(G._node['node/1'])"""
-    #     return aql_doc_get_length(self.db, self.node_id, self.parent_keys)
-
-    # @logger_debug
-    # def keys(self) -> Any:
-    #     """G._node['node/1'].keys()"""
-    #     yield from self.__iter__()
-
-    # @logger_debug
-    # # TODO: Revisit typing of return value
-    # def values(self) -> Any:
-    #     """G._node['node/1'].values()"""
-    #     self.data = self.db.document(self.node_id)
-    #     yield from self.data.values()
-
-    # @logger_debug
-    # # TODO: Revisit typing of return value
-    # def items(self) -> Any:
-    #     """G._node['node/1'].items()"""
-
-    #     # TODO: Revisit this lazy hack
-    #     if self.parent_keys:
-    #         yield from self.data.items()
-    #     else:
-    #         self.data = self.db.document(self.node_id)
-    #         yield from self.data.items()
-
-    # ?
-    # def pull():
-    # pass
-
-    # ?
-    # def push():
-    # pass
-
-    # @logger_debug
-    # def clear(self) -> None:
-    #     """G._node['node/1'].clear()"""
-    #     self.data.clear()
-
-    #     # if clear_remote:
-    #     #     doc_insert(self.db, self.node_id, silent=True, overwrite=True)
-
     @keys_are_strings
     @keys_are_not_reserved
     # @values_are_json_serializable # TODO?
@@ -583,7 +533,8 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             self.graph,
             load_node_dict=True,
             load_adj_dict=False,
-            load_adj_dict_as_directed=False,
+            load_adj_dict_as_directed=False,  # not used
+            load_adj_dict_as_multigraph=False,  # not used
             load_coo=False,
         )
 
@@ -722,43 +673,6 @@ class EdgeAttrDict(UserDict[str, Any]):
         update_dict = get_update_dict(self.parent_keys, {key: None})
         root_data = self.root.data if self.root else self.data
         root_data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
-
-    # @logger_debug
-    # def __iter__(self) -> Iterator[str]:
-    #     """for key in G._adj['node/1']['node/2']"""
-    #     assert self.edge_id
-    #     yield from aql_doc_get_keys(self.db, self.edge_id)
-
-    # @logger_debug
-    # def __len__(self) -> int:
-    #     """len(G._adj['node/1']['node/'2])"""
-    #     assert self.edge_id
-    #     return aql_doc_get_length(self.db, self.edge_id)
-
-    # # TODO: Revisit typing of return value
-    # @logger_debug
-    # def keys(self) -> Any:
-    #     """G._adj['node/1']['node/'2].keys()"""
-    #     return self.__iter__()
-
-    # # TODO: Revisit typing of return value
-    # @logger_debug
-    # def values(self) -> Any:
-    #     """G._adj['node/1']['node/'2].values()"""
-    #     self.data = self.db.document(self.edge_id)
-    #     yield from self.data.values()
-
-    # # TODO: Revisit typing of return value
-    # @logger_debug
-    # def items(self) -> Any:
-    #     """G._adj['node/1']['node/'2].items()"""
-    #     self.data = self.db.document(self.edge_id)
-    #     yield from self.data.items()
-
-    # @logger_debug
-    # def clear(self) -> None:
-    #     """G._adj['node/1']['node/'2].clear()"""
-    #     self.data.clear()
 
     @keys_are_strings
     @keys_are_not_reserved
@@ -1265,6 +1179,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             load_node_dict=False,
             load_adj_dict=True,
             load_adj_dict_as_directed=False,  # TODO: Abstract based on Graph type
+            load_adj_dict_as_multigraph=False,  # TODO: Abstract based on Graph type
             load_coo=False,
         )
 

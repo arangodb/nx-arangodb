@@ -140,6 +140,7 @@ def from_networkx_arangodb(
         load_node_dict=False,  # TODO: Should we load node dict?
         load_adj_dict=True,
         load_adj_dict_as_directed=G.is_directed(),
+        load_adj_dict_as_multigraph=G.is_multigraph(),
         load_coo=False,
     )
     end_time = time.time()
@@ -242,7 +243,8 @@ if GPU_ENABLED:
                     adb_graph=G.adb_graph,
                     load_node_dict=False,
                     load_adj_dict=False,
-                    load_adj_dict_as_directed=G.is_directed(),
+                    load_adj_dict_as_directed=G.is_directed(),  # not used
+                    load_adj_dict_as_multigraph=G.is_multigraph(),  # not used
                     load_coo=True,
                 )
             )

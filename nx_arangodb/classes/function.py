@@ -31,6 +31,7 @@ def get_arangodb_graph(
     load_node_dict: bool,
     load_adj_dict: bool,
     load_adj_dict_as_directed: bool,
+    load_adj_dict_as_multigraph: bool,
     load_coo: bool,
 ) -> Tuple[
     dict[str, dict[str, Any]],
@@ -82,6 +83,7 @@ def get_arangodb_graph(
         load_node_dict=load_node_dict,
         load_adj_dict=load_adj_dict,
         load_adj_dict_as_directed=load_adj_dict_as_directed,
+        load_adj_dict_as_multigraph=load_adj_dict_as_multigraph,
         load_coo=load_coo,
         **kwargs,
     )

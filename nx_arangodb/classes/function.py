@@ -106,7 +106,7 @@ def logger_debug(func: Callable[..., Any]) -> Any:
     """Decorator to log debug messages."""
 
     def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
-        logger.debug(f"{func.__name__} - {args} - {kwargs}")
+        logger.debug(f"{type(self)} - {func.__name__} - {args} - {kwargs}")
         return func(self, *args, **kwargs)
 
     return wrapper

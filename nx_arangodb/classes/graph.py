@@ -48,13 +48,13 @@ class Graph(nx.Graph):
         *args: Any,
         **kwargs: Any,
     ):
-        self.__db = None
-        self.__graph_name = None
-        self.__graph_exists_in_db = False
+        self._db = None
+        self._graph_name = None
+        self._graph_exists_in_db = False
 
-        self.__set_db(db)
-        if self.__db is not None:
-            self.__set_graph_name(graph_name)
+        self._set_db(db)
+        if self._db is not None:
+            self._set_graph_name(graph_name)
 
         self.auto_sync = True
 
@@ -78,17 +78,17 @@ class Graph(nx.Graph):
         # self.__qa_chain = None
 
         incoming_graph_data = kwargs.get("incoming_graph_data")
-        if self.__graph_exists_in_db:
+        if self._graph_exists_in_db:
             if incoming_graph_data is not None:
                 m = "Cannot pass both **incoming_graph_data** and **graph_name** yet if the already graph exists"  # noqa: E501
                 raise NotImplementedError(m)
 
-            self.adb_graph = self.db.graph(self.__graph_name)
-            self.__create_default_collections()
-            self.__set_factory_methods()
-            self.__set_arangodb_backend_config()
+            self.adb_graph = self.db.graph(self._graph_name)
+            self._create_default_collections()
+            self._set_factory_methods()
+            self._set_arangodb_backend_config()
 
-        elif self.__graph_name and incoming_graph_data is not None:
+        elif self._graph_name and incoming_graph_data is not None:
             # TODO: Parameterize the edge definitions
             # How can we work with a heterogenous **incoming_graph_data**?
             edge_definitions = [
@@ -101,7 +101,7 @@ class Graph(nx.Graph):
 
             if isinstance(incoming_graph_data, nx.Graph):
                 self.adb_graph = ADBNX_Adapter(self.db).networkx_to_arangodb(
-                    self.__graph_name,
+                    self._graph_name,
                     incoming_graph_data,
                     edge_definitions=edge_definitions,
                 )
@@ -111,13 +111,13 @@ class Graph(nx.Graph):
 
             else:
                 self.adb_graph = self.db.create_graph(
-                    self.__graph_name,
+                    self._graph_name,
                     edge_definitions=edge_definitions,
                 )
 
-            self.__set_factory_methods()
-            self.__set_arangodb_backend_config()
-            self.__graph_exists_in_db = True
+            self._set_factory_methods()
+            self._set_arangodb_backend_config()
+            self._graph_exists_in_db = True
 
         super().__init__(*args, **kwargs)
 
@@ -125,7 +125,7 @@ class Graph(nx.Graph):
     # Init helper methods #
     #######################
 
-    def __set_arangodb_backend_config(self) -> None:
+    def _set_arangodb_backend_config(self) -> None:
         if not all([self._host, self._username, self._password, self._db_name]):
             m = "Must set all environment variables to use the ArangoDB Backend with an existing graph"  # noqa: E501
             raise OSError(m)
@@ -141,7 +141,7 @@ class Graph(nx.Graph):
 
         nx.config.backends.arangodb = config
 
-    def __set_factory_methods(self) -> None:
+    def _set_factory_methods(self) -> None:
         """Set the factory methods for the graph, _node, and _adj dictionaries.
 
         The ArangoDB CRUD operations are handled by the modified dictionaries.
@@ -170,7 +170,7 @@ class Graph(nx.Graph):
         )
         self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.adb_graph)
 
-    def __create_default_collections(self) -> None:
+    def _create_default_collections(self) -> None:
         if self.default_node_type not in self.adb_graph.vertex_collections():
             self.adb_graph.create_vertex_collection(self.default_node_type)
 
@@ -187,27 +187,27 @@ class Graph(nx.Graph):
 
     @property
     def db(self) -> StandardDatabase:
-        if self.__db is None:
+        if self._db is None:
             raise DatabaseNotSet("Database not set")
 
-        return self.__db
+        return self._db
 
     @property
     def graph_name(self) -> str:
-        if self.__graph_name is None:
+        if self._graph_name is None:
             raise GraphNameNotSet("Graph name not set")
 
-        return self.__graph_name
+        return self._graph_name
 
     @property
     def graph_exists_in_db(self) -> bool:
-        return self.__graph_exists_in_db
+        return self._graph_exists_in_db
 
     ###########
     # Setters #
     ###########
 
-    def __set_db(self, db: StandardDatabase | None = None) -> None:
+    def _set_db(self, db: StandardDatabase | None = None) -> None:
         self._host = os.getenv("DATABASE_HOST")
         self._username = os.getenv("DATABASE_USERNAME")
         self._password = os.getenv("DATABASE_PASSWORD")
@@ -219,37 +219,37 @@ class Graph(nx.Graph):
                 raise TypeError(m)
 
             db.version()
-            self.__db = db
+            self._db = db
             return
 
         # TODO: Raise a custom exception if any of the environment
         # variables are missing. For now, we'll just set db to None.
         if not all([self._host, self._username, self._password, self._db_name]):
-            self.__db = None
+            self._db = None
             logger.warning("Database environment variables not set")
             return
 
-        self.__db = ArangoClient(hosts=self._host, request_timeout=None).db(
+        self._db = ArangoClient(hosts=self._host, request_timeout=None).db(
             self._db_name, self._username, self._password, verify=True
         )
 
-    def __set_graph_name(self, graph_name: str | None = None) -> None:
-        if self.__db is None:
+    def _set_graph_name(self, graph_name: str | None = None) -> None:
+        if self._db is None:
             m = "Cannot set graph name without setting the database first"
             raise DatabaseNotSet(m)
 
         if graph_name is None:
-            self.__graph_exists_in_db = False
+            self._graph_exists_in_db = False
             logger.warning(f"**graph_name** not set for {self.__class__.__name__}")
             return
 
         if not isinstance(graph_name, str):
             raise TypeError("**graph_name** must be a string")
 
-        self.__graph_name = graph_name
-        self.__graph_exists_in_db = self.db.has_graph(graph_name)
+        self._graph_name = graph_name
+        self._graph_exists_in_db = self.db.has_graph(graph_name)
 
-        logger.info(f"Graph '{graph_name}' exists: {self.__graph_exists_in_db}")
+        logger.info(f"Graph '{graph_name}' exists: {self._graph_exists_in_db}")
 
     ####################
     # ArangoDB Methods #

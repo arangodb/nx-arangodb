@@ -521,7 +521,16 @@ def test_incoming_graph_data_not_nx_graph(
 
 
 def test_digraph_nodes_crud() -> None:
-    pytest.skip("Not implemented yet")
+    graph_name = "digraph"
+    db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
+    G = nxadb.DiGraph(graph_name=graph_name, default_node_type="dinode")
+
+    G.add_node(1, foo="bar")
+    G.add_nodes_from([2, 3, 4], bar="foo")
+    G.add_edge(1, 2, weight=1)
+    G.add_edges_from([(2, 3), (3, 4)], weight=5)
+
+    assert db.collection("dinode").count() == 4
 
 
 def test_digraph_edges_crud() -> None:

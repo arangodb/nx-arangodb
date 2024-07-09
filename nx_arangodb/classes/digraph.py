@@ -16,6 +16,7 @@ from nx_arangodb.exceptions import DatabaseNotSet, GraphNameNotSet
 from nx_arangodb.logger import logger
 
 from .dict import (
+    AdjListOuterDict,
     adjlist_inner_dict_factory,
     adjlist_outer_dict_factory,
     edge_attr_dict_factory,
@@ -50,6 +51,12 @@ class DiGraph(nxadb_Graph, nx.DiGraph):
         super().__init__(
             graph_name, default_node_type, edge_type_func, db, *args, **kwargs
         )
+
+        if isinstance(self._pred, AdjListOuterDict) and isinstance(
+            self._succ, AdjListOuterDict
+        ):
+            self._pred.mirror = self._succ
+            self._succ.mirror = self._pred
 
     #######################
     # Init helper methods #

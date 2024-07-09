@@ -88,7 +88,7 @@ class Graph(nx.Graph):
             self._set_factory_methods()
             self._set_arangodb_backend_config()
 
-        elif self._graph_name and incoming_graph_data is not None:
+        elif self._graph_name:
             # TODO: Parameterize the edge definitions
             # How can we work with a heterogenous **incoming_graph_data**?
             edge_definitions = [

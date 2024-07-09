@@ -75,6 +75,7 @@ def from_networkx(
         else:
             klass = nxadb.Graph
 
+    # graph_name=kwargs.get("graph_name") ?
     return klass(incoming_graph_data=graph)
 
 

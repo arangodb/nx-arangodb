@@ -745,15 +745,16 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
 
     @logger_debug
     def __get_mirrored_edge_attr_dict(self, dst_node_id: str) -> EdgeAttrDict | None:
-        if self.is_directed:
-            return None
-
         if self.adjlist_outer_dict is None:
             return None
 
-        if dst_node_id in self.adjlist_outer_dict.data:
-            if self.src_node_id in self.adjlist_outer_dict.data[dst_node_id].data:
-                return self.adjlist_outer_dict.data[dst_node_id].data[self.src_node_id]
+        mirror = self.adjlist_outer_dict
+        if self.is_directed:
+            mirror = mirror.mirror
+
+        if dst_node_id in mirror.data:
+            if self.src_node_id in mirror.data[dst_node_id].data:
+                return mirror.data[dst_node_id].data[self.src_node_id]
 
         return None
 
@@ -1044,6 +1045,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         self.is_directed = graph_type in {"digraph"}
         self.is_multigraph = graph_type in {"multigraph", "multidigraph"}
         self.traversal_direction = "ANY" if self.graph_type == "graph" else "OUTBOUND"
+
+        self.mirror: AdjListOuterDict
 
     @logger_debug
     def __repr__(self) -> str:

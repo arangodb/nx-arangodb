@@ -4,6 +4,11 @@ set -e
 # TODO: address the following tests
 # --pyargs networkx.algorithms.community.louvain \
 
+DATABASE_HOST=http://localhost:8529
+DATABASE_USERNAME=root
+DATABASE_PASSWOR=test
+DATABASE_NAME=_system
+
 NETWORKX_GRAPH_CONVERT=arangodb \
 NETWORKX_TEST_BACKEND=arangodb \
 NETWORKX_FALLBACK_TO_NX=True \

@@ -148,26 +148,7 @@ def from_networkx_arangodb(
     print(f"ADB -> Dictionaries load took {end_time - start_time} seconds")
 
     return G.to_networkx_class()(incoming_graph_data=adj_dict)
-
-    # try:
-    #     logger.debug("creating nx graph from loaded ArangoDB data...")
-    #     print("Creating nx graph from loaded ArangoDB data...")
-    #     start_time = time.time()
-    #     result: nx.Graph = nx.convert.from_dict_of_dicts(
-    #         adj_dict,
-    #         create_using=G.to_networkx_class(),
-    #         multigraph_input=G.is_multigraph(),
-    #     )
-
-    #     for n, dd in node_dict.items():
-    #         result._node[n].update(dd)
-    #     end_time = time.time()
-    #     print(f"NX Graph creation took {end_time - start_time}")
-
-    #     return result
-
-    # except Exception as err:
-    #     raise nx.NetworkXError("Input is not a correct NetworkX graph.") from err
+    # G._adj = adj_dict # TODO: Can I do this instead?
 
 
 def _to_nx_graph(
@@ -209,9 +190,8 @@ if GPU_ENABLED:
                 return nxcg_from_networkx_arangodb(G, as_directed=as_directed)
 
         if isinstance(G, (nxadb.MultiGraph, nxadb.MultiDiGraph)):
-            raise NotImplementedError(
-                "nxadb.MultiGraph not yet supported for _to_nxcg_graph()"
-            )
+            m = "nxadb.MultiGraph not yet supported for _to_nxcg_graph()"
+            raise NotImplementedError(m)
 
         # TODO: handle cugraph.Graph
         raise TypeError(f"Expected nx_arangodb.Graph or nx.Graph; got {type(G)}")

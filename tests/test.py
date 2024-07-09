@@ -324,7 +324,11 @@ def test_graph_edges_crud(load_graph: Any) -> None:
     col_count = db.collection(G_1.default_edge_type).count()
 
     G_1.add_edge("new_node_1", "new_node_2", foo="bar")
+    assert db.document(G_1["new_node_1"]["new_node_2"]["_id"])["foo"] == "bar"
     G_1.add_edge("new_node_1", "new_node_2", foo="bar", bar="foo")
+    doc = db.document(G_1["new_node_1"]["new_node_2"]["_id"])
+    assert doc["foo"] == "bar"
+    assert doc["bar"] == "foo"
 
     bind_vars = {
         "src": f"{G_1.default_node_type}/new_node_1",

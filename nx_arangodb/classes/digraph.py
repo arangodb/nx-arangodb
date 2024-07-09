@@ -1,5 +1,6 @@
 import os
-from typing import Any, ClassVar
+from functools import cached_property
+from typing import Any, Callable, ClassVar
 
 import networkx as nx
 import numpy as np
@@ -10,15 +11,26 @@ from arango.database import StandardDatabase
 from arango.exceptions import ServerConnectionError
 
 import nx_arangodb as nxadb
+from nx_arangodb.classes.graph import Graph as nxadb_Graph
 from nx_arangodb.exceptions import DatabaseNotSet, GraphNameNotSet
 from nx_arangodb.logger import logger
+
+from .dict import (
+    adjlist_inner_dict_factory,
+    adjlist_outer_dict_factory,
+    edge_attr_dict_factory,
+    graph_dict_factory,
+    node_attr_dict_factory,
+    node_dict_factory,
+)
+from .reportviews import CustomEdgeView, CustomNodeView
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.DiGraph)  # type: ignore
 
 __all__ = ["DiGraph"]
 
 
-class DiGraph(nx.DiGraph):
+class DiGraph(nxadb_Graph, nx.DiGraph):
     __networkx_backend__: ClassVar[str] = "arangodb"  # nx >=3.2
     __networkx_plugin__: ClassVar[str] = "arangodb"  # nx <3.2
 
@@ -29,128 +41,87 @@ class DiGraph(nx.DiGraph):
     def __init__(
         self,
         graph_name: str | None = None,
-        # default_node_type: str = "node",
-        # edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
+        default_node_type: str = "node",
+        edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
+        db: StandardDatabase | None = None,
         *args: Any,
         **kwargs: Any,
     ):
-        m = "Please note that nxadb.DiGraph has no ArangoDB CRUD support yet."
-        logger.warning(m)
+        super().__init__(
+            graph_name, default_node_type, edge_type_func, db, *args, **kwargs
+        )
 
-        if kwargs.get("incoming_graph_data") is not None and graph_name is not None:
-            m = "Cannot pass both **incoming_graph_data** and **graph_name** yet"
-            raise NotImplementedError(m)
+    #######################
+    # Init helper methods #
+    #######################
 
-        self.__db: StandardDatabase | None = None
-        self.__graph_name: str | None = None
-        self.__graph_exists_in_db = False
+    def _set_factory_methods(self) -> None:
+        """Set the factory methods for the graph, _node, and _adj dictionaries.
 
-        self.__set_db()
-        if self.__db is not None:
-            self.__set_graph_name(graph_name)
+        The ArangoDB CRUD operations are handled by the modified dictionaries.
 
-        self.auto_sync = True
+        Handles the creation of the following dictionaries:
+        - graph_attr_dict_factory (graph-level attributes)
+        - node_dict_factory (nodes in the graph)
+        - node_attr_dict_factory (attributes of the nodes in the graph)
+        - adjlist_outer_dict_factory (outer dictionary for the adjacency list)
+        - adjlist_inner_dict_factory (inner dictionary for the adjacency list)
+        - edge_attr_dict_factory (attributes of the edges in the graph)
+        """
 
-        self.graph_loader_parallelism = 20
-        self.graph_loader_batch_size = 5000000
+        base_args = (self.db, self.adb_graph)
+        node_args = (*base_args, self.default_node_type)
+        adj_args = (*node_args, self.edge_type_func, "digraph")
 
-        # NOTE: Need to revisit these...
-        # self.maintain_node_dict_cache = False
-        # self.maintain_adj_dict_cache = False
-        self.use_nx_cache = True
-        self.use_coo_cache = True
+        self.graph_attr_dict_factory = graph_dict_factory(*base_args)
+        self.node_dict_factory = node_dict_factory(*node_args)
+        self.node_attr_dict_factory = node_attr_dict_factory(*base_args)
 
-        self.src_indices: npt.NDArray[np.int64] | None = None
-        self.dst_indices: npt.NDArray[np.int64] | None = None
-        self.vertex_ids_to_index: dict[str, int] | None = None
+        self.adjlist_outer_dict_factory = adjlist_outer_dict_factory(*adj_args)
+        self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(*adj_args)
+        self.edge_attr_dict_factory = edge_attr_dict_factory(*base_args)
 
-        # self.default_node_type = default_node_type
-        # self.edge_type_func = edge_type_func
-        # self.default_edge_type = edge_type_func(default_node_type, default_node_type)
+    #######################
+    # nx.DiGraph Overides #
+    #######################
 
-        if self.__graph_exists_in_db:
-            self.adb_graph = self.db.graph(graph_name)
-            # self.__create_default_collections()
-            # self.__set_factory_methods()
+    # TODO?
+    # @cached_property
+    # def in_edges(self):
+    # pass
 
-        super().__init__(*args, **kwargs)
+    # TODO?
+    # @cached_property
+    # def out_edges(self):
+    # pass
 
-    ###########
-    # Getters #
-    ###########
+    def add_node(self, node_for_adding, **attr):
+        if node_for_adding not in self._succ:
+            if node_for_adding is None:
+                raise ValueError("None cannot be a node")
 
-    @property
-    def db(self) -> StandardDatabase:
-        if self.__db is None:
-            raise DatabaseNotSet("Database not set")
+            self._succ[node_for_adding] = self.adjlist_inner_dict_factory()
+            self._pred[node_for_adding] = self.adjlist_inner_dict_factory()
 
-        return self.__db
+            ######################
+            # NOTE: monkey patch #
+            ######################
 
-    @property
-    def graph_name(self) -> str:
-        if self.__graph_name is None:
-            raise GraphNameNotSet("Graph name not set")
+            # Old:
+            # attr_dict = self._node[node_for_adding] = self.node_attr_dict_factory()
+            # attr_dict.update(attr)
 
-        return self.__graph_name
+            # New:
+            self._node[node_for_adding] = self.node_attr_dict_factory()
+            self._node[node_for_adding].update(attr)
 
-    @property
-    def graph_exists_in_db(self) -> bool:
-        return self.__graph_exists_in_db
+            # Reason:
+            # Invoking `update` on the `attr_dict` without `attr_dict.node_id` being set
+            # i.e trying to update a node's attributes before we know _which_ node it is
 
-    ###########
-    # Setters #
-    ###########
+            ###########################
 
-    def __set_db(self, db: StandardDatabase | None = None) -> None:
-        if db is not None:
-            if not isinstance(db, StandardDatabase):
-                m = "arango.database.StandardDatabase"
-                raise TypeError(m)
+        else:
+            self._node[node_for_adding].update(attr)
 
-            self.__db = db
-            return
-
-        self._host = os.getenv("DATABASE_HOST")
-        self._username = os.getenv("DATABASE_USERNAME")
-        self._password = os.getenv("DATABASE_PASSWORD")
-        self._db_name = os.getenv("DATABASE_NAME")
-
-        # TODO: Raise a custom exception if any of the environment
-        # variables are missing. For now, we'll just set db to None.
-        if not all([self._host, self._username, self._password, self._db_name]):
-            self.__db = None
-            logger.warning("Database environment variables not set")
-            return
-
-        try:
-            self.__db = ArangoClient(hosts=self._host, request_timeout=None).db(
-                self._db_name, self._username, self._password, verify=True
-            )
-        except ServerConnectionError as e:
-            self.__db = None
-            logger.warning(f"Could not connect to the database: {e}")
-
-    def __set_graph_name(self, graph_name: str | None = None) -> None:
-        if self.__db is None:
-            m = "Cannot set graph name without setting the database first"
-            raise DatabaseNotSet(m)
-
-        if graph_name is None:
-            self.__graph_exists_in_db = False
-            logger.warning(f"**graph_name** not set for {self.__class__.__name__}")
-            return
-
-        if not isinstance(graph_name, str):
-            raise TypeError("**graph_name** must be a string")
-
-        self.__graph_name = graph_name
-        self.__graph_exists_in_db = self.db.has_graph(graph_name)
-
-        logger.info(f"Graph '{graph_name}' exists: {self.__graph_exists_in_db}")
-
-    ####################
-    # ArangoDB Methods #
-    ####################
-
-    def aql(self, query: str, bind_vars: dict[str, Any] = {}, **kwargs: Any) -> Cursor:
-        return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
+        nx._clear_cache(self)

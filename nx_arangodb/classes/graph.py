@@ -154,21 +154,18 @@ class Graph(nx.Graph):
         - adjlist_inner_dict_factory (inner dictionary for the adjacency list)
         - edge_attr_dict_factory (attributes of the edges in the graph)
         """
-        self.graph_attr_dict_factory = graph_dict_factory(self.db, self.graph_name)
 
-        self.node_dict_factory = node_dict_factory(
-            self.db, self.adb_graph, self.default_node_type
-        )
+        base_args = (self.db, self.adb_graph)
+        node_args = (*base_args, self.default_node_type)
+        adj_args = (*node_args, self.edge_type_func, "graph")
 
-        self.node_attr_dict_factory = node_attr_dict_factory(self.db, self.adb_graph)
+        self.graph_attr_dict_factory = graph_dict_factory(*base_args)
+        self.node_dict_factory = node_dict_factory(*node_args)
+        self.node_attr_dict_factory = node_attr_dict_factory(*base_args)
 
-        self.adjlist_outer_dict_factory = adjlist_outer_dict_factory(
-            self.db, self.adb_graph, self.default_node_type, self.edge_type_func
-        )
-        self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(
-            self.db, self.adb_graph, self.default_node_type, self.edge_type_func
-        )
-        self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.adb_graph)
+        self.adjlist_outer_dict_factory = adjlist_outer_dict_factory(*adj_args)
+        self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(*adj_args)
+        self.edge_attr_dict_factory = edge_attr_dict_factory(*base_args)
 
     def _create_default_collections(self) -> None:
         if self.default_node_type not in self.adb_graph.vertex_collections():

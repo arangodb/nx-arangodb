@@ -62,7 +62,10 @@ def test_bc(load_graph):
     r_6 = nx.betweenness_centrality(G_4)
 
     G_5 = nxadb.Graph(graph_name="KarateGraph")
-    r_7 = nxadb.betweenness_centrality(G_5, pull_graph_on_cpu=False)  # type: ignore
+
+    nx.config.backends.arangodb.pull_graph = False
+    r_7 = nx.betweenness_centrality(G_5)
+    nx.config.backends.arangodb.pull_graph = True
 
     G_6 = nxadb.DiGraph(graph_name="KarateGraph")
     r_8 = nx.betweenness_centrality(G_6)
@@ -98,7 +101,9 @@ def test_pagerank(load_graph: Any) -> None:
     r_6 = nx.pagerank(G_4)
 
     G_5 = nxadb.Graph(graph_name="KarateGraph")
-    r_7 = nxadb.pagerank(G_5, pull_graph_on_cpu=False)  # type: ignore
+    nx.config.backends.arangodb.pull_graph = False
+    r_7 = nx.pagerank(G_5)
+    nx.config.backends.arangodb.pull_graph = True
 
     G_6 = nxadb.DiGraph(graph_name="KarateGraph")
     r_8 = nx.pagerank(G_6)
@@ -132,7 +137,9 @@ def test_louvain(load_graph: Any) -> None:
     r_6 = nx.community.louvain_communities(G_4)
 
     G_5 = nxadb.Graph(graph_name="KarateGraph")
-    r_7 = nxadb.community.louvain_communities(G_5, pull_graph_on_cpu=False)  # type: ignore  # noqa
+    nx.config.backends.arangodb.pull_graph = False
+    r_7 = nx.community.louvain_communities(G_5)
+    nx.config.backends.arangodb.pull_graph = True
 
     G_6 = nxadb.DiGraph(graph_name="KarateGraph")
     r_8 = nx.community.louvain_communities(G_6)

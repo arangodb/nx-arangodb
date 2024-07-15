@@ -30,10 +30,10 @@ def shortest_path(
         )
 
     if target is None or source is None:
-        raise ShortestPathError("Both source and target must be specified for now")
+        raise NotImplementedError("Both source and target must be specified for now")
 
     if method != "dijkstra":
-        raise ShortestPathError("Only dijkstra method is supported")
+        raise NotImplementedError("Only dijkstra method is supported")
 
     query = """
         FOR vertex IN ANY SHORTEST_PATH @source TO @target GRAPH @graph

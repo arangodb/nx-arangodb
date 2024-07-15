@@ -11,6 +11,8 @@ or
 $ python _nx_arangodb/__init__.py
 """
 
+import networkx as nx
+
 from _nx_arangodb._version import __version__
 
 # This is normally handled by packaging.version.Version, but instead of adding
@@ -96,6 +98,17 @@ def get_info():
 
     for key in info_keys:
         del d[key]
+
+    d["default_config"] = {
+        "host": None,
+        "username": None,
+        "password": None,
+        "db_name": None,
+        "load_parallelism": None,
+        "load_batch_size": None,
+        "pull_graph": True,
+    }
+
     return d
 
 

@@ -63,14 +63,14 @@ Homepage = "https://github.com/aMahanna/nx-arangodb"
 
 # "plugin" used in nx version < 3.2
 [project.entry-points."networkx.plugins"]
-arangodb = "nx_arangodb.interface:BackendInterface"
-
-[project.entry-points."networkx.plugin_info"]
-arangodb = "_nx_arangodb:get_info"
+arangodb = "nx_arangodb.interface:backend_interface"
 
 # "backend" used in nx version >= 3.2
 [project.entry-points."networkx.backends"]
-arangodb = "nx_arangodb.interface:BackendInterface"
+arangodb = "nx_arangodb.interface:backend_interface"
+
+[project.entry-points."networkx.plugin_info"]
+arangodb = "_nx_arangodb:get_info"
 
 [project.entry-points."networkx.backend_info"]
 arangodb = "_nx_arangodb:get_info"

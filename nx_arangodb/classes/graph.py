@@ -130,16 +130,13 @@ class Graph(nx.Graph):
             m = "Must set all environment variables to use the ArangoDB Backend with an existing graph"  # noqa: E501
             raise OSError(m)
 
-        config = Config(
-            host=self._host,
-            username=self._username,
-            password=self._password,
-            db_name=self._db_name,
-            load_parallelism=self.graph_loader_parallelism,
-            load_batch_size=self.graph_loader_batch_size,
-        )
-
-        nx.config.backends.arangodb = config
+        config = nx.config.backends.arangodb
+        config.host = self._host
+        config.username = self._username
+        config.password = self._password
+        config.db_name = self._db_name
+        config.load_parallelism = self.graph_loader_parallelism
+        config.load_batch_size = self.graph_loader_batch_size
 
     def __set_factory_methods(self) -> None:
         """Set the factory methods for the graph, _node, and _adj dictionaries.

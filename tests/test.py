@@ -160,8 +160,8 @@ def test_shortest_path(load_graph: Any) -> None:
 
 
 def test_node_dict_update_existing_single_collection(load_graph: Any) -> None:
-    # This tests uses the existing nodes and updates each of them using the update method
-    # using a single collection
+    # This tests uses the existing nodes and updates each
+    # of them using the update method using a single collection
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
 
     nodes_ids_list = G_1.nodes

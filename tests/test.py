@@ -9,6 +9,8 @@ from nx_arangodb.classes.dict import EdgeAttrDict, NodeAttrDict
 
 from .conftest import db
 
+from nx_arangodb.utils.arangodb import extract_arangodb_key
+
 G_NX = nx.karate_club_graph()
 
 
@@ -156,6 +158,33 @@ def test_shortest_path(load_graph: Any) -> None:
     assert r_2 == r_4
     assert r_1 != r_2
     assert r_3 != r_4
+
+
+def test_node_dict_update_existing_single_collection(load_graph: Any) -> None:
+    # This tests uses the existing nodes and updates each of them using the update method
+    # using a single collection
+    G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
+
+    nodes_ids_list = G_1.nodes
+    local_nodes_dict = {}
+
+    for node_id in nodes_ids_list:
+        local_nodes_dict[node_id] = {"extraValue": extract_arangodb_key(node_id)}
+
+    G_1._node.update(local_nodes_dict)
+
+    col = db.collection("person")
+    col_docs = col.all()
+
+    # Check if the extraValue attribute was added to each document in the database
+    for doc in col_docs:
+        assert "extraValue" in doc
+        assert doc["extraValue"] == doc["_key"]
+
+    # Check if the extraValue attribute was added to each document in the local cache
+    for node_id in nodes_ids_list:
+        assert "extraValue" in G_1._node.data[node_id]
+        assert G_1.nodes[node_id]["extraValue"] == extract_arangodb_key(node_id)
 
 
 def test_graph_nodes_crud(load_graph: Any) -> None:

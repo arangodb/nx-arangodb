@@ -5,12 +5,13 @@ Used as the underlying data structure for NetworkX-ArangoDB graphs.
 
 from __future__ import annotations
 
+import warnings
 from collections import UserDict, defaultdict
 from collections.abc import Iterator
 from typing import Any, Callable, Generator
 
 from arango.database import StandardDatabase
-from arango.exceptions import DocumentInsertError
+from arango.exceptions import DocumentInsertError, ArangoError
 from arango.graph import Graph
 
 from nx_arangodb.logger import logger
@@ -42,6 +43,13 @@ from .function import (
     keys_are_strings,
     logger_debug,
 )
+from ..utils.arangodb import (
+    separate_nodes_by_collections,
+    upsert_collection_documents,
+    ArangoDBBatchError,
+    check_list_for_errors,
+)
+
 
 #############
 # Factories #
@@ -498,9 +506,42 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
     @keys_are_strings
     @logger_debug
+    def update_local_nodes(self, nodes: Any) -> None:
+        for node_id, node_data in nodes.items():
+            node_attr_dict = self.node_attr_dict_factory()
+            node_attr_dict.node_id = node_id
+            node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, node_data)
+
+            self.data[node_id] = node_attr_dict
+
+    @keys_are_strings
+    @logger_debug
     def update(self, nodes: Any) -> None:
         """g._node.update({'node/1': {'foo': 'bar'}, 'node/2': {'baz': 'qux'}})"""
-        raise NotImplementedError("NodeDict.update()")
+        separated_by_collection = separate_nodes_by_collections(
+            nodes, self.default_node_type
+        )
+
+        result = upsert_collection_documents(self.db, separated_by_collection)
+
+        all_good = check_list_for_errors(result)
+        if all_good:
+            # Means no single operation failed, in this case we update the local cache
+            self.update_local_nodes(nodes)
+        else:
+            # In this case some or all documents failed. Right now we will not update
+            # the local cache, but raise an error instead.
+            # Reason: We cannot set silent to True, because we need as it does not report errors then.
+            # We need to update the driver to also pass the errors back to the user, then we can adjust
+            # the behavior here. This will also save network traffic and local computation time.
+            errors = []
+            for collections_results in result:
+                for collection_result in collections_results:
+                    errors.append(collection_result)
+            warnings.warn(
+                "Failed to insert at least one node. Will not update local cache."
+            )
+            raise ArangoDBBatchError(errors)
 
     # TODO: Revisit typing of return value
     @logger_debug

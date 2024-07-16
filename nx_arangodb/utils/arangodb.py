@@ -1,6 +1,7 @@
+from typing import Any
+
 from arango import ArangoError, DocumentInsertError
 from arango.database import StandardDatabase
-from typing import Any
 
 
 class ArangoDBBatchError(ArangoError):

@@ -6,10 +6,9 @@ import pytest
 
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict import EdgeAttrDict, NodeAttrDict
+from nx_arangodb.utils.arangodb import extract_arangodb_key
 
 from .conftest import db
-
-from nx_arangodb.utils.arangodb import extract_arangodb_key
 
 G_NX = nx.karate_club_graph()
 

@@ -11,11 +11,17 @@ from collections.abc import Iterator
 from typing import Any, Callable, Generator
 
 from arango.database import StandardDatabase
-from arango.exceptions import DocumentInsertError, ArangoError
+from arango.exceptions import ArangoError, DocumentInsertError
 from arango.graph import Graph
 
 from nx_arangodb.logger import logger
 
+from ..utils.arangodb import (
+    ArangoDBBatchError,
+    check_list_for_errors,
+    separate_nodes_by_collections,
+    upsert_collection_documents,
+)
 from .function import (
     aql,
     aql_as_list,
@@ -43,13 +49,6 @@ from .function import (
     keys_are_strings,
     logger_debug,
 )
-from ..utils.arangodb import (
-    separate_nodes_by_collections,
-    upsert_collection_documents,
-    ArangoDBBatchError,
-    check_list_for_errors,
-)
-
 
 #############
 # Factories #
@@ -529,11 +528,12 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             # Means no single operation failed, in this case we update the local cache
             self.update_local_nodes(nodes)
         else:
-            # In this case some or all documents failed. Right now we will not update
-            # the local cache, but raise an error instead.
-            # Reason: We cannot set silent to True, because we need as it does not report errors then.
-            # We need to update the driver to also pass the errors back to the user, then we can adjust
-            # the behavior here. This will also save network traffic and local computation time.
+            # In this case some or all documents failed. Right now we will not
+            # update the local cache, but raise an error instead.
+            # Reason: We cannot set silent to True, because we need as it does
+            # not report errors then. We need to update the driver to also pass
+            # the errors back to the user, then we can adjust the behavior here.
+            # This will also save network traffic and local computation time.
             errors = []
             for collections_results in result:
                 for collection_result in collections_results:

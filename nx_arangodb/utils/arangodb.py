@@ -1,5 +1,6 @@
 from arango import ArangoError, DocumentInsertError
 from arango.database import StandardDatabase
+from typing import Any
 
 
 class ArangoDBBatchError(ArangoError):
@@ -45,16 +46,19 @@ def get_arangodb_collection_key_tuple(key):
         return key.split("/", 1)
 
 
-def separate_nodes_by_collections(nodes: dict, default_collection: str):
+def separate_nodes_by_collections(nodes: Any, default_collection: str) -> Any:
     """
-    Separate the dictionary into collections based on whether keys contain a '/'.
+    Separate the dictionary into collections based on whether keys contain '/'.
 
-    :param nodes: The input dictionary with keys that may or may not contain '/'.
-    :param default_collection: The name of the default collection for keys without '/'.
-    :return: A dictionary where the keys are collection names and the values are dictionaries
-             of key-value pairs belonging to those collections.
+    :param nodes:
+        The input dictionary with keys that may or may not contain '/'.
+    :param default_collection:
+        The name of the default collection for keys without '/'.
+    :return: A dictionary where the keys are collection names and the
+        values are dictionaries of key-value pairs belonging to those
+        collections.
     """
-    separated = {}
+    separated: Any = {}
 
     for key, value in nodes.items():
         if is_arangodb_id(key):
@@ -70,11 +74,13 @@ def separate_nodes_by_collections(nodes: dict, default_collection: str):
     return separated
 
 
-def transform_local_documents_for_arangodb(original_documents):
+def transform_local_documents_for_adb(original_documents):
     """
-    Transform original documents into a format suitable for UPSERT operations in ArangoDB.
+    Transform original documents into a format suitable for UPSERT
+    operations in ArangoDB.
 
-    :param original_documents: Original documents in the format {'key': {'any-attr-key': 'any-attr-value'}}
+    :param original_documents: Original documents in the format
+                                 {'key': {'any-attr-key': 'any-attr-value'}}.
     :return: List of documents with '_key' attribute and additional attributes.
     """
     transformed_documents = []
@@ -87,12 +93,13 @@ def transform_local_documents_for_arangodb(original_documents):
     return transformed_documents
 
 
-def upsert_collection_documents(db: StandardDatabase, separated: dict):
+def upsert_collection_documents(db: StandardDatabase, separated: Any) -> Any:
     """
     Process each collection in the separated dictionary.
 
     :param db: The ArangoDB database object.
-    :param separated: A dictionary where the keys are collection names and the values are dictionaries
+    :param separated: A dictionary where the keys are collection names and the
+                      values are dictionaries
                       of key-value pairs belonging to those collections.
     :return: A list of results from the insert_many operation.
 
@@ -104,11 +111,11 @@ def upsert_collection_documents(db: StandardDatabase, separated: dict):
 
     for collection_name, documents in separated.items():
         collection = db.collection(collection_name)
-        transformed_documents = transform_local_documents_for_arangodb(documents)
+        transformed_documents = transform_local_documents_for_adb(documents)
         results.append(
             collection.insert_many(
                 transformed_documents, silent=False, overwrite_mode="update"
             )
         )
-    print(results)
+
     return results

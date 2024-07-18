@@ -80,8 +80,9 @@ def get_arangodb_graph(
     assert config.username
     assert config.password
 
-    # TODO: Remove ignore when phenolrs is published
     from phenolrs.networkx_loader import NetworkXLoader
+
+    # TODO: Remove ignore when phenolrs is published
     return NetworkXLoader.load_into_networkx(  # type: ignore
         config.db_name,
         metagraph=metagraph,

@@ -37,7 +37,7 @@ def _to_nx_graph(
     if isinstance(G, nx.Graph):
         return G
 
-    raise TypeError(f"Expected nx_arangodb.Graph or nx.Graph; got {type(G)}")
+    raise TypeError(f"Expected nxadb.Graph or nx.Graph; got {type(G)}")
 
 
 def _to_nxadb_graph(
@@ -54,7 +54,7 @@ def _to_nxadb_graph(
     if isinstance(G, nx.Graph):
         return nx_to_nxadb(G, as_directed=as_directed)
 
-    raise TypeError(f"Expected nx_arangodb.Graph or nx.Graph; got {type(G)}")
+    raise TypeError(f"Expected nxadb.Graph or nx.Graph; got {type(G)}")
 
 
 if GPU_ENABLED:
@@ -73,7 +73,7 @@ if GPU_ENABLED:
             logger.debug("converting nx_arangodb graph to nx_cugraph graph")
             return nxadb_to_nxcg(G, as_directed=as_directed)
 
-        raise TypeError(f"Expected nx_arangodb.Graph or nx.Graph; got {type(G)}")
+        raise TypeError(f"Expected nx_arangodb.Graph or nxcg.Graph; got {type(G)}")
 
 else:
 

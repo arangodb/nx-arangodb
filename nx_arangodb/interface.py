@@ -30,6 +30,9 @@ class BackendInterface:
 
     @staticmethod
     def convert_to_nx(obj: Any, *args: Any, **kwargs: Any) -> nx.Graph:
+        if not isinstance(obj, nxadb.Graph):
+            return obj
+
         return nxadb._to_nx_graph(obj, *args, **kwargs)
 
     def __getattr__(self, attr: str, *, from_backend_name: str = "arangodb") -> Any:

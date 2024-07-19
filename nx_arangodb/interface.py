@@ -9,6 +9,7 @@ import networkx as nx
 from networkx.utils.backends import _load_backend, _registered_algorithms
 
 import nx_arangodb as nxadb
+from nx_arangodb.logger import logger
 
 # Avoid infinite recursion when testing
 _IS_TESTING = os.environ.get("NETWORKX_TEST_BACKEND") in {"arangodb"}
@@ -22,37 +23,14 @@ class NetworkXFunction(Protocol):
     _returns_graph: bool
 
 
-class AbstractBackendInterface(Protocol):
-    @staticmethod
-    def convert_from_nx(
-        graph: Any, *args: Any, **kwargs: Any
-    ) -> nxadb.Graph | nxadb.DiGraph: ...
-
-    @staticmethod
-    def convert_to_nx(
-        obj: nx.Graph | nx.DiGraph | nxadb.Graph | nxadb.DiGraph,
-        *,
-        name: str | None = None,
-    ) -> nx.Graph | nx.DiGraph: ...
-
-
 class BackendInterface:
-    # Required conversions
     @staticmethod
-    def convert_from_nx(
-        graph: Any, *args: Any, **kwargs: Any
-    ) -> nxadb.Graph | nxadb.DiGraph:
-        return nxadb.from_networkx(graph, *args, **kwargs)
+    def convert_from_nx(graph: nx.Graph, *args: Any, **kwargs: Any) -> nxadb.Graph:
+        return nxadb._to_nxadb_graph(graph, *args, **kwargs)
 
     @staticmethod
-    def convert_to_nx(
-        obj: nx.Graph | nx.DiGraph | nxadb.Graph | nxadb.DiGraph,
-        *,
-        name: str | None = None,
-    ) -> nx.Graph | nx.DiGraph:
-        if isinstance(obj, nxadb.Graph):
-            return nxadb.to_networkx(obj)
-        return obj
+    def convert_to_nx(obj: Any, *args: Any, **kwargs: Any) -> nx.Graph:
+        return nxadb._to_nx_graph(obj, *args, **kwargs)
 
     def __getattr__(self, attr: str, *, from_backend_name: str = "arangodb") -> Any:
         """
@@ -65,17 +43,17 @@ class BackendInterface:
             and attr in {"empty_graph"}
         ):
             raise AttributeError(attr)
-        return partial(_auto_func, from_backend_name, attr)
+
+        if from_backend_name != "arangodb":
+            raise ValueError(f"Unsupported source backend: '{from_backend_name}'")
+
+        return partial(_auto_func, attr)
 
 
-def _auto_func(
-    from_backend_name: str, func_name: str, /, *args: Any, **kwargs: Any
-) -> Any:
+def _auto_func(func_name: str, /, *args: Any, **kwargs: Any) -> Any:
     """
     Function to automatically dispatch to the correct backend for a given algorithm.
 
-    :param from_backend_name: The source backend.
-    :type from_backend_name: str
     :param func_name: The name of the algorithm to run.
     :type func_name: str
     """
@@ -86,44 +64,45 @@ def _auto_func(
     if nxadb.convert.GPU_ENABLED:
         backend_priority.append("cugraph")
 
-    for to_backend_name in backend_priority:
-        if not dfunc.__wrapped__._should_backend_run(to_backend_name, *args, **kwargs):
+    for backend in backend_priority:
+        if not dfunc.__wrapped__._should_backend_run(backend, *args, **kwargs):
+            logger.warning(f"'{func_name}' cannot be run on backend '{backend}'")
             continue
 
         try:
             return _run_with_backend(
-                from_backend_name,
-                to_backend_name,
+                backend,
                 dfunc,
                 args,
                 kwargs,
             )
 
         except NotImplementedError:
+            logger.warning(f"'{func_name}' not implemented for backend '{backend}'")
             pass
 
-    return _run_with_backend(from_backend_name, "networkx", dfunc, args, kwargs)
+    default_backend = "networkx"
+    logger.debug(f"'{func_name}' running on default backend '{default_backend}'")
+    return _run_with_backend(default_backend, dfunc, args, kwargs)
 
 
 def _run_with_backend(
-    from_backend_name: str,
-    to_backend_name: str,
+    backend_name: str,
     dfunc: NetworkXFunction,
     args: Any,
     kwargs: Any,
 ) -> Any:
     """
-    :param from_backend_name: The source backend.
-    :type from_backend_name: str
-    :param to_backend_name: The name of the backend to run the algorithm on.
-    :type to_backend_name: str
+    :param backend: The name of the backend to run the algorithm on.
+    :type backend: str
     :param dfunc: The function to run.
-    :type dfunc: Callable
+    :type dfunc: NetworkXFunction
     """
-
-    from_backend = _load_backend(from_backend_name)
-    to_backend = (
-        _load_backend(to_backend_name) if to_backend_name != "networkx" else None
+    func_name = dfunc.name
+    backend_func = (
+        dfunc.orig_func
+        if backend_name == "networkx"
+        else getattr(_load_backend(backend_name), func_name)
     )
 
     graphs_resolved = {
@@ -132,22 +111,18 @@ def _run_with_backend(
         if (val := args[pos] if pos < len(args) else kwargs.get(gname)) is not None
     }
 
-    func_name = dfunc.name
     if dfunc.list_graphs:
         graphs_converted = {
             gname: (
-                [
-                    _convert_to_backend(g, from_backend, to_backend, func_name)
-                    for g in val
-                ]
+                [_convert_to_backend(g, backend_name) for g in val]
                 if gname in dfunc.list_graphs
-                else _convert_to_backend(val, from_backend, to_backend, func_name)
+                else _convert_to_backend(val, backend_name)
             )
             for gname, val in graphs_resolved.items()
         }
     else:
         graphs_converted = {
-            gname: _convert_to_backend(graph, from_backend, to_backend, func_name)
+            gname: _convert_to_backend(graph, backend_name)
             for gname, graph in graphs_resolved.items()
         }
 
@@ -159,10 +134,6 @@ def _run_with_backend(
             converted_kwargs[gname] = val
         else:
             converted_args[dfunc.graphs[gname]] = val
-
-    backend_func = (
-        dfunc.orig_func if to_backend is None else getattr(to_backend, func_name)
-    )
 
     result = backend_func(*converted_args, **converted_kwargs)
 
@@ -182,12 +153,15 @@ def _run_with_backend(
     return result
 
 
-def _convert_to_backend(G_from, from_backend, to_backend, func_name):
-    if to_backend is None:  # NetworkX
+def _convert_to_backend(G_from: Any, backend_name: str) -> Any:
+    if backend_name == "networkx":
         pull_graph = nx.config.backends.arangodb.pull_graph
-        return nxadb.convert._to_nx_graph(G_from, pull_graph=pull_graph)
+        return nxadb._to_nx_graph(G_from, pull_graph=pull_graph)
 
-    return nxadb.convert._to_nxcg_graph(G_from)
+    if backend_name == "cugraph":
+        return nxadb._to_nxcg_graph(G_from)
+
+    raise ValueError(f"Unsupported backend: '{backend_name}'")
 
 
 backend_interface = BackendInterface()

@@ -188,6 +188,3 @@ def _convert_to_backend(G_from, from_backend, to_backend, func_name):
         return nxadb.convert._to_nx_graph(G_from, pull_graph=pull_graph)
 
     return nxadb.convert._to_nxcg_graph(G_from)
-
-
-backend_interface = BackendInterface()

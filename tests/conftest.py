@@ -65,6 +65,7 @@ def load_karate_graph() -> None:
         ],
     )
 
+
 @pytest.fixture(scope="function")
 def load_two_relation_graph() -> None:
     global db
@@ -78,7 +79,9 @@ def load_two_relation_graph() -> None:
         db.delete_graph(graph_name, drop_collections=True)
 
     g = db.create_graph(graph_name)
-    g.create_edge_definition(e1, from_vertex_collections=[v1], to_vertex_collections=[v2])
-    g.create_edge_definition(e2, from_vertex_collections=[v2], to_vertex_collections=[v1])
-
-
+    g.create_edge_definition(
+        e1, from_vertex_collections=[v1], to_vertex_collections=[v2]
+    )
+    g.create_edge_definition(
+        e2, from_vertex_collections=[v2], to_vertex_collections=[v1]
+    )

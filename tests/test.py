@@ -185,6 +185,7 @@ def test_node_dict_update_existing_single_collection(load_karate_graph: Any) -> 
         assert "extraValue" in G_1._node.data[node_id]
         assert G_1.nodes[node_id]["extraValue"] == extract_arangodb_key(node_id)
 
+
 def test_node_dict_update_multiple_collections(load_two_relation_graph: Any) -> None:
     # This tests uses the existing nodes and updates each
     # of them using the update method using two collections

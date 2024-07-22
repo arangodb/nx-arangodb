@@ -3,7 +3,7 @@ from typing import Any
 import networkx as nx
 import pandas as pd
 import pytest
-
+from typing import Dict
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict import EdgeAttrDict, NodeAttrDict
 from nx_arangodb.utils.arangodb import extract_arangodb_key
@@ -206,9 +206,13 @@ def test_node_dict_update_multiple_collections(load_two_relation_graph: Any) -> 
     assert len(G_1.edges) == 0
 
     # inserts into first collection (by default)
-    new_nodes_v1 = {"1": {}, "2": {}, "3": {}}
+    new_nodes_v1: Dict[str, Dict[str, Any]] = {"1": {}, "2": {}, "3": {}}
     # needs to be inserted into second collection
-    new_nodes_v2 = {f"{v_2_name}/4": {}, f"{v_2_name}/5": {}, f"{v_2_name}/6": {}}
+    new_nodes_v2: Dict[str, Dict[str, Any]] = {
+        f"{v_2_name}/4": {},
+        f"{v_2_name}/5": {},
+        f"{v_2_name}/6": {},
+    }
 
     G_1._node.update(new_nodes_v1)
     G_1._node.update(new_nodes_v2)

@@ -1,9 +1,9 @@
-from typing import Any
+from typing import Any, Dict
 
 import networkx as nx
 import pandas as pd
 import pytest
-from typing import Dict
+
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict import EdgeAttrDict, NodeAttrDict
 from nx_arangodb.utils.arangodb import extract_arangodb_key

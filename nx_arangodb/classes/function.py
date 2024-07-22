@@ -30,8 +30,8 @@ def get_arangodb_graph(
     adb_graph: Graph,
     load_node_dict: bool,
     load_adj_dict: bool,
-    load_adj_dict_as_directed: bool,
-    load_adj_dict_as_multigraph: bool,
+    is_directed: bool,
+    is_multigraph: bool,
     load_coo: bool,
 ) -> Tuple[
     dict[str, dict[str, Any]],
@@ -90,8 +90,8 @@ def get_arangodb_graph(
         username=config.username,
         password=config.password,
         load_adj_dict=load_adj_dict,
-        load_adj_dict_as_directed=load_adj_dict_as_directed,
-        load_adj_dict_as_multigraph=load_adj_dict_as_multigraph,
+        is_directed=is_directed,
+        is_multigraph=is_multigraph,
         load_coo=load_coo,
         **kwargs,
     )

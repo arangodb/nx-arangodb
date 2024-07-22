@@ -90,8 +90,8 @@ def get_arangodb_graph(
         username=config.username,
         password=config.password,
         load_adj_dict=load_adj_dict,
-        load_adj_dict_as_directed=is_directed,
-        load_adj_dict_as_multigraph=is_multigraph,
+        is_directed=is_directed,
+        is_multigraph=is_multigraph,
         load_coo=load_coo,
         **kwargs,
     )

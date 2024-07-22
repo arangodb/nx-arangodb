@@ -58,7 +58,14 @@ def get_arangodb_graph(
         "edgeCollections": {col: {} for col in e_cols},
     }
 
-    from phenolrs.networkx_loader import NetworkXLoader
+    if not any((load_node_dict, load_adj_dict, load_coo)):
+        raise ValueError("At least one of the load flags must be True.")
+
+    if not load_node_dict:
+        metagraph["vertexCollections"] = {}
+
+    if not load_adj_dict and not load_coo:
+        metagraph["edgeCollections"] = {}
 
     config = nx.config.backends.arangodb
 
@@ -73,6 +80,8 @@ def get_arangodb_graph(
     assert config.username
     assert config.password
 
+    from phenolrs.networkx_loader import NetworkXLoader
+
     # TODO: Remove ignore when phenolrs is published
     return NetworkXLoader.load_into_networkx(  # type: ignore
         config.db_name,
@@ -80,7 +89,6 @@ def get_arangodb_graph(
         hosts=[config.host],
         username=config.username,
         password=config.password,
-        load_node_dict=load_node_dict,
         load_adj_dict=load_adj_dict,
         load_adj_dict_as_directed=load_adj_dict_as_directed,
         load_adj_dict_as_multigraph=load_adj_dict_as_multigraph,

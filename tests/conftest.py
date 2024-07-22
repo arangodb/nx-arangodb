@@ -49,7 +49,7 @@ def pytest_configure(config: Any) -> None:
 
 
 @pytest.fixture(scope="function")
-def load_graph() -> None:
+def load_karate_graph() -> None:
     global db
     db.delete_graph("KarateGraph", drop_collections=True, ignore_missing=True)
     adapter = ADBNX_Adapter(db)
@@ -64,3 +64,21 @@ def load_graph() -> None:
             }
         ],
     )
+
+@pytest.fixture(scope="function")
+def load_two_relation_graph() -> None:
+    global db
+    graph_name = "IntegrationTestTwoRelationGraph"
+    v1 = graph_name + "_v1"
+    v2 = graph_name + "_v2"
+    e1 = graph_name + "_e1"
+    e2 = graph_name + "_e2"
+
+    if db.has_graph(graph_name):
+        db.delete_graph(graph_name, drop_collections=True)
+
+    g = db.create_graph(graph_name)
+    g.create_edge_definition(e1, from_vertex_collections=[v1], to_vertex_collections=[v2])
+    g.create_edge_definition(e2, from_vertex_collections=[v2], to_vertex_collections=[v1])
+
+

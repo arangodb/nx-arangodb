@@ -13,7 +13,7 @@ from .conftest import db
 G_NX = nx.karate_club_graph()
 
 
-def test_db(load_graph: Any) -> None:
+def test_db(load_karate_graph: Any) -> None:
     assert db.version()
 
 
@@ -37,7 +37,7 @@ def test_load_graph_from_nxadb():
     db.delete_graph(graph_name, drop_collections=True)
 
 
-def test_bc(load_graph):
+def test_bc(load_karate_graph):
     G_1 = G_NX
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
     G_3 = nxadb.Graph(graph_name="KarateGraph")
@@ -73,7 +73,7 @@ def test_bc(load_graph):
     assert len(r_6) == len(r_7) == len(r_8) == len(G_4) > 0
 
 
-def test_pagerank(load_graph: Any) -> None:
+def test_pagerank(load_karate_graph: Any) -> None:
     G_1 = G_NX
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
     G_3 = nxadb.Graph(graph_name="KarateGraph")
@@ -107,7 +107,7 @@ def test_pagerank(load_graph: Any) -> None:
     assert len(r_6) == len(r_7) == len(r_8) == len(G_4) > 0
 
 
-def test_louvain(load_graph: Any) -> None:
+def test_louvain(load_karate_graph: Any) -> None:
     G_1 = G_NX
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
     G_3 = nxadb.Graph(graph_name="KarateGraph")
@@ -144,7 +144,7 @@ def test_louvain(load_graph: Any) -> None:
     assert len(r_8) > 0
 
 
-def test_shortest_path(load_graph: Any) -> None:
+def test_shortest_path(load_karate_graph: Any) -> None:
     G_1 = nxadb.Graph(graph_name="KarateGraph")
     G_2 = nxadb.DiGraph(graph_name="KarateGraph")
 
@@ -159,7 +159,7 @@ def test_shortest_path(load_graph: Any) -> None:
     assert r_3 != r_4
 
 
-def test_node_dict_update_existing_single_collection(load_graph: Any) -> None:
+def test_node_dict_update_existing_single_collection(load_karate_graph: Any) -> None:
     # This tests uses the existing nodes and updates each
     # of them using the update method using a single collection
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
@@ -185,8 +185,48 @@ def test_node_dict_update_existing_single_collection(load_graph: Any) -> None:
         assert "extraValue" in G_1._node.data[node_id]
         assert G_1.nodes[node_id]["extraValue"] == extract_arangodb_key(node_id)
 
+def test_node_dict_update_multiple_collections(load_two_relation_graph: Any) -> None:
+    # This tests uses the existing nodes and updates each
+    # of them using the update method using two collections
+    graph_name = "IntegrationTestTwoRelationGraph"
+    v_1_name = graph_name + "_v1"
+    v_2_name = graph_name + "_v2"
+    e_1_name = graph_name + "_e1"
+    e_2_name = graph_name + "_e2"
 
-def test_graph_nodes_crud(load_graph: Any) -> None:
+    # assert that those collections are empty
+    assert db.collection(v_1_name).count() == 0
+    assert db.collection(v_2_name).count() == 0
+    assert db.collection(e_1_name).count() == 0
+    assert db.collection(e_2_name).count() == 0
+
+    G_1 = nxadb.Graph(graph_name=graph_name, default_node_type=v_1_name)
+    assert len(G_1.nodes) == 0
+    assert len(G_1.edges) == 0
+
+    # inserts into first collection (by default)
+    new_nodes_v1 = {"1": {}, "2": {}, "3": {}}
+    # needs to be inserted into second collection
+    new_nodes_v2 = {f"{v_2_name}/4": {}, f"{v_2_name}/5": {}, f"{v_2_name}/6": {}}
+
+    G_1._node.update(new_nodes_v1)
+    G_1._node.update(new_nodes_v2)
+
+    assert db.collection(v_1_name).count() == 3
+    assert db.collection(v_2_name).count() == 3
+
+    # check that local nodes in cache must have 6 elements
+    assert len(G_1.nodes) == 6
+    # check that keys are present
+    # loop three times
+    for i in range(1, 4):
+        assert f"{v_1_name}/{str(i)}" in G_1.nodes
+
+    for i in range(4, 7):
+        assert f"{v_2_name}/{i}" in G_1.nodes
+
+
+def test_graph_nodes_crud(load_karate_graph: Any) -> None:
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
     G_2 = nx.Graph(G_NX)
 
@@ -309,7 +349,7 @@ def test_graph_nodes_crud(load_graph: Any) -> None:
     assert db.document("person/2")["object"]["sub_object"]["foo"] == "baz"
 
 
-def test_graph_edges_crud(load_graph: Any) -> None:
+def test_graph_edges_crud(load_karate_graph: Any) -> None:
     G_1 = nxadb.Graph(graph_name="KarateGraph")
     G_2 = G_NX
 
@@ -451,7 +491,7 @@ def test_graph_edges_crud(load_graph: Any) -> None:
     assert db.document(edge_id)["object"]["sub_object"]["foo"] == "baz"
 
 
-def test_readme(load_graph: Any) -> None:
+def test_readme(load_karate_graph: Any) -> None:
     G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
 
     assert len(G.nodes) == len(G_NX.nodes)

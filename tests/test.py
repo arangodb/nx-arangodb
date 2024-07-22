@@ -1,7 +1,6 @@
-from typing import Any
+from typing import Any, Callable
 
 import networkx as nx
-import pandas as pd
 import pytest
 
 import nx_arangodb as nxadb
@@ -10,6 +9,42 @@ from nx_arangodb.classes.dict import EdgeAttrDict, NodeAttrDict
 from .conftest import db
 
 G_NX = nx.karate_club_graph()
+
+
+def assert_same_dict_values(
+    d1: dict[str | int, float], d2: dict[str | int, float], digit: int
+) -> None:
+    if type(next(iter(d1.keys()))) == int:
+        d1 = {f"person/{k+1}": v for k, v in d1.items()}  # type: ignore
+
+    if type(next(iter(d2.keys()))) == int:
+        d2 = {f"person/{k+1}": v for k, v in d2.items()}  # type: ignore
+
+    assert d1.keys() == d2.keys(), "Dictionaries have different keys"
+    for key in d1:
+        m = f"Values for key '{key}' are not equal up to digit {digit}"
+        assert round(d1[key], digit) == round(d2[key], digit), m
+
+
+def assert_bc(d1: dict[str | int, float], d2: dict[str | int, float]) -> None:
+    assert_same_dict_values(d1, d2, 14)
+
+
+def assert_pagerank(d1: dict[str | int, float], d2: dict[str | int, float]) -> None:
+    assert_same_dict_values(d1, d2, 15)
+
+
+def assert_louvain(l1: list[set[Any]], l2: list[set[Any]]) -> None:
+    # TODO: Implement some kind of comparison
+    # Reason: Louvain returns different results on different runs
+    pass
+
+
+def assert_k_components(
+    d1: dict[int, list[set[Any]]], d2: dict[int, list[set[Any]]]
+) -> None:
+    assert d1.keys() == d2.keys(), "Dictionaries have different keys"
+    assert d1 == d2
 
 
 def test_db(load_graph: Any) -> None:
@@ -36,121 +71,56 @@ def test_load_graph_from_nxadb():
     db.delete_graph(graph_name, drop_collections=True)
 
 
-def test_bc(load_graph):
+@pytest.mark.parametrize(
+    "algorithm_func, assert_func",
+    [
+        (nx.betweenness_centrality, assert_bc),
+        (nx.pagerank, assert_pagerank),
+        (nx.community.louvain_communities, assert_louvain),
+    ],
+)
+def test_algorithm(
+    algorithm_func: Callable[..., Any],
+    assert_func: Callable[..., Any],
+    load_graph: Any,
+) -> None:
     G_1 = G_NX
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
     G_3 = nxadb.Graph(graph_name="KarateGraph")
+    G_4 = nxadb.DiGraph(graph_name="KarateGraph")
 
-    r_1 = nx.betweenness_centrality(G_1)
-    r_2 = nx.betweenness_centrality(G_2)
-    r_3 = nx.betweenness_centrality(G_1, backend="arangodb")
-    r_4 = nx.betweenness_centrality(G_2, backend="arangodb")
-    r_5 = nx.betweenness_centrality.orig_func(G_3)
+    r_1 = algorithm_func(G_1)
+    r_2 = algorithm_func(G_2)
+    r_3 = algorithm_func(G_1, backend="arangodb")
+    r_4 = algorithm_func(G_2, backend="arangodb")
 
-    assert len(r_1) == len(G_1)
-    assert r_1 == r_2
-    assert r_2 == r_3
-    assert r_3 == r_4
-    assert len(r_1) == len(r_5)
+    r_5 = algorithm_func.orig_func(G_3)  # type: ignore
+    nx.config.backends.arangodb.pull_graph = False
+    r_6 = algorithm_func(G_3)
+    nx.config.backends.arangodb.pull_graph = True
+
+    assert all([r_1, r_2, r_3, r_4, r_5, r_6])
+    assert_func(r_1, r_2)
+    assert_func(r_2, r_3)
+    assert_func(r_3, r_4)
+    assert_func(r_5, r_6)
 
     try:
         import phenolrs  # noqa
     except ModuleNotFoundError:
         pytest.skip("phenolrs not installed")
 
-    G_4 = nxadb.Graph(graph_name="KarateGraph")
-    r_6 = nx.betweenness_centrality(G_4)
+    r_7 = algorithm_func(G_3)
+    r_8 = algorithm_func(G_4)
+    r_9 = algorithm_func(nx.DiGraph(incoming_graph_data=G_NX))
 
-    G_5 = nxadb.Graph(graph_name="KarateGraph")
-
-    nx.config.backends.arangodb.pull_graph = False
-    r_7 = nx.betweenness_centrality(G_5)
-    nx.config.backends.arangodb.pull_graph = True
-
-    G_6 = nxadb.DiGraph(graph_name="KarateGraph")
-    r_8 = nx.betweenness_centrality(G_6)
-
-    # assert r_6 == r_7 # this is acting strange. I need to revisit
-    assert r_7 == r_8
-    assert len(r_6) == len(r_7) == len(r_8) == len(G_4) > 0
+    assert all([r_7, r_8, r_9])
+    assert_func(r_7, r_1)
+    assert_func(r_7, r_8)
+    assert_func(r_1, r_9)
 
 
-def test_pagerank(load_graph: Any) -> None:
-    G_1 = G_NX
-    G_2 = nxadb.Graph(incoming_graph_data=G_1)
-    G_3 = nxadb.Graph(graph_name="KarateGraph")
-
-    r_1 = nx.pagerank(G_1)
-    r_2 = nx.pagerank(G_2)
-    r_3 = nx.pagerank(G_1, backend="arangodb")
-    r_4 = nx.pagerank(G_2, backend="arangodb")
-    r_5 = nx.pagerank.orig_func(G_3)
-
-    assert len(r_1) == len(G_1)
-    assert r_1 == r_2
-    assert r_2 == r_3
-    assert r_3 == r_4
-    assert len(r_1) == len(r_5)
-
-    try:
-        import phenolrs  # noqa
-    except ModuleNotFoundError:
-        pytest.skip("phenolrs not installed")
-
-    G_4 = nxadb.Graph(graph_name="KarateGraph")
-    r_6 = nx.pagerank(G_4)
-
-    G_5 = nxadb.Graph(graph_name="KarateGraph")
-    nx.config.backends.arangodb.pull_graph = False
-    r_7 = nx.pagerank(G_5)
-    nx.config.backends.arangodb.pull_graph = True
-
-    G_6 = nxadb.DiGraph(graph_name="KarateGraph")
-    r_8 = nx.pagerank(G_6)
-
-    assert len(r_6) == len(r_7) == len(r_8) == len(G_4) > 0
-
-
-def test_louvain(load_graph: Any) -> None:
-    G_1 = G_NX
-    G_2 = nxadb.Graph(incoming_graph_data=G_1)
-    G_3 = nxadb.Graph(graph_name="KarateGraph")
-
-    r_1 = nx.community.louvain_communities(G_1)
-    r_2 = nx.community.louvain_communities(G_2)
-    r_3 = nx.community.louvain_communities(G_1, backend="arangodb")
-    r_4 = nx.community.louvain_communities(G_2, backend="arangodb")
-    r_5 = nx.community.louvain_communities.orig_func(G_3)
-
-    assert len(r_1) > 0
-    assert len(r_2) > 0
-    assert len(r_3) > 0
-    assert len(r_4) > 0
-    assert len(r_5) > 0
-
-    try:
-        import phenolrs  # noqa
-    except ModuleNotFoundError:
-        pytest.skip("phenolrs not installed")
-
-    G_4 = nxadb.Graph(graph_name="KarateGraph")
-    r_6 = nx.community.louvain_communities(G_4)
-
-    G_5 = nxadb.Graph(graph_name="KarateGraph")
-    nx.config.backends.arangodb.pull_graph = False
-    r_7 = nx.community.louvain_communities(G_5)
-    nx.config.backends.arangodb.pull_graph = True
-
-    G_6 = nxadb.DiGraph(graph_name="KarateGraph")
-    r_8 = nx.community.louvain_communities(G_6)
-
-    assert len(r_5) > 0
-    assert len(r_6) > 0
-    assert len(r_7) > 0
-    assert len(r_8) > 0
-
-
-def test_shortest_path(load_graph: Any) -> None:
+def test_shortest_path_remote_algorithm(load_graph: Any) -> None:
     G_1 = nxadb.Graph(graph_name="KarateGraph")
     G_2 = nxadb.DiGraph(graph_name="KarateGraph")
 

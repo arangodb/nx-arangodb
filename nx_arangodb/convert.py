@@ -143,8 +143,7 @@ def nxadb_to_nx(G: nxadb.Graph, pull_graph: bool) -> nx.Graph:
         load_adj_dict=True,
         # G.is_directed(), # TODO: Revisit this w/ incoming_graph_data...
         is_directed=False,
-        # G.is_multigraph(), # TODO: Revisit this w/ incoming_graph_data...
-        is_multigraph=False,
+        is_multigraph=G.is_multigraph(),
         load_coo=False,
     )
     end_time = time.time()

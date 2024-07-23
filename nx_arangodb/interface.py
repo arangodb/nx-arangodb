@@ -141,7 +141,7 @@ def _run_with_backend(
     result = backend_func(*converted_args, **converted_kwargs)
 
     if dfunc._returns_graph:
-        raise NotImplementedError("Not implemented yet")
+        raise NotImplementedError("Returning Graphs not implemented yet")
         # if to_backend is not None:
         #     result = to_backend.convert_to_nx(result)
 

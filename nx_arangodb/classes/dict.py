@@ -16,6 +16,7 @@ from arango.graph import Graph
 
 from nx_arangodb.logger import logger
 
+from ..typing import AdjDict
 from ..utils.arangodb import (
     ArangoDBBatchError,
     check_list_for_errors,
@@ -1235,9 +1236,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             yield from result
 
     @logger_debug
-    def __set_adj_elements(
-        self, edges_dict: dict[str, dict[str, dict[str, Any]]]
-    ) -> None:
+    def __set_adj_elements(self, edges_dict: AdjDict) -> None:
         for src_node_id, inner_dict in edges_dict.items():
             for dst_node_id, edge in inner_dict.items():
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Hashable
-from typing import TypeVar
+from typing import Any, Dict, TypeVar
 
 import cupy as cp
 import numpy as np
@@ -17,6 +17,7 @@ EdgeValue = TypeVar("EdgeValue")
 NodeValue = TypeVar("NodeValue")
 IndexValue = TypeVar("IndexValue")
 Dtype = TypeVar("Dtype")
+AdjDict = Dict[str, Dict[str, Dict[str, Any]]]
 
 
 class any_ndarray:

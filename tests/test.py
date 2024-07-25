@@ -6,6 +6,7 @@ import pytest
 
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict import EdgeAttrDict, NodeAttrDict
+from nx_arangodb.typing import AdjDict
 from nx_arangodb.utils.arangodb import extract_arangodb_key
 
 from .conftest import db
@@ -240,7 +241,7 @@ def test_edge_adj_dict_update_existing_single_collection(
 
     # clone available _adj list, append extraValue to each edge
     local_adj = G_1.adj
-    local_edges_dict = {}
+    local_edges_dict: AdjDict = {}
 
     for from_doc_id, target_dict in local_adj.items():
         for to_doc_id, edge_doc in target_dict.items():

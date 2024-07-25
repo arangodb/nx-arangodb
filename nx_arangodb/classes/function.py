@@ -24,6 +24,7 @@ from ..exceptions import (
     GraphDoesNotExist,
     InvalidTraversalDirection,
 )
+from ..typing import AdjDict
 
 
 def get_arangodb_graph(
@@ -35,7 +36,7 @@ def get_arangodb_graph(
     load_coo: bool,
 ) -> Tuple[
     dict[str, dict[str, Any]],
-    dict[str, dict[str, dict[str, Any]]],
+    AdjDict,
     npt.NDArray[np.int64],
     npt.NDArray[np.int64],
     dict[str, int],

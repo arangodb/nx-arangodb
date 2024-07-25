@@ -4,9 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Hashable
 from typing import Any, Dict, TypeVar
+from nx_arangodb.logger import logger
 
-import cupy as cp
-import numpy as np
+try:
+    import cupy as cp
+except ModuleNotFoundError as e:
+    GPU_ENABLED = False
+    logger.info(f"NXCG is disabled. {e}.")
+
 import numpy.typing as npt
 
 AttrKey = TypeVar("AttrKey", bound=Hashable)

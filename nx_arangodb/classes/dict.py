@@ -1242,7 +1242,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
                 if src_node_id in self.data:
                     if dst_node_id in self.data[src_node_id].data:
-                        print("Dst node id: ", dst_node_id)
                         continue
 
                 # TODO: Clean up those two if/else statements later
@@ -1255,20 +1254,16 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
                     self.data[src_node_id] = src_inner_dict
 
                 if dst_node_id in self.data:
-                    print("Dst node inner dict id: ", dst_node_id)
                     dst_inner_dict = self.data[dst_node_id]
                 else:
-                    print("else")
                     dst_inner_dict = self.adjlist_inner_dict_factory()
                     dst_inner_dict.src_node_id = dst_node_id
                     src_inner_dict.FETCHED_ALL_DATA = True
                     self.data[dst_node_id] = dst_inner_dict
 
-                print(5)
                 edge_attr_dict = src_inner_dict.edge_attr_dict_factory()
                 edge_attr_dict.edge_id = edge["_id"]
                 edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
-                print("src node id ", src_node_id)
                 self.data[src_node_id].data[dst_node_id] = edge_attr_dict
                 self.data[dst_node_id].data[src_node_id] = edge_attr_dict
 

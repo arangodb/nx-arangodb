@@ -96,6 +96,7 @@ def get_arangodb_graph(
         **kwargs,
     )
 
+
 def key_is_string(func: Callable[..., Any]) -> Any:
     """Decorator to check if the key is a string."""
 

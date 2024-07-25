@@ -90,12 +90,11 @@ def get_arangodb_graph(
         username=config.username,
         password=config.password,
         load_adj_dict=load_adj_dict,
-        load_adj_dict_as_directed=load_adj_dict_as_directed,
-        load_adj_dict_as_multigraph=load_adj_dict_as_multigraph,
+        is_directed=load_adj_dict_as_directed,
+        is_multigraph=load_adj_dict_as_multigraph,
         load_coo=load_coo,
         **kwargs,
     )
-
 
 def key_is_string(func: Callable[..., Any]) -> Any:
     """Decorator to check if the key is a string."""
@@ -152,7 +151,7 @@ def keys_are_strings(func: Callable[..., Any]) -> Any:
     return wrapper
 
 
-RESERVED_KEYS = {"_id", "_key", "_rev"}
+RESERVED_KEYS = {"_id", "_key", "_rev", "_from", "_to"}
 
 
 def key_is_not_reserved(func: Callable[..., Any]) -> Any:

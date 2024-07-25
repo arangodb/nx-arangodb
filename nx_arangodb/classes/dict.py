@@ -20,7 +20,9 @@ from ..utils.arangodb import (
     ArangoDBBatchError,
     check_list_for_errors,
     separate_nodes_by_collections,
+    separate_edges_by_collections,
     upsert_collection_documents,
+    upsert_collection_edges,
 )
 from .function import (
     aql,
@@ -655,7 +657,7 @@ class EdgeAttrDict(UserDict[str, Any]):
         self.graph = graph
         self.edge_id: str | None = None
 
-        # NodeAttrDict may be a child of another NodeAttrDict
+        # EdgeAttrDict may be a child of another EdgeAttrDict
         # e.g G._adj['node/1']['node/2']['object']['foo'] = 'bar'
         # In this case, **parent_keys** would be ['object']
         # and **root** would be G._adj['node/1']['node/2']
@@ -1179,8 +1181,29 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     @keys_are_strings
     @logger_debug
     def update(self, edges: Any) -> None:
-        """g._adj.update({'node/1': {'node/2': {'foo': 'bar'}})"""
-        raise NotImplementedError("AdjListOuterDict.update()")
+        """g._adj.update({'node/1': {'node/2': {'_id': 'foo/bar', 'foo': "bar"}})"""
+        separated_by_edge_collection = separate_edges_by_collections(edges)
+        result = upsert_collection_edges(self.db, separated_by_edge_collection)
+
+        all_good = check_list_for_errors(result)
+        if all_good:
+            # Means no single operation failed, in this case we update the local cache
+            self.__set_adj_elements(edges)
+        else:
+            # In this case some or all documents failed. Right now we will not
+            # update the local cache, but raise an error instead.
+            # Reason: We cannot set silent to True, because we need as it does
+            # not report errors then. We need to update the driver to also pass
+            # the errors back to the user, then we can adjust the behavior here.
+            # This will also save network traffic and local computation time.
+            errors = []
+            for collections_results in result:
+                for collection_result in collections_results:
+                    errors.append(collection_result)
+            warnings.warn(
+                "Failed to insert at least one node. Will not update local cache."
+            )
+            raise ArangoDBBatchError(errors)
 
     # TODO: Revisit typing of return value
     @logger_debug
@@ -1212,6 +1235,45 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             yield from result
 
     @logger_debug
+    def __set_adj_elements(
+        self, edges_dict: dict[str, dict[str, dict[str, Any]]]
+    ) -> None:
+        for src_node_id, inner_dict in edges_dict.items():
+            for dst_node_id, edge in inner_dict.items():
+
+                if src_node_id in self.data:
+                    if dst_node_id in self.data[src_node_id].data:
+                        print("Dst node id: ", dst_node_id)
+                        continue
+
+                # TODO: Clean up those two if/else statements later
+                if src_node_id in self.data:
+                    src_inner_dict = self.data[src_node_id]
+                else:
+                    src_inner_dict = self.adjlist_inner_dict_factory()
+                    src_inner_dict.src_node_id = src_node_id
+                    src_inner_dict.FETCHED_ALL_DATA = True
+                    self.data[src_node_id] = src_inner_dict
+
+                if dst_node_id in self.data:
+                    print("Dst node inner dict id: ", dst_node_id)
+                    dst_inner_dict = self.data[dst_node_id]
+                else:
+                    print("else")
+                    dst_inner_dict = self.adjlist_inner_dict_factory()
+                    dst_inner_dict.src_node_id = dst_node_id
+                    src_inner_dict.FETCHED_ALL_DATA = True
+                    self.data[dst_node_id] = dst_inner_dict
+
+                print(5)
+                edge_attr_dict = src_inner_dict.edge_attr_dict_factory()
+                edge_attr_dict.edge_id = edge["_id"]
+                edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
+                print("src node id ", src_node_id)
+                self.data[src_node_id].data[dst_node_id] = edge_attr_dict
+                self.data[dst_node_id].data[src_node_id] = edge_attr_dict
+
+    @logger_debug
     def __fetch_all(self) -> None:
         self.clear()
 
@@ -1224,34 +1286,5 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             load_coo=False,
         )
 
-        for src_node_id, inner_dict in adj_dict.items():
-            for dst_node_id, edge in inner_dict.items():
-
-                if src_node_id in self.data:
-                    if dst_node_id in self.data[src_node_id].data:
-                        continue
-
-                if src_node_id in self.data:
-                    src_inner_dict = self.data[src_node_id]
-                else:
-                    src_inner_dict = self.adjlist_inner_dict_factory()
-                    src_inner_dict.src_node_id = src_node_id
-                    src_inner_dict.FETCHED_ALL_DATA = True
-                    self.data[src_node_id] = src_inner_dict
-
-                if dst_node_id in self.data:
-                    dst_inner_dict = self.data[dst_node_id]
-                else:
-                    dst_inner_dict = self.adjlist_inner_dict_factory()
-                    dst_inner_dict.src_node_id = dst_node_id
-                    src_inner_dict.FETCHED_ALL_DATA = True
-                    self.data[dst_node_id] = dst_inner_dict
-
-                edge_attr_dict = src_inner_dict.edge_attr_dict_factory()
-                edge_attr_dict.edge_id = edge["_id"]
-                edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
-
-                self.data[src_node_id].data[dst_node_id] = edge_attr_dict
-                self.data[dst_node_id].data[src_node_id] = edge_attr_dict
-
+        self.__set_adj_elements(adj_dict)
         self.FETCHED_ALL_DATA = True

@@ -231,6 +231,47 @@ def test_node_dict_update_multiple_collections(load_two_relation_graph: Any) -> 
         assert f"{v_2_name}/{i}" in G_1.nodes
 
 
+def test_edge_adj_dict_update_existing_single_collection(
+    load_karate_graph: Any,
+) -> None:
+    # This tests uses the existing nodes and updates each
+    # of them using the update method using a single collection
+    G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
+
+    # clone available _adj list, append extraValue to each edge
+    local_adj = G_1.adj
+    local_edges_dict = {}
+
+    for from_doc_id, target_dict in local_adj.items():
+        for to_doc_id, edge_doc in target_dict.items():
+            edge_doc_id = edge_doc["_id"]
+            if from_doc_id not in local_edges_dict:
+                local_edges_dict[from_doc_id] = {}
+
+            local_edges_dict[from_doc_id][to_doc_id] = {
+                "_id": edge_doc_id,
+                "extraValue": edge_doc["_key"],
+            }
+
+    G_1._adj.update(local_edges_dict)
+
+    edge_col = db.collection("knows")
+    edge_col_docs = edge_col.all()
+
+    # Check if the extraValue attribute was added to each document in the database
+    for doc in edge_col_docs:
+        assert "extraValue" in doc
+        assert doc["extraValue"] == doc["_key"]
+
+    # Check if the extraValue attribute was added to each document in the local cache
+    for from_doc_id, target_dict in local_edges_dict.items():
+        for to_doc_id, edge_doc in target_dict.items():
+            assert "extraValue" in G_1._adj[from_doc_id][to_doc_id]
+            assert G_1.adj[from_doc_id][to_doc_id][
+                "extraValue"
+            ] == extract_arangodb_key(edge_doc["_id"])
+
+
 def test_graph_nodes_crud(load_karate_graph: Any) -> None:
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
     G_2 = nx.Graph(G_NX)

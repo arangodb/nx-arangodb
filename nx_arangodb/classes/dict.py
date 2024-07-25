@@ -8,7 +8,7 @@ from __future__ import annotations
 import warnings
 from collections import UserDict
 from collections.abc import Iterator
-from typing import Any, Callable
+from typing import Any, Callable, Dict, List
 
 from arango.database import StandardDatabase
 from arango.graph import Graph
@@ -19,11 +19,12 @@ from ..typing import AdjDict
 from ..utils.arangodb import (
     ArangoDBBatchError,
     check_list_for_errors,
+    is_arangodb_id,
+    read_collection_name_from_local_id,
     separate_edges_by_collections,
     separate_nodes_by_collections,
     upsert_collection_documents,
     upsert_collection_edges,
-    read_collection_name_from_local_id, is_arangodb_id,
 )
 from .function import (
     aql,
@@ -978,7 +979,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
             self.src_node_id, self.default_node_type
         )
 
-        to_upsert = {from_col_name: []}
+        to_upsert: Dict[str, List[Dict[str, Any]]] = {from_col_name: []}
 
         for edge_id, edge_data in edges.items():
             edge_doc = edge_data

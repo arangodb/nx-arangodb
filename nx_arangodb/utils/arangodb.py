@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from arango import ArangoError, DocumentInsertError
 from arango.database import StandardDatabase
@@ -32,7 +32,7 @@ def extract_arangodb_key(arangodb_id):
     return arangodb_id.split("/")[1]
 
 
-def extract_arangodb_collection_name(arangodb_id):
+def extract_arangodb_collection_name(arangodb_id: str) -> str:
     assert is_arangodb_id(arangodb_id)
     return arangodb_id.split("/")[0]
 
@@ -41,7 +41,13 @@ def is_arangodb_id(key):
     return "/" in key
 
 
-def read_collection_name_from_local_id(local_id: str, default_collection: str) -> str:
+def read_collection_name_from_local_id(
+    local_id: Optional[str], default_collection: str
+) -> str:
+    if local_id is None:
+        print("local_id is None, cannot read collection name.")
+        return ""
+
     if is_arangodb_id(local_id):
         return extract_arangodb_collection_name(local_id)
 

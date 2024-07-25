@@ -576,8 +576,8 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             self.graph,
             load_node_dict=True,
             load_adj_dict=False,
-            load_adj_dict_as_directed=False,  # not used
-            load_adj_dict_as_multigraph=False,  # not used
+            is_directed=False,  # not used
+            is_multigraph=False,  # not used
             load_coo=False,
         )
 
@@ -1281,8 +1281,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             self.graph,
             load_node_dict=False,
             load_adj_dict=True,
-            load_adj_dict_as_directed=False,  # TODO: Abstract based on Graph type
-            load_adj_dict_as_multigraph=False,  # TODO: Abstract based on Graph type
+            is_directed=False,  # TODO: Abstract based on Graph type
+            is_multigraph=False,  # TODO: Abstract based on Graph type
             load_coo=False,
         )
 

@@ -6,12 +6,11 @@ Used as the underlying data structure for NetworkX-ArangoDB graphs.
 from __future__ import annotations
 
 import warnings
-from collections import UserDict, defaultdict
+from collections import UserDict
 from collections.abc import Iterator
-from typing import Any, Callable, Generator
+from typing import Any, Callable
 
 from arango.database import StandardDatabase
-from arango.exceptions import ArangoError, DocumentInsertError
 from arango.graph import Graph
 
 from nx_arangodb.logger import logger
@@ -24,13 +23,11 @@ from ..utils.arangodb import (
     separate_nodes_by_collections,
     upsert_collection_documents,
     upsert_collection_edges,
+    read_collection_name_from_local_id, is_arangodb_id,
 )
 from .function import (
     aql,
-    aql_as_list,
     aql_doc_get_key,
-    aql_doc_get_keys,
-    aql_doc_get_length,
     aql_doc_has_key,
     aql_edge_exists,
     aql_edge_get,
@@ -977,7 +974,61 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
     @logger_debug
     def update(self, edges: Any) -> None:
         """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
-        raise NotImplementedError("AdjListInnerDict.update()")
+        from_col_name = read_collection_name_from_local_id(
+            self.src_node_id, self.default_node_type
+        )
+
+        to_upsert = {from_col_name: []}
+
+        for edge_id, edge_data in edges.items():
+            edge_doc = edge_data
+            edge_doc["_from"] = self.src_node_id
+            edge_doc["_to"] = edge_id
+
+            edge_doc_id = edge_data.get("_id")
+            # TODO: @Anthony please check if the implementation is correct of the default for
+            # edge_type_func, which is right now:
+            # * edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
+            #
+            # How does that help to identify the edge's collection name?
+            # The below implementation I wanted to use but returns in my example:
+            # "person/9_to_person/34" which is not a valid or requested collection name.
+            #
+            # edge_type = edge_data.get("_edge_type")
+            # if edge_type is None:
+            #   edge_type = self.edge_type_func(self.src_node_id, edge_id)
+            #
+            # -> Therefore right now I need to assume that this is always a valid ArangoDB document ID
+            assert is_arangodb_id(edge_doc_id)
+            edge_col_name = read_collection_name_from_local_id(edge_doc_id, "")
+
+            if to_upsert.get(edge_col_name) is None:
+                to_upsert[edge_col_name] = [edge_doc]
+            else:
+                to_upsert[edge_col_name].append(edge_doc)
+
+        # perform write to ArangoDB
+        result = upsert_collection_edges(self.db, to_upsert)
+
+        all_good = check_list_for_errors(result)
+        if all_good:
+            # Means no single operation failed, in this case we update the local cache
+            self.__set_adj_elements(edges)
+        else:
+            # In this case some or all documents failed. Right now we will not
+            # update the local cache, but raise an error instead.
+            # Reason: We cannot set silent to True, because we need as it does
+            # not report errors then. We need to update the driver to also pass
+            # the errors back to the user, then we can adjust the behavior here.
+            # This will also save network traffic and local computation time.
+            errors = []
+            for collections_results in result:
+                for collection_result in collections_results:
+                    errors.append(collection_result)
+            warnings.warn(
+                "Failed to insert at least one node. Will not update local cache."
+            )
+            raise ArangoDBBatchError(errors)
 
     # TODO: Revisit typing of return value
     @logger_debug
@@ -1017,6 +1068,14 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
             self.data[edge["_to"]] = edge_attr_dict
 
         self.FETCHED_ALL_DATA = True
+
+    def __set_adj_elements(self, edges):
+        for dst_node_id, edge in edges.items():
+            # Copied from above, from __fetch_all
+            edge_attr_dict = self.edge_attr_dict_factory()
+            edge_attr_dict.edge_id = edge["_id"]
+            edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
+            self.data[edge["_to"]] = edge_attr_dict
 
 
 class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
@@ -1236,8 +1295,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             yield from result
 
     @logger_debug
-    def __set_adj_elements(self, edges_dict: AdjDict) -> None:
-        for src_node_id, inner_dict in edges_dict.items():
+    def __set_adj_elements(self, edges: AdjDict) -> None:
+        for src_node_id, inner_dict in edges.items():
             for dst_node_id, edge in inner_dict.items():
 
                 if src_node_id in self.data:

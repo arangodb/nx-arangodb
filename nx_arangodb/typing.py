@@ -47,7 +47,9 @@ Dtype = TypeVar("Dtype")
 #    ...
 # }
 # The above example is a graph with 2 edges from person/1 to person/32 and person/33
-AdjDict = Dict[str, Dict[str, Dict[str, Any]]]
+AdjDictEdge = Dict[str, Any]
+AdjDictInner = Dict[str, AdjDictEdge]
+AdjDict = Dict[str, AdjDictInner]
 
 
 class any_ndarray:

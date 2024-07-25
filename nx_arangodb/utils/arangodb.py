@@ -33,12 +33,21 @@ def extract_arangodb_key(arangodb_id):
 
 
 def extract_arangodb_collection_name(arangodb_id):
-    assert "/" in arangodb_id
+    assert is_arangodb_id(arangodb_id)
     return arangodb_id.split("/")[0]
 
 
 def is_arangodb_id(key):
     return "/" in key
+
+
+def read_collection_name_from_local_id(local_id: str, default_collection: str) -> str:
+    if is_arangodb_id(local_id):
+        return extract_arangodb_collection_name(local_id)
+
+    assert default_collection is not None
+    assert default_collection != ""
+    return default_collection
 
 
 def get_arangodb_collection_key_tuple(key):
@@ -169,12 +178,14 @@ def upsert_collection_edges(db: StandardDatabase, separated: Any) -> Any:
 
     for collection_name, documents_list in separated.items():
         collection = db.collection(collection_name)
-        results.append(
-            collection.insert_many(
-                documents_list,
-                silent=False,
-                overwrite_mode="update",
+
+        if documents_list:
+            results.append(
+                collection.insert_many(
+                    documents_list,
+                    silent=False,
+                    overwrite_mode="update",
+                )
             )
-        )
 
     return results

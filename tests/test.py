@@ -220,11 +220,8 @@ def test_node_dict_update_multiple_collections(load_two_relation_graph: Any) -> 
 
     assert db.collection(v_1_name).count() == 3
     assert db.collection(v_2_name).count() == 3
-
-    # check that local nodes in cache must have 6 elements
     assert len(G_1.nodes) == 6
-    # check that keys are present
-    # loop three times
+
     for i in range(1, 4):
         assert f"{v_1_name}/{str(i)}" in G_1.nodes
 
@@ -235,11 +232,8 @@ def test_node_dict_update_multiple_collections(load_two_relation_graph: Any) -> 
 def test_edge_adj_dict_update_existing_single_collection(
     load_karate_graph: Any,
 ) -> None:
-    # This tests uses the existing nodes and updates each
-    # of them using the update method using a single collection
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
 
-    # clone available _adj list, append extraValue to each edge
     local_adj = G_1.adj
     local_edges_dict: AdjDict = {}
 
@@ -271,6 +265,64 @@ def test_edge_adj_dict_update_existing_single_collection(
             assert G_1.adj[from_doc_id][to_doc_id][
                 "extraValue"
             ] == extract_arangodb_key(edge_doc["_id"])
+
+
+def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> None:
+    graph_name = "IntegrationTestTwoRelationGraph"
+    v_1_name = graph_name + "_v1"
+    v_2_name = graph_name + "_v2"
+    e_1_name = graph_name + "_e1"
+    e_2_name = graph_name + "_e2"
+
+    assert db.collection(v_1_name).count() == 0
+    assert db.collection(v_2_name).count() == 0
+    assert db.collection(e_1_name).count() == 0
+    assert db.collection(e_2_name).count() == 0
+
+    G_1 = nxadb.Graph(graph_name=graph_name, default_node_type=v_1_name)
+    assert len(G_1.nodes) == 0
+    assert len(G_1.edges) == 0
+
+    # inserts into first collection (by default)
+    new_edges_dict: AdjDict = {
+        graph_name
+        + "_v1/1": {
+            graph_name + "_v1/2": {"_id": e_1_name + "/1"},
+            graph_name + "_v1/3": {"_id": e_1_name + "/2"},
+        },
+        graph_name
+        + "_v2/1": {
+            graph_name + "_v1/2": {"_id": e_2_name + "/1"},
+            graph_name + "_v1/3": {"_id": e_2_name + "/2"},
+        },
+    }
+
+    G_1._adj.update(new_edges_dict)
+
+    # _adj list is not responsible for maintaining the vertex collections
+    assert db.collection(v_1_name).count() == 0
+    assert db.collection(v_2_name).count() == 0
+
+    assert db.collection(e_1_name).count() == 2
+    assert db.collection(e_2_name).count() == 2
+
+    # Check that the edge ids are present in the database
+    assert db.has_document({"_id": e_1_name + "/1"})
+    assert db.has_document({"_id": e_1_name + "/2"})
+    assert db.has_document({"_id": e_2_name + "/1"})
+    assert db.has_document({"_id": e_2_name + "/2"})
+
+    # Check local state
+    assert len(G_1.nodes) == 0
+    assert len(G_1.edges) == 4
+
+    local_edge_cache = G_1._adj
+    assert f"{v_1_name}/{1}" in local_edge_cache
+    assert f"{v_2_name}/{1}" in local_edge_cache
+    assert f"{v_1_name}/{2}" in local_edge_cache[f"{v_1_name}/{1}"]
+    assert f"{v_1_name}/{3}" in local_edge_cache[f"{v_1_name}/{1}"]
+    assert f"{v_1_name}/{2}" in local_edge_cache[f"{v_2_name}/{1}"]
+    assert f"{v_1_name}/{3}" in local_edge_cache[f"{v_2_name}/{1}"]
 
 
 def test_graph_nodes_crud(load_karate_graph: Any) -> None:

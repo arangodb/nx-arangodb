@@ -24,6 +24,29 @@ EdgeValue = TypeVar("EdgeValue")
 NodeValue = TypeVar("NodeValue")
 IndexValue = TypeVar("IndexValue")
 Dtype = TypeVar("Dtype")
+
+# AdjDict is a dictionary of dictionaries of dictionaries
+# The outer dict is holding _from_id(s) as keys
+#  - It may or may not hold valid ArangoDB document _id(s)
+# The inner dict is holding _to_id(s) as keys
+#  - It may or may not hold valid ArangoDB document _id(s)
+# The next inner dict contains then the actual edges data (key, val)
+# Example
+# {
+#    'person/1': {
+#        'person/32': {
+#            '_id': 'knows/16',
+#            'extraValue': '16'
+#        },
+#        'person/33': {
+#            '_id': 'knows/17',
+#            'extraValue': '17'
+#        }
+#        ...
+#    }
+#    ...
+# }
+# The above example is a graph with 2 edges from person/1 to person/32 and person/33
 AdjDict = Dict[str, Dict[str, Dict[str, Any]]]
 
 

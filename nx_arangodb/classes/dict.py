@@ -19,8 +19,8 @@ from nx_arangodb.logger import logger
 from ..utils.arangodb import (
     ArangoDBBatchError,
     check_list_for_errors,
-    separate_nodes_by_collections,
     separate_edges_by_collections,
+    separate_nodes_by_collections,
     upsert_collection_documents,
     upsert_collection_edges,
 )

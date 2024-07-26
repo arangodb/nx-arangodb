@@ -93,13 +93,7 @@ def key_is_string(func: Callable[..., Any]) -> Any:
     """Decorator to check if the key is a string."""
 
     def wrapper(self: Any, key: Any, *args: Any, **kwargs: Any) -> Any:
-        if not isinstance(key, str):
-            if not isinstance(key, (int, float)):
-                raise TypeError(f"{key} cannot be casted to string.")
-
-            key = str(key)
-
-        return func(self, key, *args, **kwargs)
+        return func(self, str(key), *args, **kwargs)
 
     return wrapper
 
@@ -117,9 +111,7 @@ def logger_debug(func: Callable[..., Any]) -> Any:
 def keys_are_strings(func: Callable[..., Any]) -> Any:
     """Decorator to check if the keys are strings."""
 
-    def wrapper(
-        self: Any, data: dict[Any, Any] | zip[Any], *args: Any, **kwargs: Any
-    ) -> Any:
+    def wrapper(self: Any, data: Any, *args: Any, **kwargs: Any) -> Any:
         data_dict = {}
 
         items: Any
@@ -131,13 +123,7 @@ def keys_are_strings(func: Callable[..., Any]) -> Any:
             raise TypeError(f"Decorator found unsupported type: {type(data)}.")
 
         for key, value in items:
-            if not isinstance(key, str):
-                if not isinstance(key, (int, float)):
-                    raise TypeError(f"{key} cannot be casted to string.")
-
-                key = str(key)
-
-            data_dict[key] = value
+            data_dict[str(key)] = value
 
         return func(self, data_dict, *args, **kwargs)
 

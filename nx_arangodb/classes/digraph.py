@@ -52,11 +52,12 @@ class DiGraph(nxadb_Graph, nx.DiGraph):
             graph_name, default_node_type, edge_type_func, db, *args, **kwargs
         )
 
-        if isinstance(self._pred, AdjListOuterDict) and isinstance(
-            self._succ, AdjListOuterDict
-        ):
-            self._pred.mirror = self._succ
-            self._succ.mirror = self._pred
+        assert isinstance(self._succ, AdjListOuterDict)
+        assert isinstance(self._pred, AdjListOuterDict)
+        self._succ.mirror = self._pred
+        self._succ.traversal_direction = "OUTBOUND"
+        self._pred.mirror = self._succ
+        self._pred.traversal_direction = "INBOUND"
 
     #######################
     # Init helper methods #
@@ -131,4 +132,35 @@ class DiGraph(nxadb_Graph, nx.DiGraph):
         else:
             self._node[node_for_adding].update(attr)
 
+        nx._clear_cache(self)
+
+    def remove_node(self, n):
+        try:
+
+            ######################
+            # NOTE: monkey patch #
+            ######################
+
+            # Old:
+            # nbrs = self._succ[n]
+
+            # New:
+            nbrs_succ = list(self._succ[n])
+            nbrs_pred = list(self._pred[n])
+
+            # Reason:
+            # We need to fetch the outbound/inbound edges _prior_ to deleting the node,
+            # as node deletion will already take care of deleting edges
+
+            ###########################
+
+            del self._node[n]
+        except KeyError as err:  # NetworkXError if n not in self
+            raise nx.NetworkXError(f"The node {n} is not in the digraph.") from err
+        for u in nbrs_succ:
+            del self._pred[u][n]  # remove all edges n-u in digraph
+        del self._succ[n]  # remove node from succ
+        for u in nbrs_pred:
+            del self._succ[u][n]  # remove all edges n-u in digraph
+        del self._pred[n]  # remove node from pred
         nx._clear_cache(self)

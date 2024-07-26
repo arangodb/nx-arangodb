@@ -647,7 +647,6 @@ class EdgeAttrDict(UserDict[str, Any]):
 
         edge_attr_dict_value = process_edge_attr_dict_value(self, key, result)
         self.data[key] = edge_attr_dict_value
-
         return edge_attr_dict_value
 
     @key_is_string
@@ -739,9 +738,14 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
             raise ValueError("**graph_type** must be 'graph' or 'digraph'")
 
         self.graph_type = graph_type
-        self.is_directed = graph_type in {"digraph"}
+        self.is_directed = graph_type in {"digraph", "multidigraph"}
         self.is_multigraph = graph_type in {"multigraph", "multidigraph"}
-        self.traversal_direction = "ANY" if self.graph_type == "graph" else "OUTBOUND"
+        if adjlist_outer_dict is not None:
+            self.traversal_direction = adjlist_outer_dict.traversal_direction
+        elif self.is_directed:
+            self.traversal_direction = "OUTBOUND"
+        else:
+            self.traversal_direction = "ANY"
 
     @logger_debug
     def __get_mirrored_edge_attr_dict(self, dst_node_id: str) -> EdgeAttrDict | None:
@@ -922,10 +926,11 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
             yield from self.data.keys()
 
         else:
+            field = "to" if self.traversal_direction == "OUTBOUND" else "from"
             query = f"""
                 FOR v, e IN 1..1 {self.traversal_direction} @src_node_id
                 GRAPH @graph_name
-                    RETURN e._to
+                    RETURN e._{field}
             """
 
             bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
@@ -1042,9 +1047,9 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             raise ValueError("**graph_type** must be 'graph' or 'digraph'")
 
         self.graph_type = graph_type
-        self.is_directed = graph_type in {"digraph"}
+        self.is_directed = graph_type in {"digraph", "multidigraph"}
         self.is_multigraph = graph_type in {"multigraph", "multidigraph"}
-        self.traversal_direction = "ANY" if self.graph_type == "graph" else "OUTBOUND"
+        self.traversal_direction = "OUTBOUND" if self.is_directed else "ANY"
 
         self.mirror: AdjListOuterDict
 
@@ -1095,28 +1100,12 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         g._adj['node/1'] = AdjListInnerDict()
         """
         assert isinstance(adjlist_inner_dict, AdjListInnerDict)
-        assert len(adjlist_inner_dict.data) == 0  # See NOTE below
+        assert len(adjlist_inner_dict.data) == 0
 
         src_node_id = get_node_id(src_key, self.default_node_type)
-
-        # NOTE: this might not actually be needed...
-        # results = {}
-        # for dst_key, edge_dict in adjlist_inner_dict.data.items():
-        #     dst_node_type, dst_node_id = get_node_type_and_id(
-        #         dst_key, self.default_node_type
-        #     )
-
-        #     edge_type = edge_dict.get("_edge_type")
-        #     if edge_type is None:
-        #         edge_type = self.edge_type_func(src_node_type, dst_node_type)
-
-        #     results[dst_key] = self.graph.link(
-        #         edge_type, src_node_id, dst_node_id, edge_dict
-        #     )
-        # adjlist_inner_dict.data = results
-
         adjlist_inner_dict.src_node_id = src_node_id
         adjlist_inner_dict.adjlist_outer_dict = self
+        adjlist_inner_dict.traversal_direction = self.traversal_direction
         self.data[src_node_id] = adjlist_inner_dict
 
     @key_is_string

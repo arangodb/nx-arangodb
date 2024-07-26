@@ -528,9 +528,24 @@ def test_digraph_nodes_crud() -> None:
     G.add_node(1, foo="bar")
     G.add_nodes_from([2, 3, 4], bar="foo")
     G.add_edge(1, 2, weight=1)
-    G.add_edges_from([(2, 3), (3, 4)], weight=5)
+    G.add_edges_from([(2, 3), (3, 4), (4, 1)], weight=5)
 
     assert db.collection("dinode").count() == 4
+    assert db.collection("dinode_to_dinode").count() == 4
+
+    G.remove_node(1)
+    assert db.collection("dinode").count() == 3
+    assert db.collection("dinode_to_dinode").count() == 2
+
+    G.remove_edge(2, 3)
+    assert db.collection("dinode_to_dinode").count() == 1
+
+    G.remove_edges_from([(3, 4)])
+    assert db.collection("dinode_to_dinode").count() == 0
+    assert db.collection("dinode").count() == 3
+
+    G.remove_nodes_from([2, 3, 4])
+    assert db.collection("dinode").count() == 0
 
 
 def test_digraph_edges_crud() -> None:

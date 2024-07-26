@@ -30,9 +30,12 @@ def get_arangodb_graph(
     adb_graph: Graph,
     load_node_dict: bool,
     load_adj_dict: bool,
+    load_coo: bool,
+    load_all_vertex_attributes: bool,
+    load_all_edge_attributes: bool,
     is_directed: bool,
     is_multigraph: bool,
-    load_coo: bool,
+    symmetrize_edges_if_directed: bool,
 ) -> Tuple[
     dict[str, dict[str, Any]],
     dict[str, dict[str, dict[str, Any]]],
@@ -54,8 +57,8 @@ def get_arangodb_graph(
     e_cols = {c["edge_collection"] for c in edge_definitions}
 
     metagraph: dict[str, dict[str, Any]] = {
-        "vertexCollections": {col: {} for col in v_cols},
-        "edgeCollections": {col: {} for col in e_cols},
+        "vertexCollections": {col: set() for col in v_cols},
+        "edgeCollections": {col: set() for col in e_cols},
     }
 
     if not any((load_node_dict, load_adj_dict, load_coo)):
@@ -90,9 +93,12 @@ def get_arangodb_graph(
         username=config.username,
         password=config.password,
         load_adj_dict=load_adj_dict,
+        load_coo=load_coo,
         is_directed=is_directed,
         is_multigraph=is_multigraph,
-        load_coo=load_coo,
+        symmterize_edges_if_directed=symmetrize_edges_if_directed,
+        load_all_vertex_attributes=load_all_vertex_attributes,
+        load_all_edge_attributes=load_all_edge_attributes,
         **kwargs,
     )
 

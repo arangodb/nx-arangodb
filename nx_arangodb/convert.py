@@ -92,15 +92,6 @@ def nx_to_nxadb(
 ) -> nxadb.Graph:
     logger.debug(f"from_networkx for {graph.__class__.__name__}")
 
-    if not isinstance(graph, nx.Graph):
-        if isinstance(graph, nx.classes.reportviews.NodeView):
-            # Convert to a Graph with only nodes (no edges)
-            G = nx.Graph()
-            G.add_nodes_from(graph.items())
-            graph = G
-        else:
-            raise TypeError(f"Expected networkx.Graph; got {type(graph)}")
-
     if graph.is_multigraph():
         if graph.is_directed() or as_directed:
             klass = nxadb.MultiDiGraph
@@ -119,6 +110,8 @@ def nx_to_nxadb(
 def nxadb_to_nx(G: nxadb.Graph, pull_graph: bool) -> nx.Graph:
     if not G.graph_exists_in_db:
         logger.debug("graph does not exist, nothing to pull")
+        # TODO: Consider just returning G here?
+        # Avoids the need to re-create the graph from scratch
         return G.to_networkx_class()(incoming_graph_data=G)
 
     if not pull_graph:
@@ -129,6 +122,7 @@ def nxadb_to_nx(G: nxadb.Graph, pull_graph: bool) -> nx.Graph:
         logger.debug("graph exists, but not pulling. relying on remote connection...")
         return G
 
+    # TODO: Re-enable this
     # if G.use_nx_cache and G._node and G._adj:
     #     m = "**use_nx_cache** is enabled. using cached data. no pull required."
     #     logger.debug(m)
@@ -137,20 +131,35 @@ def nxadb_to_nx(G: nxadb.Graph, pull_graph: bool) -> nx.Graph:
     logger.debug("pulling as NetworkX Graph...")
     print(f"Fetching {G.graph_name} as dictionaries...")
     start_time = time.time()
-    _, adj_dict, _, _, _ = nxadb.classes.function.get_arangodb_graph(
+    node_dict, adj_dict, _, _, _ = nxadb.classes.function.get_arangodb_graph(
         adb_graph=G.adb_graph,
-        load_node_dict=False,  # TODO: Should we load node dict?
+        load_node_dict=True,
         load_adj_dict=True,
-        # G.is_directed(), # TODO: Revisit this w/ incoming_graph_data...
-        is_directed=False,
-        is_multigraph=G.is_multigraph(),
         load_coo=False,
+        load_all_vertex_attributes=False,
+        load_all_edge_attributes=True,
+        is_directed=G.is_directed(),
+        is_multigraph=G.is_multigraph(),
+        symmetrize_edges_if_directed=G.symmetrize_edges if G.is_directed() else False,
     )
     end_time = time.time()
     logger.debug(f"load took {end_time - start_time} seconds")
     print(f"ADB -> Dictionaries load took {end_time - start_time} seconds")
 
-    return G.to_networkx_class()(incoming_graph_data=adj_dict)
+    # breakpoint()
+    # G_nx = G.to_networkx_class()(incoming_graph_data=adj_dict)
+    # return G_nx
+
+    G_NX: nx.Graph | nx.DiGraph = G.to_networkx_class()()
+    G_NX._node = node_dict
+    if isinstance(G_NX, nx.DiGraph):
+        G_NX._succ = G._adj = adj_dict["succ"]
+        G_NX._pred = adj_dict["pred"]
+
+    else:
+        G_NX._adj = adj_dict
+
+    return G_NX
 
 
 if GPU_ENABLED:
@@ -177,9 +186,12 @@ if GPU_ENABLED:
                     adb_graph=G.adb_graph,
                     load_node_dict=False,
                     load_adj_dict=False,
-                    is_directed=G.is_directed(),  # not used
-                    is_multigraph=G.is_multigraph(),  # not used
                     load_coo=True,
+                    load_all_vertex_attributes=False,  # not used
+                    load_all_edge_attributes=False,  # not used
+                    is_directed=G.is_directed(),  # not used.. but should it?
+                    is_multigraph=G.is_multigraph(),  # not used.. but should it?
+                    symmetrize_edges_if_directed=False,  # not used.. but should it?
                 )
             )
             end_time = time.time()

@@ -87,7 +87,8 @@ def test_algorithm(
     G_1 = G_NX
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
     G_3 = nxadb.Graph(graph_name="KarateGraph")
-    G_4 = nxadb.DiGraph(graph_name="KarateGraph")
+    G_4 = nxadb.DiGraph(graph_name="KarateGraph", symmetrize_edges=True)
+    G_5 = nxadb.DiGraph(graph_name="KarateGraph", symmetrize_edges=False)
 
     r_1 = algorithm_func(G_1)
     r_2 = algorithm_func(G_2)
@@ -112,12 +113,15 @@ def test_algorithm(
 
     r_7 = algorithm_func(G_3)
     r_8 = algorithm_func(G_4)
-    r_9 = algorithm_func(nx.DiGraph(incoming_graph_data=G_NX))
+    r_9 = algorithm_func(G_5)
+    r_10 = algorithm_func(nx.DiGraph(incoming_graph_data=G_NX))
 
-    assert all([r_7, r_8, r_9])
+    assert all([r_7, r_8, r_9, r_10])
     assert_func(r_7, r_1)
     assert_func(r_7, r_8)
-    assert_func(r_1, r_9)
+    assert len(r_8) == len(r_9)
+    assert r_8 != r_9
+    assert_func(r_8, r_10)
 
 
 def test_shortest_path_remote_algorithm(load_graph: Any) -> None:

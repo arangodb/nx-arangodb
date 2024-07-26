@@ -31,6 +31,7 @@ class DiGraph(nx.DiGraph):
         graph_name: str | None = None,
         # default_node_type: str = "node",
         # edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
+        symmetrize_edges: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
@@ -63,6 +64,8 @@ class DiGraph(nx.DiGraph):
         self.src_indices: npt.NDArray[np.int64] | None = None
         self.dst_indices: npt.NDArray[np.int64] | None = None
         self.vertex_ids_to_index: dict[str, int] | None = None
+
+        self.symmetrize_edges = symmetrize_edges
 
         # self.default_node_type = default_node_type
         # self.edge_type_func = edge_type_func

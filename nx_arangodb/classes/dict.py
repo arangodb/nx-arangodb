@@ -533,9 +533,12 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             self.graph,
             load_node_dict=True,
             load_adj_dict=False,
+            load_coo=False,
+            load_all_vertex_attributes=True,
+            load_all_edge_attributes=False,  # not used
             is_directed=False,  # not used
             is_multigraph=False,  # not used
-            load_coo=False,
+            symmetrize_edges_if_directed=False,  # not used
         )
 
         for node_id, node_data in node_dict.items():
@@ -1102,6 +1105,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     @logger_debug
     def __len__(self) -> int:
         """len(g._adj)"""
+        # TODO: Multiply by 2 if undirected!
         return sum(
             [
                 self.graph.vertex_collection(c).count()
@@ -1178,9 +1182,12 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             self.graph,
             load_node_dict=False,
             load_adj_dict=True,
+            load_coo=False,
+            load_all_vertex_attributes=False,  # not used
+            load_all_edge_attributes=True,
             is_directed=False,  # TODO: Abstract based on Graph type
             is_multigraph=False,  # TODO: Abstract based on Graph type
-            load_coo=False,
+            symmetrize_edges_if_directed=False,  # TODO: Abstract based on Graph type
         )
 
         for src_node_id, inner_dict in adj_dict.items():

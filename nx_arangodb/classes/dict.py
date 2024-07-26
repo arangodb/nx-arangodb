@@ -533,8 +533,8 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             self.graph,
             load_node_dict=True,
             load_adj_dict=False,
-            load_adj_dict_as_directed=False,  # not used
-            load_adj_dict_as_multigraph=False,  # not used
+            is_directed=False,  # not used
+            is_multigraph=False,  # not used
             load_coo=False,
         )
 
@@ -1199,8 +1199,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             self.graph,
             load_node_dict=False,
             load_adj_dict=True,
-            load_adj_dict_as_directed=self.is_directed,
-            load_adj_dict_as_multigraph=self.is_multigraph,
+            is_directed=self.is_directed,
+            is_multigraph=self.is_multigraph,
             load_coo=False,
         )
 

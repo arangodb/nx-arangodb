@@ -129,6 +129,10 @@ class GraphDict(UserDict[str, Any]):
         data = doc_get_or_insert(self.db, self.COLLECTION_NAME, self.graph_id)
         self.data.update(data)
 
+        self.root: GraphDict | None = None
+        self.parent_keys: list[str] = []
+        self.graph_attr_dict_factory = graph_dict_factory(self.db, self.graph_name)
+
     @key_is_string
     @logger_debug
     def __contains__(self, key: str) -> bool:

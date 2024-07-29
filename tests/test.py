@@ -423,6 +423,113 @@ def test_graph_edges_crud(load_graph: Any) -> None:
     assert db.document(edge_id)["object"]["sub_object"]["foo"] == "baz"
 
 
+def test_graph_dict_simple_k_v(load_karate_graph: Any) -> None:
+    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G.clear()
+
+    json_values = [
+        "aString",
+        1,
+        1.0,
+        True,
+        False,
+        {"a": "b"},
+        ["a", "b", "c"],
+        {"a": "b", "c": ["a", "b", "c"]},
+        None,
+    ]
+
+    for value in json_values:
+        G.graph["json"] = value
+
+        if value is None:
+            assert "json" not in db.document(G.graph.graph_id)
+        else:
+            assert G.graph["json"] == value
+            assert db.document(G.graph.graph_id)["json"] == value
+
+
+def test_graph_dict_nested_1(load_graph: Any) -> None:
+    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G.clear()
+    icon = {"football_icon": "MJ7"}
+
+    G.graph["a"] = {"b": icon}
+    assert G.graph["a"]["b"] == icon
+    assert db.document(G.graph.graph_id)["a"]["b"] == icon
+
+
+def test_graph_dict_nested_2(load_graph: Any) -> None:
+    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G.clear()
+    icon = {"football_icon": "MJ7"}
+
+    G.graph["x"] = {"y": icon}
+    G.graph["x"]["y"]["amount_of_goals"] = 1337
+    assert G.graph["x"]["y"]["amount_of_goals"] == 1337
+    assert db.document(G.graph.graph_id)["x"]["y"]["amount_of_goals"] == 1337
+
+
+def test_graph_dict_empty_values(load_graph: Any) -> None:
+    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G.clear()
+
+    G.graph["empty"] = {}
+    assert G.graph["empty"] == {}
+    assert db.document(G.graph.graph_id)["empty"] == {}
+
+    G.graph["none"] = None
+    assert "none" not in db.document(G.graph.graph_id)
+    assert "none" not in G.graph
+
+
+def test_graph_dict_nested_overwrite(load_graph: Any) -> None:
+    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G.clear()
+    icon1 = {"football_icon": "MJ7"}
+    icon2 = {"basketball_icon": "MJ23"}
+
+    G.graph["a"] = {"b": icon1}
+    G.graph["a"]["b"]["football_icon"] = "ChangedIcon"
+    assert G.graph["a"]["b"]["football_icon"] == "ChangedIcon"
+    assert db.document(G.graph.graph_id)["a"]["b"]["football_icon"] == "ChangedIcon"
+
+    # Overwrite entire nested dictionary
+    G.graph["a"] = {"b": icon2}
+    assert G.graph["a"]["b"]["basketball_icon"] == "MJ23"
+    assert db.document(G.graph.graph_id)["a"]["b"]["basketball_icon"] == "MJ23"
+
+
+def test_graph_dict_complex_nested(load_graph: Any) -> None:
+    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G.clear()
+
+    complex_structure = {"level1": {"level2": {"level3": {"key": "value"}}}}
+
+    G.graph["complex"] = complex_structure
+    assert G.graph["complex"]["level1"]["level2"]["level3"]["key"] == "value"
+    assert (
+        db.document(G.graph.graph_id)["complex"]["level1"]["level2"]["level3"]["key"]
+        == "value"
+    )
+
+
+def test_graph_dict_nested_deletion(load_graph: Any) -> None:
+    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G.clear()
+    icon = {"football_icon": "MJ7", "amount_of_goals": 1337}
+
+    G.graph["x"] = {"y": icon}
+    del G.graph["x"]["y"]["amount_of_goals"]
+    assert "amount_of_goals" not in G.graph["x"]["y"]
+    assert "amount_of_goals" not in db.document(G.graph.graph_id)["x"]["y"]
+
+    # Delete top-level key
+    del G.graph["x"]
+    assert "x" not in G.graph
+    assert "x" not in db.document(G.graph.graph_id)
+
+
 def test_readme(load_graph: Any) -> None:
     G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
 

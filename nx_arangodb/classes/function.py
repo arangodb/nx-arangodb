@@ -15,6 +15,13 @@ from arango.collection import StandardCollection
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from arango.graph import Graph
+from phenolrs.networkx import NetworkXLoader
+from phenolrs.networkx.typings import (
+    DiGraphAdj,
+    GraphAdj,
+    MultiDiGraphAdj,
+    MultiGraphAdj,
+)
 
 import nx_arangodb as nxadb
 from nx_arangodb.logger import logger
@@ -30,12 +37,16 @@ def get_arangodb_graph(
     adb_graph: Graph,
     load_node_dict: bool,
     load_adj_dict: bool,
+    load_coo: bool,
+    load_all_vertex_attributes: bool,
+    load_all_edge_attributes: bool,
     is_directed: bool,
     is_multigraph: bool,
-    load_coo: bool,
+    symmetrize_edges_if_directed: bool,
 ) -> Tuple[
     dict[str, dict[str, Any]],
-    dict[str, dict[str, dict[str, Any]]],
+    GraphAdj | DiGraphAdj | MultiGraphAdj | MultiDiGraphAdj,
+    npt.NDArray[np.int64],
     npt.NDArray[np.int64],
     npt.NDArray[np.int64],
     dict[str, int],
@@ -54,8 +65,8 @@ def get_arangodb_graph(
     e_cols = {c["edge_collection"] for c in edge_definitions}
 
     metagraph: dict[str, dict[str, Any]] = {
-        "vertexCollections": {col: {} for col in v_cols},
-        "edgeCollections": {col: {} for col in e_cols},
+        "vertexCollections": {col: set() for col in v_cols},
+        "edgeCollections": {col: set() for col in e_cols},
     }
 
     if not any((load_node_dict, load_adj_dict, load_coo)):
@@ -80,20 +91,31 @@ def get_arangodb_graph(
     assert config.username
     assert config.password
 
-    from phenolrs.networkx_loader import NetworkXLoader
+    node_dict, adj_dict, src_indices, dst_indices, edge_indices, vertex_ids_to_index = (
+        NetworkXLoader.load_into_networkx(
+            config.db_name,
+            metagraph=metagraph,
+            hosts=[config.host],
+            username=config.username,
+            password=config.password,
+            load_adj_dict=load_adj_dict,
+            load_coo=load_coo,
+            load_all_vertex_attributes=load_all_vertex_attributes,
+            load_all_edge_attributes=load_all_edge_attributes,
+            is_directed=is_directed,
+            is_multigraph=is_multigraph,
+            symmetrize_edges_if_directed=symmetrize_edges_if_directed,
+            **kwargs,
+        )
+    )
 
-    # TODO: Remove ignore when phenolrs is published
-    return NetworkXLoader.load_into_networkx(  # type: ignore
-        config.db_name,
-        metagraph=metagraph,
-        hosts=[config.host],
-        username=config.username,
-        password=config.password,
-        load_adj_dict=load_adj_dict,
-        is_directed=is_directed,
-        is_multigraph=is_multigraph,
-        load_coo=load_coo,
-        **kwargs,
+    return (
+        node_dict,
+        adj_dict,
+        src_indices,
+        dst_indices,
+        edge_indices,
+        vertex_ids_to_index,
     )
 
 

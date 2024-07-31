@@ -11,6 +11,8 @@ or
 $ python _nx_arangodb/__init__.py
 """
 
+import networkx as nx
+
 from _nx_arangodb._version import __version__
 
 # This is normally handled by packaging.version.Version, but instead of adding
@@ -28,14 +30,7 @@ _info = {
     # "description": "TODO",
     "functions": {
         # BEGIN: functions
-        "betweenness_centrality",
-        "is_partition",
-        "louvain_communities",
-        "louvain_partitions",
-        "modularity",
-        "pagerank",
         "shortest_path",
-        "to_scipy_sparse_array",
         # END: functions
     },
     "additional_docs": {
@@ -45,25 +40,7 @@ _info = {
     },
     "additional_parameters": {
         # BEGIN: additional_parameters
-        "is_partition": {
-            "dtype : dtype or None, optional": "The data type (np.float32, np.float64, or None) to use for the edge weights in the algorithm. If None, then dtype is determined by the edge values.",
-        },
-        "louvain_communities": {
-            "dtype : dtype or None, optional": "The data type (np.float32, np.float64, or None) to use for the edge weights in the algorithm. If None, then dtype is determined by the edge values.",
-        },
-        "louvain_partitions": {
-            "dtype : dtype or None, optional": "The data type (np.float32, np.float64, or None) to use for the edge weights in the algorithm. If None, then dtype is determined by the edge values.",
-        },
-        "modularity": {
-            "dtype : dtype or None, optional": "The data type (np.float32, np.float64, or None) to use for the edge weights in the algorithm. If None, then dtype is determined by the edge values.",
-        },
-        "pagerank": {
-            "dtype : dtype or None, optional": "The data type (np.float32, np.float64, or None) to use for the edge weights in the algorithm. If None, then dtype is determined by the edge values.",
-        },
         "shortest_path": {
-            "dtype : dtype or None, optional": "The data type (np.float32, np.float64, or None) to use for the edge weights in the algorithm. If None, then dtype is determined by the edge values.",
-        },
-        "to_scipy_sparse_array": {
             "dtype : dtype or None, optional": "The data type (np.float32, np.float64, or None) to use for the edge weights in the algorithm. If None, then dtype is determined by the edge values.",
         },
         # END: additional_parameters
@@ -96,6 +73,17 @@ def get_info():
 
     for key in info_keys:
         del d[key]
+
+    d["default_config"] = {
+        "host": None,
+        "username": None,
+        "password": None,
+        "db_name": None,
+        "load_parallelism": None,
+        "load_batch_size": None,
+        "pull_graph": True,
+    }
+
     return d
 
 

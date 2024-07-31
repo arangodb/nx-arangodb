@@ -45,6 +45,7 @@ class DiGraph(nxadb_Graph, nx.DiGraph):
         default_node_type: str = "node",
         edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
         db: StandardDatabase | None = None,
+        symmetrize_edges: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
@@ -58,6 +59,7 @@ class DiGraph(nxadb_Graph, nx.DiGraph):
         self._succ.traversal_direction = "OUTBOUND"
         self._pred.mirror = self._succ
         self._pred.traversal_direction = "INBOUND"
+        self.symmetrize_edges = symmetrize_edges
 
     #######################
     # Init helper methods #

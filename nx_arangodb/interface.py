@@ -140,18 +140,10 @@ def _run_with_backend(
 
     result = backend_func(*converted_args, **converted_kwargs)
 
-    if dfunc._returns_graph:
-        raise NotImplementedError("Returning Graphs not implemented yet")
-        # if to_backend is not None:
-        #     result = to_backend.convert_to_nx(result)
-
-        # result = from_backend.convert_from_nx(
-        #     result,
-        #     preserve_edge_attrs=True,
-        #     preserve_node_attrs=True,
-        #     preserve_graph_attrs=True,
-        #     name=func_name,
-        # )
+    # TODO: Convert to nxadb.Graph?
+    # What would this look like? Create a new graph in ArangoDB? Or just establish a remote connection?
+    # if dfunc._returns_graph:
+        # raise NotImplementedError("Returning Graphs not implemented yet")
 
     return result
 

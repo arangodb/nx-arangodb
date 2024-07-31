@@ -136,7 +136,7 @@ def nxadb_to_nx(G: nxadb.Graph, pull_graph: bool) -> nx.Graph:
         load_adj_dict=True,
         load_coo=False,
         load_all_vertex_attributes=False,
-        load_all_edge_attributes=True,
+        load_all_edge_attributes=True, # TODO: Only return the edge attributes that are needed
         is_directed=G.is_directed(),
         is_multigraph=G.is_multigraph(),
         symmetrize_edges_if_directed=G.symmetrize_edges if G.is_directed() else False,

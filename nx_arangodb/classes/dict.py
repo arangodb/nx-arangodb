@@ -295,7 +295,7 @@ class GraphAttrDict(UserDict[str, Any]):
             return value
         assert self.graph_id
 
-        result = aql_doc_get_key(self.db, self.graph_id, self.parent_keys)
+        result = aql_doc_get_key(self.db, self.graph_id, key, self.parent_keys)
 
         if result is None:
             raise KeyError(key)

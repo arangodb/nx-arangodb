@@ -99,8 +99,10 @@ def get_arangodb_graph(
 
 def json_serializable(cls):
     def to_dict(self):
-        return {key: (value.to_dict() if isinstance(value, cls) else value)
-                for key, value in self.items()}
+        return {
+            key: (value.to_dict() if isinstance(value, cls) else value)
+            for key, value in self.items()
+        }
 
     cls.to_dict = to_dict
     return cls

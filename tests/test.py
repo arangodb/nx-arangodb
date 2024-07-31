@@ -429,24 +429,8 @@ def test_graph_dict_init(load_graph: Any) -> None:
     graph_document = db.collection("_graphs").get("KarateGraph")
     assert graph_document["_key"] == "KarateGraph"
     assert graph_document["edgeDefinitions"] == [
-        {
-            "collection": "knows",
-            "from": [
-                "person"
-            ],
-            "to": [
-                "person"
-            ]
-        },
-        {
-            "collection": "person_to_person",
-            "from": [
-                "person"
-            ],
-            "to": [
-                "person"
-            ]
-        }
+        {"collection": "knows", "from": ["person"], "to": ["person"]},
+        {"collection": "person_to_person", "from": ["person"], "to": ["person"]},
     ]
     assert graph_document["orphanCollections"] == []
 

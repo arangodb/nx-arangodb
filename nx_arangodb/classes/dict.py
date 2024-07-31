@@ -37,12 +37,12 @@ from .function import (
     get_arangodb_graph,
     get_node_id,
     get_node_type_and_id,
+    json_serializable,
     key_is_not_reserved,
     key_is_string,
     keys_are_not_reserved,
     keys_are_strings,
     logger_debug,
-    json_serializable
 )
 
 #############
@@ -135,11 +135,13 @@ def process_graph_attr_dict_value(parent: GraphAttrDict, key: str, value: Any) -
 
     return graph_attr_dict
 
+
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
-        if hasattr(obj, 'to_dict'):
+        if hasattr(obj, "to_dict"):
             return obj.to_dict()
         return super().default(obj)
+
 
 @json_serializable
 class GraphDict(UserDict[str, Any]):
@@ -168,7 +170,9 @@ class GraphDict(UserDict[str, Any]):
 
         self.adb_graph = db.graph(graph_name)
         self.collection = create_collection(db, self.COLLECTION_NAME)
-        self.graph_attr_dict_factory = graph_attr_dict_factory(self.db, self.adb_graph, self.graph_id)
+        self.graph_attr_dict_factory = graph_attr_dict_factory(
+            self.db, self.adb_graph, self.graph_id
+        )
 
         result = doc_get_or_insert(self.db, self.COLLECTION_NAME, self.graph_id)
         self.data = result
@@ -176,7 +180,9 @@ class GraphDict(UserDict[str, Any]):
     @logger_debug
     def write_full(self) -> None:
         json_string = json.dumps(self.data, cls=CustomJSONEncoder)
-        doc_insert(self.db, self.collection.name, self.graph_id, json.loads(json_string))
+        doc_insert(
+            self.db, self.collection.name, self.graph_id, json.loads(json_string)
+        )
 
     @key_is_string
     @logger_debug
@@ -263,7 +269,14 @@ class GraphAttrDict(UserDict[str, Any]):
     """
 
     @logger_debug
-    def __init__(self, db: StandardDatabase, graph: Graph, graph_id: str,  *args: Any, **kwargs: Any):
+    def __init__(
+        self,
+        db: StandardDatabase,
+        graph: Graph,
+        graph_id: str,
+        *args: Any,
+        **kwargs: Any,
+    ):
         super().__init__(*args, **kwargs)
         self.data: dict[str, Any] = {}
 
@@ -276,7 +289,9 @@ class GraphAttrDict(UserDict[str, Any]):
 
         self.root: GraphAttrDict | None = None
         self.parent_keys: list[str] = []
-        self.graph_attr_dict_factory = graph_attr_dict_factory(self.db, self.graph, self.graph_id)
+        self.graph_attr_dict_factory = graph_attr_dict_factory(
+            self.db, self.graph, self.graph_id
+        )
 
     @key_is_string
     @logger_debug

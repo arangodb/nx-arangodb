@@ -69,7 +69,10 @@ class Graph(nx.Graph):
 
         self.src_indices: npt.NDArray[np.int64] | None = None
         self.dst_indices: npt.NDArray[np.int64] | None = None
+        self.edge_indices: npt.NDArray[np.int64] | None = None
         self.vertex_ids_to_index: dict[str, int] | None = None
+
+        self.symmetrize_edges = False
 
         self.default_node_type = default_node_type
         self.edge_type_func = edge_type_func
@@ -130,16 +133,13 @@ class Graph(nx.Graph):
             m = "Must set all environment variables to use the ArangoDB Backend with an existing graph"  # noqa: E501
             raise OSError(m)
 
-        config = Config(
-            host=self._host,
-            username=self._username,
-            password=self._password,
-            db_name=self._db_name,
-            load_parallelism=self.graph_loader_parallelism,
-            load_batch_size=self.graph_loader_batch_size,
-        )
-
-        nx.config.backends.arangodb = config
+        config = nx.config.backends.arangodb
+        config.host = self._host
+        config.username = self._username
+        config.password = self._password
+        config.db_name = self._db_name
+        config.load_parallelism = self.graph_loader_parallelism
+        config.load_batch_size = self.graph_loader_batch_size
 
     def __set_factory_methods(self) -> None:
         """Set the factory methods for the graph, _node, and _adj dictionaries.
@@ -331,3 +331,29 @@ class Graph(nx.Graph):
             self._node[node_for_adding].update(attr)
 
         nx._clear_cache(self)
+
+    def number_of_edges(self, u=None, v=None):
+        if u is None:
+            ######################
+            # NOTE: monkey patch #
+            ######################
+
+            # Old:
+            # return int(self.size())
+
+            # New:
+            edge_collections = {
+                e_d["edge_collection"] for e_d in self.adb_graph.edge_definitions()
+            }
+            num = sum(
+                self.adb_graph.edge_collection(e).count() for e in edge_collections
+            )
+            num *= 2 if self.is_directed() and self.symmetrize_edges else 1
+
+            return num
+
+            # Reason:
+            # It is more efficient to count the number of edges in the edge collections
+            # compared to relying on the DegreeView.
+
+        super().number_of_edges(u, v)

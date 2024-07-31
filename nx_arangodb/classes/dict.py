@@ -529,13 +529,19 @@ class NodeDict(UserDict[str, NodeAttrDict]):
     def __fetch_all(self):
         self.clear()
 
-        node_dict, _, _, _, _ = get_arangodb_graph(
+        (
+            node_dict,
+            *_,
+        ) = get_arangodb_graph(
             self.graph,
             load_node_dict=True,
             load_adj_dict=False,
+            load_coo=False,
+            load_all_vertex_attributes=True,
+            load_all_edge_attributes=False,  # not used
             is_directed=False,  # not used
             is_multigraph=False,  # not used
-            load_coo=False,
+            symmetrize_edges_if_directed=False,  # not used
         )
 
         for node_id, node_data in node_dict.items():
@@ -1174,13 +1180,20 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     def __fetch_all(self) -> None:
         self.clear()
 
-        _, adj_dict, _, _, _ = get_arangodb_graph(
+        (
+            _,
+            adj_dict,
+            *_,
+        ) = get_arangodb_graph(
             self.graph,
             load_node_dict=False,
             load_adj_dict=True,
+            load_coo=False,
+            load_all_vertex_attributes=False,  # not used
+            load_all_edge_attributes=True,
             is_directed=False,  # TODO: Abstract based on Graph type
             is_multigraph=False,  # TODO: Abstract based on Graph type
-            load_coo=False,
+            symmetrize_edges_if_directed=False,  # TODO: Abstract based on Graph type
         )
 
         for src_node_id, inner_dict in adj_dict.items():

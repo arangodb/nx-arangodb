@@ -2,324 +2,162 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any
+from functools import partial
+from typing import Any, Callable, Protocol, Set
 
 import networkx as nx
+from networkx.utils.backends import _load_backend, _registered_algorithms
 
 import nx_arangodb as nxadb
+from nx_arangodb.logger import logger
+
+# Avoid infinite recursion when testing
+_IS_TESTING = os.environ.get("NETWORKX_TEST_BACKEND") in {"arangodb"}
+
+
+class NetworkXFunction(Protocol):
+    graphs: dict[str, Any]
+    name: str
+    list_graphs: Set[str]
+    orig_func: Callable[..., Any]
+    _returns_graph: bool
 
 
 class BackendInterface:
-    # Required conversions
     @staticmethod
-    def convert_from_nx(
-        graph: Any, *args: Any, **kwargs: Any
-    ) -> nxadb.Graph | nxadb.DiGraph:
-        return nxadb.from_networkx(graph, *args, **kwargs)
+    def convert_from_nx(graph: nx.Graph, *args: Any, **kwargs: Any) -> nxadb.Graph:
+        return nxadb._to_nxadb_graph(graph, *args, **kwargs)
 
     @staticmethod
-    def convert_to_nx(
-        obj: nx.Graph | nx.DiGraph | nxadb.Graph | nxadb.DiGraph,
-        *,
-        name: str | None = None,
-    ) -> nx.Graph | nx.DiGraph:
-        if isinstance(obj, nxadb.Graph):
-            return nxadb.to_networkx(obj)
-        return obj
+    def convert_to_nx(obj: Any, *args: Any, **kwargs: Any) -> nx.Graph:
+        if not isinstance(obj, nxadb.Graph):
+            return obj
 
-    # TODO Anthony: Clarify what needs to be changed here
-    @staticmethod
-    def on_start_tests(items):
-        """Modify pytest items after tests have been collected.
+        return nxadb._to_nx_graph(obj, *args, **kwargs)
 
-        This is called during ``pytest_collection_modifyitems`` phase of pytest.
-        We use this to set `xfail` on tests we expect to fail. See:
-
-        https://docs.pytest.org/en/stable/reference/reference.html#std-hook-pytest_collection_modifyitems
+    def __getattr__(self, attr: str, *, from_backend_name: str = "arangodb") -> Any:
         """
+        Dispatching mechanism for all networkx algorithms. This avoids having to
+        write a separate function for each algorithm.
+        """
+        if (
+            attr not in _registered_algorithms
+            or _IS_TESTING
+            and attr in {"empty_graph"}
+        ):
+            raise AttributeError(attr)
+
+        if from_backend_name != "arangodb":
+            raise ValueError(f"Unsupported source backend: '{from_backend_name}'")
+
+        return partial(_auto_func, attr)
+
+
+def _auto_func(func_name: str, /, *args: Any, **kwargs: Any) -> Any:
+    """
+    Function to automatically dispatch to the correct backend for a given algorithm.
+
+    :param func_name: The name of the algorithm to run.
+    :type func_name: str
+    """
+    dfunc = _registered_algorithms[func_name]
+
+    # TODO: Use `nx.config.backends.arangodb.backend_priority` instead
+    backend_priority = []
+    if nxadb.convert.GPU_ENABLED:
+        backend_priority.append("cugraph")
+
+    for backend in backend_priority:
+        if not dfunc.__wrapped__._should_backend_run(backend, *args, **kwargs):
+            logger.warning(f"'{func_name}' cannot be run on backend '{backend}'")
+            continue
+
         try:
-            import pytest
-        except ModuleNotFoundError:
-            return
+            return _run_with_backend(
+                backend,
+                dfunc,
+                args,
+                kwargs,
+            )
 
-        def key(testpath):
-            filename, path = testpath.split(":")
-            *names, testname = path.split(".")
-            if names:
-                [classname] = names
-                return (testname, frozenset({classname, filename}))
-            return (testname, frozenset({filename}))
+        except NotImplementedError:
+            logger.warning(f"'{func_name}' not implemented for backend '{backend}'")
+            pass
 
-        # Reasons for xfailing
-        no_weights = "weighted implementation not currently supported"
-        no_multigraph = "multigraphs not currently supported"
-        louvain_different = "Louvain may be different due to RNG"
-        no_string_dtype = "string edge values not currently supported"
-        sssp_path_different = "sssp may choose a different valid path"
+    default_backend = "networkx"
+    logger.debug(f"'{func_name}' running on default backend '{default_backend}'")
+    return _run_with_backend(default_backend, dfunc, args, kwargs)
 
-        xfail = {
-            # This is removed while strongly_connected_components() is not
-            # dispatchable. See algorithms/components/strongly_connected.py for
-            # details.
-            #
-            # key(
-            #     "test_strongly_connected.py:"
-            #     "TestStronglyConnected.test_condensation_mapping_and_members"
-            # ): "Strongly connected groups in different iteration order",
-            key(
-                "test_cycles.py:TestMinimumCycleBasis.test_unweighted_diamond"
-            ): sssp_path_different,
-            key(
-                "test_cycles.py:TestMinimumCycleBasis.test_weighted_diamond"
-            ): sssp_path_different,
-            key(
-                "test_cycles.py:TestMinimumCycleBasis.test_petersen_graph"
-            ): sssp_path_different,
-            key(
-                "test_cycles.py:TestMinimumCycleBasis."
-                "test_gh6787_and_edge_attribute_names"
-            ): sssp_path_different,
+
+def _run_with_backend(
+    backend_name: str,
+    dfunc: NetworkXFunction,
+    args: Any,
+    kwargs: Any,
+) -> Any:
+    """
+    :param backend: The name of the backend to run the algorithm on.
+    :type backend: str
+    :param dfunc: The function to run.
+    :type dfunc: NetworkXFunction
+    """
+    func_name = dfunc.name
+    backend_func = (
+        dfunc.orig_func
+        if backend_name == "networkx"
+        else getattr(_load_backend(backend_name), func_name)
+    )
+
+    graphs_resolved = {
+        gname: val
+        for gname, pos in dfunc.graphs.items()
+        if (val := args[pos] if pos < len(args) else kwargs.get(gname)) is not None
+    }
+
+    if dfunc.list_graphs:
+        graphs_converted = {
+            gname: (
+                [_convert_to_backend(g, backend_name) for g in val]
+                if gname in dfunc.list_graphs
+                else _convert_to_backend(val, backend_name)
+            )
+            for gname, val in graphs_resolved.items()
+        }
+    else:
+        graphs_converted = {
+            gname: _convert_to_backend(graph, backend_name)
+            for gname, graph in graphs_resolved.items()
         }
 
-        from packaging.version import parse
+    converted_args = list(args)
+    converted_kwargs = dict(kwargs)
 
-        nxver = parse(nx.__version__)
-
-        if nxver.major == 3 and nxver.minor <= 2:
-            xfail.update(
-                {
-                    # NetworkX versions prior to 3.2.1 have tests written to
-                    # expect sp.sparse.linalg.ArpackNoConvergence exceptions
-                    # raised on no convergence in HITS. Newer versions since
-                    # the merge of
-                    # https://github.com/networkx/networkx/pull/7084 expect
-                    # nx.PowerIterationFailedConvergence, which is what
-                    # nx_cugraph.hits raises, so we mark them as xfail for
-                    # previous versions of NX.
-                    key(
-                        "test_hits.py:TestHITS.test_hits_not_convergent"
-                    ): "nx_cugraph.hits raises updated exceptions not caught in "
-                    "these tests",
-                    # NetworkX versions 3.2 and older contain tests that fail
-                    # with pytest>=8. Assume pytest>=8 and mark xfail.
-                    key(
-                        "test_strongly_connected.py:"
-                        "TestStronglyConnected.test_connected_raise"
-                    ): "test is incompatible with pytest>=8",
-                }
-            )
-
-        if nxver.major == 3 and nxver.minor <= 1:
-            # MAINT: networkx 3.0, 3.1
-            # NetworkX 3.2 added the ability to "fallback to nx" if backend algorithms
-            # raise NotImplementedError or `can_run` returns False. The tests below
-            # exercise behavior we have not implemented yet, so we mark them as xfail
-            # for previous versions of NX.
-            xfail.update(
-                {
-                    key(
-                        "test_agraph.py:TestAGraph.test_no_warnings_raised"
-                    ): "pytest.warn(None) deprecated",
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedBetweennessCentrality.test_K5"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedBetweennessCentrality.test_P3_normalized"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedBetweennessCentrality.test_P3"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedBetweennessCentrality.test_krackhardt_kite_graph"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedBetweennessCentrality."
-                        "test_krackhardt_kite_graph_normalized"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedBetweennessCentrality."
-                        "test_florentine_families_graph"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedBetweennessCentrality.test_les_miserables_graph"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedBetweennessCentrality.test_ladder_graph"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedBetweennessCentrality.test_G"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedBetweennessCentrality.test_G2"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedBetweennessCentrality.test_G3"
-                    ): no_multigraph,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedBetweennessCentrality.test_G4"
-                    ): no_multigraph,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedEdgeBetweennessCentrality.test_K5"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedEdgeBetweennessCentrality.test_C4"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedEdgeBetweennessCentrality.test_P4"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedEdgeBetweennessCentrality.test_balanced_tree"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedEdgeBetweennessCentrality.test_weighted_graph"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedEdgeBetweennessCentrality."
-                        "test_normalized_weighted_graph"
-                    ): no_weights,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedEdgeBetweennessCentrality.test_weighted_multigraph"
-                    ): no_multigraph,
-                    key(
-                        "test_betweenness_centrality.py:"
-                        "TestWeightedEdgeBetweennessCentrality."
-                        "test_normalized_weighted_multigraph"
-                    ): no_multigraph,
-                }
-            )
+    for gname, val in graphs_converted.items():
+        if gname in kwargs:
+            converted_kwargs[gname] = val
         else:
-            xfail.update(
-                {
-                    key(
-                        "test_louvain.py:test_karate_club_partition"
-                    ): louvain_different,
-                    key("test_louvain.py:test_none_weight_param"): louvain_different,
-                    key("test_louvain.py:test_multigraph"): louvain_different,
-                    # See networkx#6630
-                    key(
-                        "test_louvain.py:test_undirected_selfloops"
-                    ): "self-loops not handled in Louvain",
-                }
-            )
-            if sys.version_info[:2] == (3, 9):
-                # This test is sensitive to RNG, which depends on Python version
-                xfail[key("test_louvain.py:test_threshold")] = (
-                    "Louvain does not support seed parameter"
-                )
-            if nxver.major == 3 and nxver.minor >= 2:
-                xfail.update(
-                    {
-                        key(
-                            "test_convert_pandas.py:TestConvertPandas."
-                            "test_from_edgelist_multi_attr_incl_target"
-                        ): no_string_dtype,
-                        key(
-                            "test_convert_pandas.py:TestConvertPandas."
-                            "test_from_edgelist_multidigraph_and_edge_attr"
-                        ): no_string_dtype,
-                        key(
-                            "test_convert_pandas.py:TestConvertPandas."
-                            "test_from_edgelist_int_attr_name"
-                        ): no_string_dtype,
-                    }
-                )
-                if nxver.minor == 2:
-                    different_iteration_order = "Different graph data iteration order"
-                    xfail.update(
-                        {
-                            key(
-                                "test_cycles.py:TestMinimumCycleBasis."
-                                "test_gh6787_and_edge_attribute_names"
-                            ): different_iteration_order,
-                            key(
-                                "test_euler.py:TestEulerianCircuit."
-                                "test_eulerian_circuit_cycle"
-                            ): different_iteration_order,
-                            key(
-                                "test_gml.py:TestGraph.test_special_float_label"
-                            ): different_iteration_order,
-                        }
-                    )
-                elif nxver.minor >= 3:
-                    xfail.update(
-                        {
-                            key("test_louvain.py:test_max_level"): louvain_different,
-                        }
-                    )
+            converted_args[dfunc.graphs[gname]] = val
 
-        too_slow = "Too slow to run"
-        skip = {
-            key("test_tree_isomorphism.py:test_positive"): too_slow,
-            key("test_tree_isomorphism.py:test_negative"): too_slow,
-            # These repeatedly call `bfs_layers`, which converts the graph every call
-            key(
-                "test_vf2pp.py:TestGraphISOVF2pp.test_custom_graph2_different_labels"
-            ): too_slow,
-            key(
-                "test_vf2pp.py:TestGraphISOVF2pp.test_custom_graph3_same_labels"
-            ): too_slow,
-            key(
-                "test_vf2pp.py:TestGraphISOVF2pp.test_custom_graph3_different_labels"
-            ): too_slow,
-            key(
-                "test_vf2pp.py:TestGraphISOVF2pp.test_custom_graph4_same_labels"
-            ): too_slow,
-            key(
-                "test_vf2pp.py:TestGraphISOVF2pp."
-                "test_disconnected_graph_all_same_labels"
-            ): too_slow,
-            key(
-                "test_vf2pp.py:TestGraphISOVF2pp."
-                "test_disconnected_graph_all_different_labels"
-            ): too_slow,
-            key(
-                "test_vf2pp.py:TestGraphISOVF2pp."
-                "test_disconnected_graph_some_same_labels"
-            ): too_slow,
-            key(
-                "test_vf2pp.py:TestMultiGraphISOVF2pp."
-                "test_custom_multigraph3_same_labels"
-            ): too_slow,
-            key(
-                "test_vf2pp_helpers.py:TestNodeOrdering."
-                "test_matching_order_all_branches"
-            ): too_slow,
-        }
-        if os.environ.get("PYTEST_NO_SKIP", False):
-            skip.clear()
+    result = backend_func(*converted_args, **converted_kwargs)
 
-        for item in items:
-            kset = set(item.keywords)
-            for (test_name, keywords), reason in xfail.items():
-                if item.name == test_name and keywords.issubset(kset):
-                    item.add_marker(pytest.mark.xfail(reason=reason))
-            for (test_name, keywords), reason in skip.items():
-                if item.name == test_name and keywords.issubset(kset):
-                    item.add_marker(pytest.mark.skip(reason=reason))
+    # TODO: Convert to nxadb.Graph?
+    # What would this look like? Create a new graph in ArangoDB?
+    # Or just establish a remote connection?
+    # if dfunc._returns_graph:
+    #     raise NotImplementedError("Returning Graphs not implemented yet")
 
-    @classmethod
-    def can_run(cls, name, args, kwargs):
-        """Can this backend run the specified algorithms with the given arguments?
+    return result
 
-        This is a proposed API to add to networkx dispatching machinery and may change.
-        """
-        return hasattr(cls, name) and getattr(cls, name).can_run(*args, **kwargs)
+
+def _convert_to_backend(G_from: Any, backend_name: str) -> Any:
+    if backend_name == "networkx":
+        pull_graph = nx.config.backends.arangodb.pull_graph
+        return nxadb._to_nx_graph(G_from, pull_graph=pull_graph)
+
+    if backend_name == "cugraph":
+        return nxadb._to_nxcg_graph(G_from)
+
+    raise ValueError(f"Unsupported backend: '{backend_name}'")
+
+
+backend_interface = BackendInterface()

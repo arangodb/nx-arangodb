@@ -316,7 +316,11 @@ class GraphAttrDict(UserDict[str, Any]):
     def find_root_graph_dict(self):
         root = self
         while root.graph_dict is None:
-            root = root.root
+            assert root.root is not None
+            if root.root is not None:
+                root = root.root
+            else:
+                raise ValueError("Root graph dict not found")
 
         assert root.graph_dict is not None
         return root.graph_dict

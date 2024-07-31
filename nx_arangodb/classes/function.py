@@ -41,6 +41,7 @@ def get_arangodb_graph(
     dict[str, dict[str, dict[str, Any]]],
     npt.NDArray[np.int64],
     npt.NDArray[np.int64],
+    npt.NDArray[np.int64],
     dict[str, int],
 ]:
     """Pulls the graph from the database, assuming the graph exists.
@@ -83,7 +84,7 @@ def get_arangodb_graph(
     assert config.username
     assert config.password
 
-    from phenolrs.networkx_loader import NetworkXLoader
+    from phenolrs.networkx.loader import NetworkXLoader
 
     # TODO: Remove ignore when phenolrs is published
     return NetworkXLoader.load_into_networkx(  # type: ignore
@@ -94,11 +95,11 @@ def get_arangodb_graph(
         password=config.password,
         load_adj_dict=load_adj_dict,
         load_coo=load_coo,
-        is_directed=is_directed,
-        is_multigraph=is_multigraph,
-        symmterize_edges_if_directed=symmetrize_edges_if_directed,
         load_all_vertex_attributes=load_all_vertex_attributes,
         load_all_edge_attributes=load_all_edge_attributes,
+        is_directed=is_directed,
+        is_multigraph=is_multigraph,
+        symmetrize_edges_if_directed=symmetrize_edges_if_directed,
         **kwargs,
     )
 

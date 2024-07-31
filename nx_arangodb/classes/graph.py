@@ -69,6 +69,7 @@ class Graph(nx.Graph):
 
         self.src_indices: npt.NDArray[np.int64] | None = None
         self.dst_indices: npt.NDArray[np.int64] | None = None
+        self.edge_indices: npt.NDArray[np.int64] | None = None
         self.vertex_ids_to_index: dict[str, int] | None = None
 
         self.default_node_type = default_node_type

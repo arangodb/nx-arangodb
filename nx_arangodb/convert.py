@@ -128,10 +128,9 @@ def nxadb_to_nx(G: nxadb.Graph, pull_graph: bool) -> nx.Graph:
     #     logger.debug(m)
     #     return G
 
-    logger.debug("pulling as NetworkX Graph...")
-    print(f"Fetching {G.graph_name} as dictionaries...")
     start_time = time.time()
-    node_dict, adj_dict, _, _, _ = nxadb.classes.function.get_arangodb_graph(
+
+    node_dict, adj_dict, *_ = nxadb.classes.function.get_arangodb_graph(
         adb_graph=G.adb_graph,
         load_node_dict=True,
         load_adj_dict=True,
@@ -142,16 +141,12 @@ def nxadb_to_nx(G: nxadb.Graph, pull_graph: bool) -> nx.Graph:
         is_multigraph=G.is_multigraph(),
         symmetrize_edges_if_directed=G.symmetrize_edges if G.is_directed() else False,
     )
-    end_time = time.time()
-    logger.debug(f"load took {end_time - start_time} seconds")
-    print(f"ADB -> Dictionaries load took {end_time - start_time} seconds")
 
-    # breakpoint()
-    # G_nx = G.to_networkx_class()(incoming_graph_data=adj_dict)
-    # return G_nx
+    print(f"ADB -> Dictionaries load took {time.time() - start_time}s")
 
     G_NX: nx.Graph | nx.DiGraph = G.to_networkx_class()()
     G_NX._node = node_dict
+
     if isinstance(G_NX, nx.DiGraph):
         G_NX._succ = G._adj = adj_dict["succ"]
         G_NX._pred = adj_dict["pred"]
@@ -172,16 +167,16 @@ if GPU_ENABLED:
             G.use_coo_cache
             and G.src_indices is not None
             and G.dst_indices is not None
+            and G.edge_indices is not None
             and G.vertex_ids_to_index is not None
         ):
             m = "**use_coo_cache** is enabled. using cached COO data. no pull required."
             logger.debug(m)
 
         else:
-            logger.debug("pulling as NetworkX-CuGraph Graph...")
-            print(f"Fetching {G.graph_name} as COO...")
             start_time = time.time()
-            _, _, src_indices, dst_indices, vertex_ids_to_index = (
+
+            _, _, src_indices, dst_indices, edge_indices, vertex_ids_to_index = (
                 nxadb.classes.function.get_arangodb_graph(
                     adb_graph=G.adb_graph,
                     load_node_dict=False,
@@ -189,44 +184,58 @@ if GPU_ENABLED:
                     load_coo=True,
                     load_all_vertex_attributes=False,  # not used
                     load_all_edge_attributes=False,  # not used
-                    is_directed=G.is_directed(),  # not used.. but should it?
-                    is_multigraph=G.is_multigraph(),  # not used.. but should it?
-                    symmetrize_edges_if_directed=False,  # not used.. but should it?
+                    is_directed=G.is_directed(),
+                    is_multigraph=G.is_multigraph(),
+                    symmetrize_edges_if_directed=(
+                        G.symmetrize_edges if G.is_directed() else False
+                    ),
                 )
             )
-            end_time = time.time()
-            logger.debug(f"load took {end_time - start_time} seconds")
-            print(f"ADB -> COO load took {end_time - start_time} seconds")
+
+            print(f"ADB -> COO load took {time.time() - start_time}s")
 
             G.src_indices = src_indices
             G.dst_indices = dst_indices
+            G.edge_indices = edge_indices
             G.vertex_ids_to_index = vertex_ids_to_index
 
         N = len(G.vertex_ids_to_index)
-
-        if G.is_directed() or as_directed:
-            klass = nxcg.DiGraph
-        else:
-            klass = nxcg.Graph
-
-        start_time = time.time()
-        print("Building CuPy arrays...")
         src_indices_cp = cp.array(G.src_indices)
         dst_indices_cp = cp.array(G.dst_indices)
-        end_time = time.time()
-        print(f"COO (NumPy) -> COO (CuPy) took {end_time - start_time}")
+        edge_indices_cp = cp.array(G.edge_indices)
 
-        logger.debug("creating nx_cugraph graph from COO data...")
-        print("creating nx_cugraph graph from COO data...")
-        start_time = time.time()
-        rv = klass.from_coo(
-            N=N,
-            src_indices=src_indices_cp,
-            dst_indices=dst_indices_cp,
-            key_to_id=G.vertex_ids_to_index,
-        )
-        end_time = time.time()
-        print(f"COO -> NXCG took {end_time - start_time}")
-        logger.debug(f"nxcg from_coo took {end_time - start_time}")
+        if G.is_multigraph():
+            if G.is_directed() or as_directed:
+                klass = nxcg.MultiDiGraph
+            else:
+                klass = nxcg.MultiGraph
 
-        return rv
+            return klass.from_coo(
+                N=N,
+                src_indices=src_indices_cp,
+                dst_indices=dst_indices_cp,
+                edge_indices=edge_indices_cp,
+                # edge_values,
+                # edge_masks,
+                # node_values,
+                # node_masks,
+                key_to_id=vertex_ids_to_index,
+                # edge_keys=edge_keys,
+            )
+
+        else:
+            if G.is_directed() or as_directed:
+                klass = nxcg.DiGraph
+            else:
+                klass = nxcg.Graph
+
+            return klass.from_coo(
+                N=N,
+                src_indices=src_indices_cp,
+                dst_indices=dst_indices_cp,
+                # edge_values,
+                # edge_masks,
+                # node_values,
+                # node_masks,
+                key_to_id=vertex_ids_to_index,
+            )

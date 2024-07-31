@@ -529,7 +529,10 @@ class NodeDict(UserDict[str, NodeAttrDict]):
     def __fetch_all(self):
         self.clear()
 
-        node_dict, _, _, _, _ = get_arangodb_graph(
+        (
+            node_dict,
+            *_,
+        ) = get_arangodb_graph(
             self.graph,
             load_node_dict=True,
             load_adj_dict=False,
@@ -1178,7 +1181,11 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     def __fetch_all(self) -> None:
         self.clear()
 
-        _, adj_dict, _, _, _ = get_arangodb_graph(
+        (
+            _,
+            adj_dict,
+            *_,
+        ) = get_arangodb_graph(
             self.graph,
             load_node_dict=False,
             load_adj_dict=True,

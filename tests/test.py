@@ -505,6 +505,7 @@ def test_incoming_graph_data_not_nx_graph(
     assert has_club == ("club" in G.nodes["0"])
     assert has_weight == ("weight" in G.adj["0"]["1"])
 
+
 def test_digraph_nodes_crud() -> None:
     pytest.skip("Not implemented yet")
 

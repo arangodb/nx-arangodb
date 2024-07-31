@@ -932,11 +932,18 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
             yield from self.data.keys()
 
         else:
-            field = "to" if self.traversal_direction == "OUTBOUND" else "from"
+
+            if self.traversal_direction == "OUTBOUND":
+                return_str = "e._to"
+            elif self.traversal_direction == "INBOUND":
+                return_str = "e._from"
+            else:
+                return_str = "e._to == @src_node_id ? e._from : e._to"
+
             query = f"""
                 FOR v, e IN 1..1 {self.traversal_direction} @src_node_id
                 GRAPH @graph_name
-                    RETURN e._{field}
+                    RETURN {return_str}
             """
 
             bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}

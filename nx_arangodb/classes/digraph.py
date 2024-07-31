@@ -53,13 +53,14 @@ class DiGraph(nxadb_Graph, nx.DiGraph):
             graph_name, default_node_type, edge_type_func, db, *args, **kwargs
         )
 
-        assert isinstance(self._succ, AdjListOuterDict)
-        assert isinstance(self._pred, AdjListOuterDict)
-        self._succ.mirror = self._pred
-        self._succ.traversal_direction = "OUTBOUND"
-        self._pred.mirror = self._succ
-        self._pred.traversal_direction = "INBOUND"
-        self.symmetrize_edges = symmetrize_edges
+        if self.graph_exists_in_db:
+            assert isinstance(self._succ, AdjListOuterDict)
+            assert isinstance(self._pred, AdjListOuterDict)
+            self._succ.mirror = self._pred
+            self._succ.traversal_direction = "OUTBOUND"
+            self._pred.mirror = self._succ
+            self._pred.traversal_direction = "INBOUND"
+            self.symmetrize_edges = symmetrize_edges
 
     #######################
     # Init helper methods #

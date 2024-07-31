@@ -478,9 +478,27 @@ def test_graph_dict_update(load_graph: Any) -> None:
     G.graph["a"] = "b"
     to_update = {"c": "d"}
     G.graph.update(to_update)
+
+    # local
+    assert G.graph["a"] == "b"
+    assert G.graph["c"] == "d"
+
+    # remote
     adb_doc = db.collection("nxadb_graphs").get(G.graph_name)
     assert adb_doc["a"] == "b"
     assert adb_doc["c"] == "d"
+
+
+def test_graph_attr_dict_nested_update(load_graph: Any) -> None:
+    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G.clear()
+
+    G.graph["a"] = {"b": "c"}
+    G.graph["a"].update({"d": "e"})
+    assert G.graph["a"]["b"] == "c"
+    assert G.graph["a"]["d"] == "e"
+    assert db.document(G.graph.graph_id)["a"]["b"] == "c"
+    assert db.document(G.graph.graph_id)["a"]["d"] == "e"
 
 
 def test_graph_dict_nested_1(load_graph: Any) -> None:

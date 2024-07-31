@@ -177,13 +177,6 @@ class GraphDict(UserDict[str, Any]):
         result = doc_get_or_insert(self.db, self.COLLECTION_NAME, self.graph_id)
         self.data = result
 
-    @logger_debug
-    def write_full(self) -> None:
-        json_string = json.dumps(self.data, cls=CustomJSONEncoder)
-        doc_insert(
-            self.db, self.collection.name, self.graph_id, json.loads(json_string)
-        )
-
     @key_is_string
     @logger_debug
     def __contains__(self, key: str) -> bool:
@@ -218,18 +211,17 @@ class GraphDict(UserDict[str, Any]):
 
         if type(value) is dict:
             graph_attr_dict = self.graph_attr_dict_factory()
+            graph_attr_dict.parent_keys = [key]
             graph_attr_dict.data = build_graph_attr_dict_data(graph_attr_dict, value)
             graph_attr_dict.graph_id = self.graph_id
-            graph_attr_dict.parent_keys = list(self.data.keys()) + [key]
-            graph_attr_dict.graph_dict = self
-            graph_attr_dict.graph_dict_key = key
+
             self.data[key] = graph_attr_dict
+            doc_update(self.db, self.graph_id, {key: value})
         elif value is None:
             self.__delitem__(key)
         else:
             self.data[key] = value
-
-        doc_update(self.db, self.graph_id, {key: value})
+            doc_update(self.db, self.graph_id, {key: value})
 
     @key_is_string
     @key_is_not_reserved
@@ -239,8 +231,6 @@ class GraphDict(UserDict[str, Any]):
         self.data.pop(key, None)
         self.data["_rev"] = doc_update(self.db, self.graph_id, {key: None})
 
-    @keys_are_strings
-    @keys_are_not_reserved
     # @values_are_json_serializable # TODO?
     @logger_debug
     def update(self, attrs: Any) -> None:
@@ -284,9 +274,6 @@ class GraphAttrDict(UserDict[str, Any]):
         self.graph = graph
         self.graph_id: str = graph_id
 
-        self.graph_dict: GraphDict | None = None
-        self.graph_dict_key: str | None = None
-
         self.root: GraphAttrDict | None = None
         self.parent_keys: list[str] = []
         self.graph_attr_dict_factory = graph_attr_dict_factory(
@@ -303,43 +290,66 @@ class GraphAttrDict(UserDict[str, Any]):
 
     @key_is_string
     @logger_debug
+    def __getitem__(self, key: str) -> Any:
+        if value := self.data.get(key):
+            return value
+        assert self.graph_id
+
+        result = aql_doc_get_key(self.db, self.graph_id, self.parent_keys)
+
+        if result is None:
+            raise KeyError(key)
+
+        graph_attr_dict_value = process_graph_attr_dict_value(self, key, result)
+        self.data[key] = graph_attr_dict_value
+
+        return result
+
+    @key_is_string
+    @logger_debug
     def __setitem__(self, key, value):
         if value is None:
             self.__delitem__(key)
             return
 
+        assert self.graph_id
+
+        if type(value) is dict:
+            graph_attr_dict = self.graph_attr_dict_factory()
+            graph_attr_dict.data = build_graph_attr_dict_data(graph_attr_dict, value)
+            graph_attr_dict.graph_id = self.graph_id
+            graph_attr_dict.parent_keys = [key]
+            self.data[key] = graph_attr_dict
+            doc_update(self.db, self.graph_id, {key: value})
+        else:
+            self.data[key] = value
+            doc_update(self.db, self.graph_id, {key: value})
+
         graph_attr_dict_value = process_graph_attr_dict_value(self, key, value)
+        update_dict = get_update_dict(self.parent_keys, {key: value})
         self.data[key] = graph_attr_dict_value
-        graph_dict = self.find_root_graph_dict()
-        graph_dict.write_full()
-
-    def find_root_graph_dict(self):
-        root = self
-        while root.graph_dict is None:
-            assert root.root is not None
-            if root.root is not None:
-                root = root.root
-            else:
-                raise ValueError("Root graph dict not found")
-
-        assert root.graph_dict is not None
-        return root.graph_dict
+        root_data = self.root.data if self.root else self.data
+        root_data["_rev"] = doc_update(self.db, self.graph_id, update_dict)
 
     @key_is_string
     @logger_debug
     def __delitem__(self, key):
-        # We're using some abbreviation here. Instead of building all the required data
-        # recursively, we're just deleting the key from the data dict and updating the
-        # full document in the database. This is not the most efficient way to do this,
-        # but it's the simplest way to do it for now.
+        assert self.graph_id
         self.data.pop(key, None)
-        graph_dict = self.find_root_graph_dict()
-        graph_dict.write_full()
+        update_dict = get_update_dict(self.parent_keys, {key: None})
+        root_data = self.root.data if self.root else self.data
+        root_data["_rev"] = doc_update(self.db, self.graph_id, update_dict)
 
-    @key_is_string
     @logger_debug
     def update(self, attrs: Any) -> None:
-        pass
+        if not attrs:
+            return
+
+        self.data.update(build_graph_attr_dict_data(self, attrs))
+        assert self.graph_id
+        updated_dict = get_update_dict(self.parent_keys, attrs)
+        root_data = self.root.data if self.root else self.data
+        root_data["_rev"] = doc_update(self.db, self.graph_id, updated_dict)
 
 
 ########

@@ -5,6 +5,7 @@ Used as the underlying data structure for NetworkX-ArangoDB graphs.
 
 from __future__ import annotations
 
+import json
 from collections import UserDict, defaultdict
 from collections.abc import Iterator
 from typing import Any, Callable, Generator
@@ -41,6 +42,7 @@ from .function import (
     keys_are_not_reserved,
     keys_are_strings,
     logger_debug,
+    json_serializable
 )
 
 #############
@@ -52,6 +54,12 @@ def graph_dict_factory(
     db: StandardDatabase, graph_name: str
 ) -> Callable[..., GraphDict]:
     return lambda: GraphDict(db, graph_name)
+
+
+def graph_attr_dict_factory(
+    db: StandardDatabase, graph: Graph, graph_id: str
+) -> Callable[..., GraphAttrDict]:
+    return lambda: GraphAttrDict(db, graph, graph_id)
 
 
 def node_dict_factory(
@@ -98,6 +106,42 @@ def edge_attr_dict_factory(
 #########
 
 
+def build_graph_attr_dict_data(
+    parent: GraphAttrDict, data: dict[str, Any]
+) -> dict[str, Any | GraphAttrDict]:
+    """Recursively build a GraphAttrDict from a dict.
+
+    It's possible that **value** is a nested dict, so we need to
+    recursively build a GraphAttrDict for each nested dict.
+
+    Returns the parent GraphAttrDict.
+    """
+    graph_attr_dict_data = {}
+    for key, value in data.items():
+        graph_attr_dict_value = process_graph_attr_dict_value(parent, key, value)
+        graph_attr_dict_data[key] = graph_attr_dict_value
+
+    return graph_attr_dict_data
+
+
+def process_graph_attr_dict_value(parent: GraphAttrDict, key: str, value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+
+    graph_attr_dict = parent.graph_attr_dict_factory()
+    graph_attr_dict.root = parent.root or parent
+    graph_attr_dict.parent_keys = parent.parent_keys + [key]
+    graph_attr_dict.data = build_graph_attr_dict_data(graph_attr_dict, value)
+
+    return graph_attr_dict
+
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if hasattr(obj, 'to_dict'):
+            return obj.to_dict()
+        return super().default(obj)
+
+@json_serializable
 class GraphDict(UserDict[str, Any]):
     """A dictionary-like object for storing graph attributes.
 
@@ -110,8 +154,6 @@ class GraphDict(UserDict[str, Any]):
     :type graph_name: str
     """
 
-    COLLECTION_NAME = "nxadb_graphs"
-
     @logger_debug
     def __init__(
         self, db: StandardDatabase, graph_name: str, *args: Any, **kwargs: Any
@@ -121,17 +163,20 @@ class GraphDict(UserDict[str, Any]):
 
         self.db = db
         self.graph_name = graph_name
+        self.COLLECTION_NAME = "nxadb_graphs"
         self.graph_id = f"{self.COLLECTION_NAME}/{graph_name}"
 
         self.adb_graph = db.graph(graph_name)
         self.collection = create_collection(db, self.COLLECTION_NAME)
+        self.graph_attr_dict_factory = graph_attr_dict_factory(self.db, self.adb_graph, self.graph_id)
 
-        data = doc_get_or_insert(self.db, self.COLLECTION_NAME, self.graph_id)
-        self.data.update(data)
+        result = doc_get_or_insert(self.db, self.COLLECTION_NAME, self.graph_id)
+        self.data = result
 
-        self.root: GraphDict | None = None
-        self.parent_keys: list[str] = []
-        self.graph_attr_dict_factory = graph_dict_factory(self.db, self.graph_name)
+    @logger_debug
+    def write_full(self) -> None:
+        json_string = json.dumps(self.data, cls=CustomJSONEncoder)
+        doc_insert(self.db, self.collection.name, self.graph_id, json.loads(json_string))
 
     @key_is_string
     @logger_debug
@@ -152,7 +197,7 @@ class GraphDict(UserDict[str, Any]):
 
         result = aql_doc_get_key(self.db, self.graph_id, key)
 
-        if not result:
+        if result is None:
             raise KeyError(key)
 
         self.data[key] = result
@@ -162,11 +207,23 @@ class GraphDict(UserDict[str, Any]):
     @key_is_string
     @key_is_not_reserved
     @logger_debug
-    # @value_is_json_serializable # TODO?
     def __setitem__(self, key: str, value: Any) -> None:
         """G.graph['foo'] = 'bar'"""
-        self.data[key] = value
-        self.data["_rev"] = doc_update(self.db, self.graph_id, {key: value})
+
+        if type(value) is dict:
+            graph_attr_dict = self.graph_attr_dict_factory()
+            graph_attr_dict.data = build_graph_attr_dict_data(graph_attr_dict, value)
+            graph_attr_dict.graph_id = self.graph_id
+            graph_attr_dict.parent_keys = list(self.data.keys()) + [key]
+            graph_attr_dict.graph_dict = self
+            graph_attr_dict.graph_dict_key = key
+            self.data[key] = graph_attr_dict
+        elif value is None:
+            self.__delitem__(key)
+        else:
+            self.data[key] = value
+
+        doc_update(self.db, self.graph_id, {key: value})
 
     @key_is_string
     @key_is_not_reserved
@@ -182,19 +239,98 @@ class GraphDict(UserDict[str, Any]):
     @logger_debug
     def update(self, attrs: Any) -> None:
         """G.graph.update({'foo': 'bar'})"""
+
         if not attrs:
             return
+
+        graph_attr_dict = self.graph_attr_dict_factory()
+        graph_attr_dict.data = build_graph_attr_dict_data(graph_attr_dict, attrs)
 
         self.data.update(attrs)
         self.data["_rev"] = doc_update(self.db, self.graph_id, attrs)
 
-    # @logger_debug
-    # def clear(self) -> None:
-    #     """G.graph.clear()"""
-    #     self.data.clear()
+    @logger_debug
+    def clear(self) -> None:
+        """G.graph.clear()"""
+        self.data.clear()
+        doc_insert(self.db, self.COLLECTION_NAME, self.graph_id, data={}, silent=True)
 
-    #     # if clear_remote:
-    #     #     doc_insert(self.db, self.COLLECTION_NAME, self.graph_id, silent=True)
+
+@json_serializable
+class GraphAttrDict(UserDict[str, Any]):
+    """The inner-level of the dict of dict structure
+    representing the attributes of a graph stored in the database.
+    """
+
+    @logger_debug
+    def __init__(self, db: StandardDatabase, graph: Graph, graph_id: str,  *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self.data: dict[str, Any] = {}
+
+        self.db = db
+        self.graph = graph
+        self.graph_id: str = graph_id
+
+        self.graph_dict: GraphDict | None = None
+        self.graph_dict_key: str | None = None
+
+        self.root: GraphAttrDict | None = None
+        self.parent_keys: list[str] = []
+        self.graph_attr_dict_factory = graph_attr_dict_factory(self.db, self.graph, self.graph_id)
+
+    @key_is_string
+    @logger_debug
+    def __contains__(self, key: str) -> bool:
+        if key in self.data:
+            return True
+
+        return aql_doc_has_key(self.db, self.graph.name, key)
+
+    @key_is_string
+    @logger_debug
+    def __setitem__(self, key, value):
+        if value is None:
+            self.__delitem__(key)
+            return
+
+        graph_attr_dict_value = process_graph_attr_dict_value(self, key, value)
+
+        update_dict = get_update_dict(self.parent_keys, {key: value})
+        self.data[key] = graph_attr_dict_value
+        graph_dict = self.graph_dict
+        graph_dict_key = None
+
+        while graph_dict is None:
+            # TODO: rebuild update_dict value based on prev. key stored. Needs to be added to class.
+            inner_graph_attr_dict = self.root
+            graph_dict = inner_graph_attr_dict.graph_dict
+            graph_dict_key = inner_graph_attr_dict.graph_dict_key
+
+        doc_update(self.db, self.graph_id, {graph_dict_key: update_dict})
+
+    def find_root_graph_dict(self):
+        root = self
+        while root.graph_dict is None:
+            root = root.root
+
+        assert root.graph_dict is not None
+        return root.graph_dict
+
+    @key_is_string
+    @logger_debug
+    def __delitem__(self, key):
+        # We're using some abbreviation here. Instead of building all the required data
+        # recursively, we're just deleting the key from the data dict and updating the
+        # full document in the database. This is not the most efficient way to do this,
+        # but it's the simplest way to do it for now.
+        self.data.pop(key, None)
+        graph_dict = self.find_root_graph_dict()
+        graph_dict.write_full()
+
+    @key_is_string
+    @logger_debug
+    def update(self, attrs: Any) -> None:
+        pass
 
 
 ########
@@ -208,6 +344,7 @@ def process_node_attr_dict_value(parent: NodeAttrDict, key: str, value: Any) -> 
 
     node_attr_dict = parent.node_attr_dict_factory()
     node_attr_dict.root = parent.root or parent
+    # TODO: Check if node_id can be passes by reference
     node_attr_dict.node_id = parent.node_id
     node_attr_dict.parent_keys = parent.parent_keys + [key]
     node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, value)

@@ -423,9 +423,43 @@ def test_graph_edges_crud(load_graph: Any) -> None:
     assert db.document(edge_id)["object"]["sub_object"]["foo"] == "baz"
 
 
-def test_graph_dict_simple_k_v(load_karate_graph: Any) -> None:
+def test_graph_dict_init(load_graph: Any) -> None:
     G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
-    G.clear()
+    assert db.collection("_graphs").has("KarateGraph")
+    graph_document = db.collection("_graphs").get("KarateGraph")
+    assert graph_document["_key"] == "KarateGraph"
+    assert graph_document["edgeDefinitions"] == [
+        {
+            "collection": "knows",
+            "from": [
+                "person"
+            ],
+            "to": [
+                "person"
+            ]
+        },
+        {
+            "collection": "person_to_person",
+            "from": [
+                "person"
+            ],
+            "to": [
+                "person"
+            ]
+        }
+    ]
+    assert graph_document["orphanCollections"] == []
+
+    graph_doc_id = G.graph.graph_id
+    assert db.has_document(graph_doc_id)
+
+
+def test_graph_dict_set_item(load_graph: Any) -> None:
+    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    try:
+        db.collection(G.graph.COLLECTION_NAME).delete(G.name)
+    except:
+        pass
 
     json_values = [
         "aString",
@@ -449,6 +483,18 @@ def test_graph_dict_simple_k_v(load_karate_graph: Any) -> None:
             assert db.document(G.graph.graph_id)["json"] == value
 
 
+def test_graph_dict_update(load_graph: Any) -> None:
+    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G.clear()
+
+    G.graph["a"] = "b"
+    to_update = {"c": "d"}
+    G.graph.update(to_update)
+    adb_doc = db.collection("nxadb_graphs").get(G.graph_name)
+    assert adb_doc["a"] == "b"
+    assert adb_doc["c"] == "d"
+
+
 def test_graph_dict_nested_1(load_graph: Any) -> None:
     G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
     G.clear()
@@ -466,6 +512,7 @@ def test_graph_dict_nested_2(load_graph: Any) -> None:
 
     G.graph["x"] = {"y": icon}
     G.graph["x"]["y"]["amount_of_goals"] = 1337
+
     assert G.graph["x"]["y"]["amount_of_goals"] == 1337
     assert db.document(G.graph.graph_id)["x"]["y"]["amount_of_goals"] == 1337
 

@@ -309,19 +309,9 @@ class GraphAttrDict(UserDict[str, Any]):
             return
 
         graph_attr_dict_value = process_graph_attr_dict_value(self, key, value)
-
-        update_dict = get_update_dict(self.parent_keys, {key: value})
         self.data[key] = graph_attr_dict_value
-        graph_dict = self.graph_dict
-        graph_dict_key = None
-
-        while graph_dict is None:
-            # TODO: rebuild update_dict value based on prev. key stored. Needs to be added to class.
-            inner_graph_attr_dict = self.root
-            graph_dict = inner_graph_attr_dict.graph_dict
-            graph_dict_key = inner_graph_attr_dict.graph_dict_key
-
-        doc_update(self.db, self.graph_id, {graph_dict_key: update_dict})
+        graph_dict = self.find_root_graph_dict()
+        graph_dict.write_full()
 
     def find_root_graph_dict(self):
         root = self

@@ -3,6 +3,7 @@ from typing import Any
 import networkx as nx
 import pandas as pd
 import pytest
+from arango import DocumentDeleteError
 
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict import EdgeAttrDict, NodeAttrDict
@@ -442,8 +443,11 @@ def test_graph_dict_set_item(load_graph: Any) -> None:
     G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
     try:
         db.collection(G.graph.COLLECTION_NAME).delete(G.name)
-    except:
+    except DocumentDeleteError:
         pass
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        raise
 
     json_values = [
         "aString",

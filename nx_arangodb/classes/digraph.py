@@ -63,9 +63,8 @@ class DiGraph(nx.DiGraph):
 
         self.src_indices: npt.NDArray[np.int64] | None = None
         self.dst_indices: npt.NDArray[np.int64] | None = None
+        self.edge_indices: npt.NDArray[np.int64] | None = None
         self.vertex_ids_to_index: dict[str, int] | None = None
-
-        self.symmetrize_edges = symmetrize_edges
 
         # self.default_node_type = default_node_type
         # self.edge_type_func = edge_type_func
@@ -77,6 +76,8 @@ class DiGraph(nx.DiGraph):
             # self.__set_factory_methods()
 
         super().__init__(*args, **kwargs)
+
+        self.symmetrize_edges = symmetrize_edges
 
     ###########
     # Getters #

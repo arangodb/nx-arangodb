@@ -477,8 +477,7 @@ def test_readme(load_graph: Any) -> None:
             True,
         ),
         ("Pandas EdgeList", nx.to_pandas_edgelist(G_NX), False, True),
-        # TODO: Address **nx.relabel.relabel_nodes** issue
-        # ("Pandas Adjacency", nx.to_pandas_adjacency(G_NX), False, True),
+        ("Pandas Adjacency", nx.to_pandas_adjacency(G_NX), False, True),
     ],
 )
 def test_incoming_graph_data_not_nx_graph(
@@ -490,12 +489,21 @@ def test_incoming_graph_data_not_nx_graph(
 
     G = nxadb.Graph(incoming_graph_data=incoming_graph_data, graph_name=name)
 
-    assert len(G.nodes) == len(G_NX.nodes) == db.collection(G.default_node_type).count()
     assert len(G.adj) == len(G_NX.adj) == db.collection(G.default_node_type).count()
-    assert len(G.edges) == len(G_NX.edges) == db.collection(G.default_edge_type).count()
+    assert (
+        len(G.nodes)
+        == len(G_NX.nodes)
+        == db.collection(G.default_node_type).count()
+        == G.number_of_nodes()
+    )
+    assert (
+        len(G.edges)
+        == len(G_NX.edges)
+        == db.collection(G.default_edge_type).count()
+        == G.number_of_edges()
+    )
     assert has_club == ("club" in G.nodes["0"])
     assert has_weight == ("weight" in G.adj["0"]["1"])
-
 
 def test_digraph_nodes_crud() -> None:
     pytest.skip("Not implemented yet")

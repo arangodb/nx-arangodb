@@ -1108,7 +1108,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     @logger_debug
     def __len__(self) -> int:
         """len(g._adj)"""
-        # TODO: Multiply by 2 if undirected!
         return sum(
             [
                 self.graph.vertex_collection(c).count()

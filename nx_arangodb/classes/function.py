@@ -15,6 +15,13 @@ from arango.collection import StandardCollection
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from arango.graph import Graph
+from phenolrs.networkx import NetworkXLoader
+from phenolrs.networkx.typings import (
+    DiGraphAdj,
+    GraphAdj,
+    MultiDiGraphAdj,
+    MultiGraphAdj,
+)
 
 import nx_arangodb as nxadb
 from nx_arangodb.logger import logger
@@ -38,7 +45,7 @@ def get_arangodb_graph(
     symmetrize_edges_if_directed: bool,
 ) -> Tuple[
     dict[str, dict[str, Any]],
-    dict[str, dict[str, dict[str, Any]]],
+    GraphAdj | DiGraphAdj | MultiGraphAdj | MultiDiGraphAdj,
     npt.NDArray[np.int64],
     npt.NDArray[np.int64],
     npt.NDArray[np.int64],
@@ -84,23 +91,31 @@ def get_arangodb_graph(
     assert config.username
     assert config.password
 
-    from phenolrs.networkx.loader import NetworkXLoader
+    node_dict, adj_dict, src_indices, dst_indices, edge_indices, vertex_ids_to_index = (
+        NetworkXLoader.load_into_networkx(
+            config.db_name,
+            metagraph=metagraph,
+            hosts=[config.host],
+            username=config.username,
+            password=config.password,
+            load_adj_dict=load_adj_dict,
+            load_coo=load_coo,
+            load_all_vertex_attributes=load_all_vertex_attributes,
+            load_all_edge_attributes=load_all_edge_attributes,
+            is_directed=is_directed,
+            is_multigraph=is_multigraph,
+            symmetrize_edges_if_directed=symmetrize_edges_if_directed,
+            **kwargs,
+        )
+    )
 
-    # TODO: Remove ignore when phenolrs is published
-    return NetworkXLoader.load_into_networkx(  # type: ignore
-        config.db_name,
-        metagraph=metagraph,
-        hosts=[config.host],
-        username=config.username,
-        password=config.password,
-        load_adj_dict=load_adj_dict,
-        load_coo=load_coo,
-        load_all_vertex_attributes=load_all_vertex_attributes,
-        load_all_edge_attributes=load_all_edge_attributes,
-        is_directed=is_directed,
-        is_multigraph=is_multigraph,
-        symmetrize_edges_if_directed=symmetrize_edges_if_directed,
-        **kwargs,
+    return (
+        node_dict,
+        adj_dict,
+        src_indices,
+        dst_indices,
+        edge_indices,
+        vertex_ids_to_index,
     )
 
 

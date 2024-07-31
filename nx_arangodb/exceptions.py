@@ -18,9 +18,6 @@ class InvalidTraversalDirection(NetworkXArangoDBException):
     pass
 
 
-EDGE_ALREADY_EXISTS_ERROR_CODE = 1210
-
-
 class EdgeAlreadyExists(NetworkXArangoDBException):
     pass
 

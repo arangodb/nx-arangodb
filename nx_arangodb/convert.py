@@ -116,10 +116,6 @@ def nxadb_to_nx(G: nxadb.Graph, pull_graph: bool) -> nx.Graph:
         return G.to_networkx_class()(incoming_graph_data=G)
 
     if not pull_graph:
-        if isinstance(G, nxadb.DiGraph):
-            m = "nx_arangodb.DiGraph has no CRUD Support yet. Cannot rely on remote connection."  # noqa: E501
-            raise NotImplementedError(m)
-
         logger.debug("graph exists, but not pulling. relying on remote connection...")
         return G
 

@@ -70,9 +70,15 @@ def adjlist_outer_dict_factory(
     default_node_type: str,
     edge_type_func: Callable[[str, str], str],
     graph_type: str,
+    symmetrize_edges_if_directed: bool,
 ) -> Callable[..., AdjListOuterDict]:
     return lambda: AdjListOuterDict(
-        db, graph, default_node_type, edge_type_func, graph_type
+        db,
+        graph,
+        default_node_type,
+        edge_type_func,
+        graph_type,
+        symmetrize_edges_if_directed,
     )
 
 
@@ -726,6 +732,9 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         *args: Any,
         **kwargs: Any,
     ):
+        if graph_type not in {"graph", "digraph", "multigraph", "multidigraph"}:
+            raise ValueError(f"**graph_type** not supported: {graph_type}")
+
         super().__init__(*args, **kwargs)
         self.data: dict[str, EdgeAttrDict] = {}
 
@@ -739,9 +748,6 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         self.adjlist_outer_dict = adjlist_outer_dict
 
         self.FETCHED_ALL_DATA = False
-
-        if graph_type not in {"graph", "digraph"}:
-            raise ValueError("**graph_type** must be 'graph' or 'digraph'")
 
         self.graph_type = graph_type
         self.is_directed = graph_type in {"digraph", "multidigraph"}
@@ -1040,9 +1046,13 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         default_node_type: str,
         edge_type_func: Callable[[str, str], str],
         graph_type: str,
+        symmetrize_edges_if_directed: bool,
         *args: Any,
         **kwargs: Any,
     ):
+        if graph_type not in {"graph", "digraph", "multigraph", "multidigraph"}:
+            raise ValueError(f"**graph_type** not supported: {graph_type}")
+
         super().__init__(*args, **kwargs)
         self.data: dict[str, AdjListInnerDict] = {}
 
@@ -1056,13 +1066,13 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
         self.FETCHED_ALL_DATA = False
 
-        if graph_type not in {"graph", "digraph"}:
-            raise ValueError("**graph_type** must be 'graph' or 'digraph'")
-
         self.graph_type = graph_type
         self.is_directed = graph_type in {"digraph", "multidigraph"}
         self.is_multigraph = graph_type in {"multigraph", "multidigraph"}
         self.traversal_direction = "OUTBOUND" if self.is_directed else "ANY"
+        self.symmetrize_edges_if_directed = (
+            symmetrize_edges_if_directed and self.is_directed
+        )
 
         self.mirror: AdjListOuterDict
 
@@ -1221,7 +1231,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             load_all_edge_attributes=True,
             is_directed=self.is_directed,
             is_multigraph=self.is_multigraph,
-            symmetrize_edges_if_directed=False,  # TODO: Abstract based on Graph type
+            symmetrize_edges_if_directed=self.symmetrize_edges_if_directed,
         )
 
         for src_node_id, inner_dict in adj_dict.items():

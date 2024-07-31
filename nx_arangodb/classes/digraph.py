@@ -84,12 +84,15 @@ class DiGraph(nxadb_Graph, nx.DiGraph):
         adj_args = (*node_args, self.edge_type_func, "digraph")
 
         self.graph_attr_dict_factory = graph_dict_factory(*base_args)
-        self.node_dict_factory = node_dict_factory(*node_args)
-        self.node_attr_dict_factory = node_attr_dict_factory(*base_args)
 
-        self.adjlist_outer_dict_factory = adjlist_outer_dict_factory(*adj_args)
-        self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(*adj_args)
+        self.node_attr_dict_factory = node_attr_dict_factory(*base_args)
+        self.node_dict_factory = node_dict_factory(*node_args)
+
         self.edge_attr_dict_factory = edge_attr_dict_factory(*base_args)
+        self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(*adj_args)
+        self.adjlist_outer_dict_factory = adjlist_outer_dict_factory(
+            *adj_args, self.symmetrize_edges
+        )
 
     #######################
     # nx.DiGraph Overides #

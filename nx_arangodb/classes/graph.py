@@ -72,7 +72,7 @@ class Graph(nx.Graph):
         self.edge_indices: npt.NDArray[np.int64] | None = None
         self.vertex_ids_to_index: dict[str, int] | None = None
 
-        self.symmetrize_edges = False
+        self.symmetrize_edges = False  # Does not apply to undirected graphs
 
         self.default_node_type = default_node_type
         self.edge_type_func = edge_type_func
@@ -163,9 +163,11 @@ class Graph(nx.Graph):
         self.node_dict_factory = node_dict_factory(*node_args)
         self.node_attr_dict_factory = node_attr_dict_factory(*base_args)
 
-        self.adjlist_outer_dict_factory = adjlist_outer_dict_factory(*adj_args)
-        self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(*adj_args)
         self.edge_attr_dict_factory = edge_attr_dict_factory(*base_args)
+        self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(*adj_args)
+        self.adjlist_outer_dict_factory = adjlist_outer_dict_factory(
+            *adj_args, self.symmetrize_edges
+        )
 
     def _create_default_collections(self) -> None:
         if self.default_node_type not in self.adb_graph.vertex_collections():

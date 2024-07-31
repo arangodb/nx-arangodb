@@ -72,6 +72,8 @@ class Graph(nx.Graph):
         self.edge_indices: npt.NDArray[np.int64] | None = None
         self.vertex_ids_to_index: dict[str, int] | None = None
 
+        self.symmetrize_edges = False
+
         self.default_node_type = default_node_type
         self.edge_type_func = edge_type_func
         self.default_edge_type = edge_type_func(default_node_type, default_node_type)
@@ -329,3 +331,29 @@ class Graph(nx.Graph):
             self._node[node_for_adding].update(attr)
 
         nx._clear_cache(self)
+
+    def number_of_edges(self, u=None, v=None):
+        if u is None:
+            ######################
+            # NOTE: monkey patch #
+            ######################
+
+            # Old:
+            # return int(self.size())
+
+            # New:
+            edge_collections = {
+                e_d["edge_collection"] for e_d in self.adb_graph.edge_definitions()
+            }
+            num = sum(
+                self.adb_graph.edge_collection(e).count() for e in edge_collections
+            )
+            num *= 2 if self.is_directed() and self.symmetrize_edges else 1
+
+            return num
+
+            # Reason:
+            # It is more efficient to count the number of edges in the edge collections
+            # compared to relying on the DegreeView.
+
+        super().number_of_edges(u, v)

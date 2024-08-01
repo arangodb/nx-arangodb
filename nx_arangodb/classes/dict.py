@@ -752,6 +752,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         self.graph_type = graph_type
         self.is_directed = graph_type in {"digraph", "multidigraph"}
         self.is_multigraph = graph_type in {"multigraph", "multidigraph"}
+
         if adjlist_outer_dict is not None:
             self.traversal_direction = adjlist_outer_dict.traversal_direction
         elif self.is_directed:
@@ -999,12 +1000,19 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         self.clear()
 
         query = f"""
-            FOR v, e IN 1..1 {self.traversal_direction}
-            @src_node_id GRAPH @graph_name
+            FOR v, e IN 1..1 {self.traversal_direction} @src_node_id
+            GRAPH @graph_name
                 RETURN e
         """
 
         bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
+
+        if self.traversal_direction == "OUTBOUND":
+            dst_node_key = "_to"
+        elif self.traversal_direction == "INBOUND":
+            dst_node_key = "_from"
+        else:
+            dst_node_key = None
 
         for edge in aql(self.db, query, bind_vars):
             edge_attr_dict = self.edge_attr_dict_factory()
@@ -1012,9 +1020,9 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
             edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
 
             dst_node_id = (
-                edge["_to"]
-                if self.is_directed or self.src_node_id == edge["_from"]
-                else edge["_from"]
+                edge[dst_node_key]
+                if dst_node_key
+                else edge["_to"] if self.src_node_id == edge["_from"] else edge["_from"]
             )
 
             self.data[dst_node_id] = edge_attr_dict

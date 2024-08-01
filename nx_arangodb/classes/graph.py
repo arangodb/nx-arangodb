@@ -257,6 +257,10 @@ class Graph(nx.Graph):
     def aql(self, query: str, bind_vars: dict[str, Any] = {}, **kwargs: Any) -> Cursor:
         return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
 
+    # def pull(self) -> None:
+    #     self._node._fetch_all()
+    #     self._adj._fetch_all()
+
     # NOTE: OUT OF SERVICE
     # def chat(self, prompt: str) -> str:
     #     if self.__qa_chain is None:

@@ -494,8 +494,12 @@ def test_digraph_edges_crud(load_graph: Any) -> None:
     assert db.collection(G_1.default_edge_type).count() == col_count + 1
     assert G_1.adj["new_node_1"]["new_node_2"]
     assert G_1.adj["new_node_1"]["new_node_2"]["foo"] == "bar"
+    assert G_1.pred["new_node_2"]["new_node_1"]
     assert "new_node_1" not in G_1.adj["new_node_2"]
-
+    assert (
+        G_1.adj["new_node_1"]["new_node_2"]["_id"]
+        == G_1.pred["new_node_2"]["new_node_1"]["_id"]
+    )
     edge_id = G_1.adj["new_node_1"]["new_node_2"]["_id"]
     doc = db.document(edge_id)
     assert db.has_document(doc["_from"])
@@ -527,11 +531,14 @@ def test_digraph_edges_crud(load_graph: Any) -> None:
     assert "new_node_3" not in G_1.adj["new_node_1"]
 
     assert "person/1" not in G_1["person/2"]
+    assert G_1.succ["person/1"]["person/2"] == G_1.pred["person/2"]["person/1"]
     new_weight = 1000
     G_1["person/1"]["person/2"]["weight"] = new_weight
-    assert G_1["person/1"]["person/2"]["weight"] == new_weight
+    assert G_1.succ["person/1"]["person/2"]["weight"] == new_weight
+    assert G_1.pred["person/2"]["person/1"]["weight"] == new_weight
     G_1.clear()
-    assert G_1["person/1"]["person/2"]["weight"] == new_weight
+    assert G_1.succ["person/1"]["person/2"]["weight"] == new_weight
+    assert G_1.pred["person/2"]["person/1"]["weight"] == new_weight
 
     edge_id = G_1["person/1"]["person/2"]["_id"]
     G_1["person/1"]["person/2"]["object"] = {"foo": "bar", "bar": "foo"}

@@ -257,7 +257,6 @@ class GraphDict(UserDict[str, Any]):
     def clear(self) -> None:
         """G.graph.clear()"""
         self.data.clear()
-        doc_insert(self.db, self.COLLECTION_NAME, self.graph_id, data={}, silent=True)
 
 
 @json_serializable

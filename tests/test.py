@@ -450,6 +450,24 @@ def test_graph_dict_init_extended(load_graph: Any) -> None:
     assert "baz" not in db.document(G.graph.graph_id)
 
 
+def test_graph_dict_clear_will_not_remove_remote_data(load_graph: Any) -> None:
+    G_adb = nxadb.Graph(
+        graph_name="KarateGraph",
+        foo="bar",
+        bar={"a":4},
+    )
+
+    G_adb.graph["ant"] = {"b": 5}
+    G_adb.graph["ant"]["b"] = 6
+    G_adb.clear()
+    try:
+        G_adb.graph["ant"]
+    except KeyError:
+        raise AssertionError("Not allowed to fail.")
+
+    assert db.document(G_adb.graph.graph_id)["ant"] == {"b": 6}
+
+
 def test_graph_dict_set_item(load_graph: Any) -> None:
     G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
     try:

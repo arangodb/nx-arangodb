@@ -169,7 +169,7 @@ class GraphDict(UserDict[str, Any]):
         result = doc_get_or_insert(self.db, self.COLLECTION_NAME, self.graph_id)
         self.data = self.dict_to_graph_attr_dicts(result)
 
-    def mutate_dict(self, parent_key: str, obj):
+    def mutate_dict(self, parent_key: str, obj: Any) -> Any:
         if isinstance(obj, dict):
             graph_attr_dict = self.graph_attr_dict_factory()
             graph_attr_dict.parent_keys = [parent_key]

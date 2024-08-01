@@ -446,7 +446,7 @@ def test_graph_dict_init_extended(load_graph: Any) -> None:
     G.graph["foo"] = "!!!"
     G.graph["bar"]["baz"] = False
     assert db.document(G.graph.graph_id)["foo"] == "!!!"
-    assert db.document(G.graph.graph_id)["bar"]["baz"] == False
+    assert db.document(G.graph.graph_id)["bar"]["baz"] is False
     assert "baz" not in db.document(G.graph.graph_id)
 
 

@@ -167,22 +167,18 @@ class GraphDict(UserDict[str, Any]):
         )
 
         result = doc_get_or_insert(self.db, self.COLLECTION_NAME, self.graph_id)
-        self.data = self.dict_to_graph_attr_dicts(result)
+        for k, v in result.items():
+            self.data[k] = self.__process_graph_dict_value(k, v)
 
-    def mutate_dict(self, parent_key: str, obj: Any) -> Any:
-        if isinstance(obj, dict):
-            graph_attr_dict = self.graph_attr_dict_factory()
-            graph_attr_dict.parent_keys = [parent_key]
-            graph_attr_dict.data = build_graph_attr_dict_data(graph_attr_dict, obj)
-            graph_attr_dict.graph_id = self.graph_id
-            return graph_attr_dict
-        else:
-            return obj
+    def __process_graph_dict_value(self, key: str, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
 
-    def dict_to_graph_attr_dicts(self, d):
-        for key, value in list(d.items()):
-            d[key] = self.mutate_dict(key, value)
-        return d
+        graph_attr_dict = self.graph_attr_dict_factory()
+        graph_attr_dict.parent_keys = [key]
+        graph_attr_dict.data = build_graph_attr_dict_data(graph_attr_dict, value)
+
+        return graph_attr_dict
 
     @key_is_string
     @logger_debug
@@ -206,29 +202,22 @@ class GraphDict(UserDict[str, Any]):
         if result is None:
             raise KeyError(key)
 
-        self.data[key] = result
+        graph_dict_value = self.__process_graph_dict_value(key, result)
+        self.data[key] = graph_dict_value
 
-        return result
+        return graph_dict_value
 
     @key_is_string
     @key_is_not_reserved
     @logger_debug
     def __setitem__(self, key: str, value: Any) -> None:
         """G.graph['foo'] = 'bar'"""
-
-        if type(value) is dict:
-            graph_attr_dict = self.graph_attr_dict_factory()
-            graph_attr_dict.parent_keys = [key]
-            graph_attr_dict.data = build_graph_attr_dict_data(graph_attr_dict, value)
-            graph_attr_dict.graph_id = self.graph_id
-
-            self.data[key] = graph_attr_dict
-        elif value is None:
+        if value is None:
             self.__delitem__(key)
             return
-        else:
-            self.data[key] = value
 
+        graph_dict_value = self.__process_graph_dict_value(key, value)
+        self.data[key] = graph_dict_value
         self.data["_rev"] = doc_update(self.db, self.graph_id, {key: value})
 
     @key_is_string
@@ -248,9 +237,10 @@ class GraphDict(UserDict[str, Any]):
             return
 
         graph_attr_dict = self.graph_attr_dict_factory()
-        graph_attr_dict.data = build_graph_attr_dict_data(graph_attr_dict, attrs)
+        graph_attr_dict_data = build_graph_attr_dict_data(graph_attr_dict, attrs)
+        graph_attr_dict.data = graph_attr_dict_data
 
-        self.data.update(graph_attr_dict)
+        self.data.update(graph_attr_dict_data)
         self.data["_rev"] = doc_update(self.db, self.graph_id, attrs)
 
     @logger_debug
@@ -263,6 +253,15 @@ class GraphDict(UserDict[str, Any]):
 class GraphAttrDict(UserDict[str, Any]):
     """The inner-level of the dict of dict structure
     representing the attributes of a graph stored in the database.
+
+    Only used if the value associated with a GraphDict key is a dict.
+
+    :param db: The ArangoDB database.
+    :type db: StandardDatabase
+    :param graph: The ArangoDB graph.
+    :type graph: Graph
+    :param graph_id: The ArangoDB graph ID.
+    :type graph_id: str
     """
 
     @logger_debug
@@ -290,6 +289,7 @@ class GraphAttrDict(UserDict[str, Any]):
     @key_is_string
     @logger_debug
     def __contains__(self, key: str) -> bool:
+        """'bar' in G.graph['foo']"""
         if key in self.data:
             return True
 
@@ -298,9 +298,10 @@ class GraphAttrDict(UserDict[str, Any]):
     @key_is_string
     @logger_debug
     def __getitem__(self, key: str) -> Any:
+        """G.graph['foo']['bar']"""
+
         if value := self.data.get(key):
             return value
-        assert self.graph_id
 
         result = aql_doc_get_key(self.db, self.graph_id, key, self.parent_keys)
 
@@ -310,17 +311,20 @@ class GraphAttrDict(UserDict[str, Any]):
         graph_attr_dict_value = process_graph_attr_dict_value(self, key, result)
         self.data[key] = graph_attr_dict_value
 
-        return result
+        return graph_attr_dict_value
 
     @key_is_string
     @logger_debug
     def __setitem__(self, key, value):
-        # TODO: Add this as well to all the other __setitems__ calls
+        """
+        G.graph['foo'] = 'bar'
+        G.graph['object'] = {'foo': 'bar'}
+        G._node['object']['foo'] = 'baz'
+        """
         if value is None:
             self.__delitem__(key)
             return
 
-        assert self.graph_id
         graph_attr_dict_value = process_graph_attr_dict_value(self, key, value)
         update_dict = get_update_dict(self.parent_keys, {key: value})
         self.data[key] = graph_attr_dict_value
@@ -330,7 +334,7 @@ class GraphAttrDict(UserDict[str, Any]):
     @key_is_string
     @logger_debug
     def __delitem__(self, key):
-        assert self.graph_id
+        """del G.graph['foo']['bar']"""
         self.data.pop(key, None)
         update_dict = get_update_dict(self.parent_keys, {key: None})
         root_data = self.root.data if self.root else self.data
@@ -338,11 +342,11 @@ class GraphAttrDict(UserDict[str, Any]):
 
     @logger_debug
     def update(self, attrs: Any) -> None:
+        """G.graph['foo'].update({'bar': 'baz'})"""
         if not attrs:
             return
 
         self.data.update(build_graph_attr_dict_data(self, attrs))
-        assert self.graph_id
         updated_dict = get_update_dict(self.parent_keys, attrs)
         root_data = self.root.data if self.root else self.data
         root_data["_rev"] = doc_update(self.db, self.graph_id, updated_dict)
@@ -359,7 +363,6 @@ def process_node_attr_dict_value(parent: NodeAttrDict, key: str, value: Any) -> 
 
     node_attr_dict = parent.node_attr_dict_factory()
     node_attr_dict.root = parent.root or parent
-    # TODO: Check if node_id can be passes by reference
     node_attr_dict.node_id = parent.node_id
     node_attr_dict.parent_keys = parent.parent_keys + [key]
     node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, value)
@@ -460,6 +463,10 @@ class NodeAttrDict(UserDict[str, Any]):
         G._node['node/1']['object'] = {'foo': 'bar'}
         G._node['node/1']['object']['foo'] = 'baz'
         """
+        if value is None:
+            self.__delitem__(key)
+            return
+
         assert self.node_id
         node_attr_dict_value = process_node_attr_dict_value(self, key, value)
         update_dict = get_update_dict(self.parent_keys, {key: value})
@@ -812,6 +819,10 @@ class EdgeAttrDict(UserDict[str, Any]):
     @logger_debug
     def __setitem__(self, key: str, value: Any) -> None:
         """G._adj['node/1']['node/2']['foo'] = 'bar'"""
+        if value is None:
+            self.__delitem__(key)
+            return
+
         assert self.edge_id
         edge_attr_dict_value = process_edge_attr_dict_value(self, key, value)
         update_dict = get_update_dict(self.parent_keys, {key: value})

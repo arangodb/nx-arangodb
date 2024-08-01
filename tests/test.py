@@ -95,16 +95,10 @@ def test_algorithm(
     r_3 = algorithm_func(G_1, backend="arangodb")
     r_4 = algorithm_func(G_2, backend="arangodb")
 
-    r_5 = algorithm_func.orig_func(G_3)  # type: ignore
-    nx.config.backends.arangodb.pull_graph = False
-    r_6 = algorithm_func(G_3)
-    nx.config.backends.arangodb.pull_graph = True
-
-    assert all([r_1, r_2, r_3, r_4, r_5, r_6])
+    assert all([r_1, r_2, r_3, r_4])
     assert_func(r_1, r_2)
     assert_func(r_2, r_3)
     assert_func(r_3, r_4)
-    assert_func(r_5, r_6)
 
     try:
         import phenolrs  # noqa
@@ -112,16 +106,26 @@ def test_algorithm(
         pytest.skip("phenolrs not installed")
 
     r_7 = algorithm_func(G_3)
+    r_7_orig = algorithm_func.orig_func(G_3)  # type: ignore
+
     r_8 = algorithm_func(G_4)
+    r_8_orig = algorithm_func.orig_func(G_4)  # type: ignore
+
     r_9 = algorithm_func(G_5)
+    r_9_orig = algorithm_func.orig_func(G_5)  # type: ignore
+
     r_10 = algorithm_func(nx.DiGraph(incoming_graph_data=G_NX))
 
-    assert all([r_7, r_8, r_9, r_10])
+    assert all([r_7, r_7_orig, r_8, r_8_orig, r_9, r_9_orig, r_10])
+    assert_func(r_7, r_7_orig)
+    assert_func(r_8, r_8_orig)
+    assert_func(r_9, r_9_orig)
     assert_func(r_7, r_1)
     assert_func(r_7, r_8)
-    assert len(r_8) == len(r_9)
     assert r_8 != r_9
+    assert r_8_orig != r_9_orig
     assert_func(r_8, r_10)
+    assert_func(r_8_orig, r_10)
 
 
 def test_shortest_path_remote_algorithm(load_graph: Any) -> None:

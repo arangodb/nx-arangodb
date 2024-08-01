@@ -1234,6 +1234,16 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             symmetrize_edges_if_directed=self.symmetrize_edges_if_directed,
         )
 
+        if not self.is_directed:
+            adj_dict = adj_dict
+        elif self.traversal_direction == "OUTBOUND":
+            adj_dict = adj_dict["succ"]
+        elif self.traversal_direction == "INBOUND":
+            adj_dict = adj_dict["pred"]
+        else:
+            m = f"**traversal_direction** not supported: {self.traversal_direction}"
+            raise ValueError(m)
+
         for src_node_id, inner_dict in adj_dict.items():
             for dst_node_id, edge in inner_dict.items():
 
@@ -1263,7 +1273,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
                 edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
 
                 self.data[src_node_id].data[dst_node_id] = edge_attr_dict
-                if not self.is_directed:
+                if not self.is_directed or self.symmetrize_edges_if_directed:
                     self.data[dst_node_id].data[src_node_id] = edge_attr_dict
 
         self.FETCHED_ALL_DATA = True

@@ -81,7 +81,6 @@ def get_info():
         "db_name": None,
         "load_parallelism": None,
         "load_batch_size": None,
-        "pull_graph": True,
     }
 
     return d

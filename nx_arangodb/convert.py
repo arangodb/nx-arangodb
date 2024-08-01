@@ -26,13 +26,11 @@ __all__ = [
 ]
 
 
-def _to_nx_graph(
-    G: Any, *args: Any, pull_graph: bool = True, **kwargs: Any
-) -> nx.Graph:
+def _to_nx_graph(G: Any, *args: Any, **kwargs: Any) -> nx.Graph:
     logger.debug(f"_to_nx_graph for {G.__class__.__name__}")
 
     if isinstance(G, nxadb.Graph | nxadb.DiGraph):
-        return nxadb_to_nx(G, pull_graph)
+        return nxadb_to_nx(G)
 
     if isinstance(G, nx.Graph):
         return G
@@ -108,16 +106,12 @@ def nx_to_nxadb(
     return klass(incoming_graph_data=graph)
 
 
-def nxadb_to_nx(G: nxadb.Graph, pull_graph: bool) -> nx.Graph:
+def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
     if not G.graph_exists_in_db:
         logger.debug("graph does not exist, nothing to pull")
         # TODO: Consider just returning G here?
         # Avoids the need to re-create the graph from scratch
         return G.to_networkx_class()(incoming_graph_data=G)
-
-    if not pull_graph:
-        logger.debug("graph exists, but not pulling. relying on remote connection...")
-        return G
 
     # TODO: Re-enable this
     # if G.use_nx_cache and G._node and G._adj:

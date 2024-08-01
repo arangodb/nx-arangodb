@@ -439,6 +439,17 @@ def test_graph_dict_init(load_graph: Any) -> None:
     assert db.has_document(graph_doc_id)
 
 
+def test_graph_dict_init_extended(load_graph: Any) -> None:
+    # Tests that available data (especially dicts) will be properly
+    # stored as GraphDicts in the internal cache.
+    G = nxadb.Graph(graph_name="KarateGraph", foo="bar", bar={"baz": True})
+    G.graph["foo"] = "!!!"
+    G.graph["bar"]["baz"] = False
+    assert db.document(G.graph.graph_id)["foo"] == "!!!"
+    assert db.document(G.graph.graph_id)["bar"]["baz"] == False
+    assert "baz" not in db.document(G.graph.graph_id)
+
+
 def test_graph_dict_set_item(load_graph: Any) -> None:
     G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
     try:

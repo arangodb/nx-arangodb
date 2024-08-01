@@ -136,14 +136,6 @@ def process_graph_attr_dict_value(parent: GraphAttrDict, key: str, value: Any) -
     return graph_attr_dict
 
 
-class CustomJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if hasattr(obj, "to_dict"):
-            return obj.to_dict()
-        return super().default(obj)
-
-
-@json_serializable
 class GraphDict(UserDict[str, Any]):
     """A dictionary-like object for storing graph attributes.
 
@@ -175,7 +167,22 @@ class GraphDict(UserDict[str, Any]):
         )
 
         result = doc_get_or_insert(self.db, self.COLLECTION_NAME, self.graph_id)
-        self.data = result
+        self.data = self.dict_to_graph_attr_dicts(result)
+
+    def mutate_dict(self, parent_key: str, obj):
+        if isinstance(obj, dict):
+            graph_attr_dict = self.graph_attr_dict_factory()
+            graph_attr_dict.parent_keys = [parent_key]
+            graph_attr_dict.data = build_graph_attr_dict_data(graph_attr_dict, obj)
+            graph_attr_dict.graph_id = self.graph_id
+            return graph_attr_dict
+        else:
+            return obj
+
+    def dict_to_graph_attr_dicts(self, d):
+        for key, value in list(d.items()):
+            d[key] = self.mutate_dict(key, value)
+        return d
 
     @key_is_string
     @logger_debug
@@ -216,12 +223,13 @@ class GraphDict(UserDict[str, Any]):
             graph_attr_dict.graph_id = self.graph_id
 
             self.data[key] = graph_attr_dict
-            doc_update(self.db, self.graph_id, {key: value})
         elif value is None:
             self.__delitem__(key)
+            return
         else:
             self.data[key] = value
-            doc_update(self.db, self.graph_id, {key: value})
+
+        self.data["_rev"] = doc_update(self.db, self.graph_id, {key: value})
 
     @key_is_string
     @key_is_not_reserved
@@ -242,7 +250,7 @@ class GraphDict(UserDict[str, Any]):
         graph_attr_dict = self.graph_attr_dict_factory()
         graph_attr_dict.data = build_graph_attr_dict_data(graph_attr_dict, attrs)
 
-        self.data.update(attrs)
+        self.data.update(graph_attr_dict)
         self.data["_rev"] = doc_update(self.db, self.graph_id, attrs)
 
     @logger_debug
@@ -308,23 +316,12 @@ class GraphAttrDict(UserDict[str, Any]):
     @key_is_string
     @logger_debug
     def __setitem__(self, key, value):
+        # TODO: Add this as well to all the other __setitems__ calls
         if value is None:
             self.__delitem__(key)
             return
 
         assert self.graph_id
-
-        if type(value) is dict:
-            graph_attr_dict = self.graph_attr_dict_factory()
-            graph_attr_dict.data = build_graph_attr_dict_data(graph_attr_dict, value)
-            graph_attr_dict.graph_id = self.graph_id
-            graph_attr_dict.parent_keys = [key]
-            self.data[key] = graph_attr_dict
-            doc_update(self.db, self.graph_id, {key: value})
-        else:
-            self.data[key] = value
-            doc_update(self.db, self.graph_id, {key: value})
-
         graph_attr_dict_value = process_graph_attr_dict_value(self, key, value)
         update_dict = get_update_dict(self.parent_keys, {key: value})
         self.data[key] = graph_attr_dict_value

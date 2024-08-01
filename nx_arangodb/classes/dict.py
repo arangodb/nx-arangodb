@@ -513,7 +513,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
     def values(self) -> Any:
         """g._node.values()"""
         if not self.FETCHED_ALL_DATA:
-            self.__fetch_all()
+            self._fetch_all()
 
         yield from self.data.values()
 
@@ -523,7 +523,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         """g._node.items() or G._node.items(data='foo')"""
         if data is None:
             if not self.FETCHED_ALL_DATA:
-                self.__fetch_all()
+                self._fetch_all()
 
             yield from self.data.items()
         else:
@@ -532,7 +532,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             yield from result.items()
 
     @logger_debug
-    def __fetch_all(self):
+    def _fetch_all(self):
         self.clear()
 
         (
@@ -979,7 +979,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
     def values(self) -> Any:
         """g._adj['node/1'].values()"""
         if not self.FETCHED_ALL_DATA:
-            self.__fetch_all()
+            self._fetch_all()
 
         yield from self.data.values()
 
@@ -988,12 +988,12 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
     def items(self) -> Any:
         """g._adj['node/1'].items()"""
         if not self.FETCHED_ALL_DATA:
-            self.__fetch_all()
+            self._fetch_all()
 
         yield from self.data.items()
 
     @logger_debug
-    def __fetch_all(self) -> None:
+    def _fetch_all(self) -> None:
         assert self.src_node_id
 
         self.clear()
@@ -1190,7 +1190,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     def values(self) -> Any:
         """g._adj.values()"""
         if not self.FETCHED_ALL_DATA:
-            self.__fetch_all()
+            self._fetch_all()
 
         yield from self.data.values()
 
@@ -1205,7 +1205,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         """g._adj.items() or G._adj.items(data='foo')"""
         if data is None:
             if not self.FETCHED_ALL_DATA:
-                self.__fetch_all()
+                self._fetch_all()
 
             yield from self.data.items()
 
@@ -1215,7 +1215,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             yield from result
 
     @logger_debug
-    def __fetch_all(self) -> None:
+    def _fetch_all(self) -> None:
         self.clear()
 
         (
@@ -1234,15 +1234,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             symmetrize_edges_if_directed=self.symmetrize_edges_if_directed,
         )
 
-        if not self.is_directed:
-            adj_dict = adj_dict
-        elif self.traversal_direction == "OUTBOUND":
+        if self.is_directed:
             adj_dict = adj_dict["succ"]
-        elif self.traversal_direction == "INBOUND":
-            adj_dict = adj_dict["pred"]
-        else:
-            m = f"**traversal_direction** not supported: {self.traversal_direction}"
-            raise ValueError(m)
 
         for src_node_id, inner_dict in adj_dict.items():
             for dst_node_id, edge in inner_dict.items():
@@ -1250,7 +1243,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
                 if not self.is_directed:
                     if src_node_id in self.data:
                         if dst_node_id in self.data[src_node_id].data:
-                            continue  # can skip due to line 1250
+                            continue  # can skip due not directed
 
                 if src_node_id in self.data:
                     src_inner_dict = self.data[src_node_id]
@@ -1260,9 +1253,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
                     src_inner_dict.FETCHED_ALL_DATA = True
                     self.data[src_node_id] = src_inner_dict
 
-                if dst_node_id in self.data:
-                    dst_inner_dict = self.data[dst_node_id]
-                else:
+                if dst_node_id not in self.data:
                     dst_inner_dict = self.adjlist_inner_dict_factory()
                     dst_inner_dict.src_node_id = dst_node_id
                     src_inner_dict.FETCHED_ALL_DATA = True
@@ -1273,7 +1264,29 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
                 edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
 
                 self.data[src_node_id].data[dst_node_id] = edge_attr_dict
-                if not self.is_directed or self.symmetrize_edges_if_directed:
+
+                if self.is_directed:
+                    if dst_node_id not in self.mirror.data:
+                        mirror_dst_inner_dict = self.adjlist_inner_dict_factory()
+                        mirror_dst_inner_dict.src_node_id = dst_node_id
+                        mirror_dst_inner_dict.FETCHED_ALL_DATA = True
+                        self.mirror.data[dst_node_id] = mirror_dst_inner_dict
+
+                    self.mirror.data[dst_node_id].data[src_node_id] = edge_attr_dict
+
+                    if self.symmetrize_edges_if_directed:
+                        self.data[dst_node_id].data[src_node_id] = edge_attr_dict
+
+                        if src_node_id not in self.mirror.data:
+                            mirror_src_inner_dict = self.adjlist_inner_dict_factory()
+                            mirror_src_inner_dict.src_node_id = src_node_id
+                            mirror_src_inner_dict.FETCHED_ALL_DATA = True
+                            self.mirror.data[src_node_id] = mirror_src_inner_dict
+
+                        self.mirror.data[src_node_id].data[dst_node_id] = edge_attr_dict
+                else:
                     self.data[dst_node_id].data[src_node_id] = edge_attr_dict
 
         self.FETCHED_ALL_DATA = True
+        if self.is_directed:
+            self.mirror.FETCHED_ALL_DATA = True

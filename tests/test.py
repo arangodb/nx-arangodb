@@ -454,7 +454,7 @@ def test_graph_dict_clear_will_not_remove_remote_data(load_graph: Any) -> None:
     G_adb = nxadb.Graph(
         graph_name="KarateGraph",
         foo="bar",
-        bar={"a":4},
+        bar={"a": 4},
     )
 
     G_adb.graph["ant"] = {"b": 5}

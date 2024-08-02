@@ -9,11 +9,9 @@ from adbnx_adapter import ADBNX_Adapter
 from arango import ArangoClient
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
-from arango.exceptions import ServerConnectionError
-from networkx.utils import Config
 
 import nx_arangodb as nxadb
-from nx_arangodb.exceptions import DatabaseNotSet, GraphDoesNotExist, GraphNameNotSet
+from nx_arangodb.exceptions import DatabaseNotSet, GraphNameNotSet
 from nx_arangodb.logger import logger
 
 from .dict import (

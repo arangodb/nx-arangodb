@@ -1,30 +1,13 @@
-import os
-from functools import cached_property
 from typing import Any, Callable, ClassVar
 
 import networkx as nx
-import numpy as np
-import numpy.typing as npt
-from arango import ArangoClient
-from arango.cursor import Cursor
 from arango.database import StandardDatabase
-from arango.exceptions import ServerConnectionError
 
 import nx_arangodb as nxadb
 from nx_arangodb.classes.graph import Graph as nxadb_Graph
-from nx_arangodb.exceptions import DatabaseNotSet, GraphNameNotSet
-from nx_arangodb.logger import logger
 
-from .dict import (
-    AdjListOuterDict,
-    adjlist_inner_dict_factory,
-    adjlist_outer_dict_factory,
-    edge_attr_dict_factory,
-    graph_dict_factory,
-    node_attr_dict_factory,
-    node_dict_factory,
-)
-from .reportviews import CustomEdgeView, CustomNodeView
+from .dict import AdjListOuterDict
+from .enum import TraversalDirection
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.DiGraph)  # type: ignore
 
@@ -59,8 +42,8 @@ class DiGraph(nxadb_Graph, nx.DiGraph):
             assert isinstance(self._pred, AdjListOuterDict)
             self._succ.mirror = self._pred
             self._pred.mirror = self._succ
-            self._succ.traversal_direction = "OUTBOUND"
-            self._pred.traversal_direction = "INBOUND"
+            self._succ.traversal_direction = TraversalDirection.OUTBOUND
+            self._pred.traversal_direction = TraversalDirection.INBOUND
 
     #######################
     # nx.DiGraph Overides #

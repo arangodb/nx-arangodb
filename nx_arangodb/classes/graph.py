@@ -157,9 +157,10 @@ class Graph(nx.Graph):
 
         base_args = (self.db, self.adb_graph)
         node_args = (*base_args, self.default_node_type)
-        adj_args = (*node_args, self.edge_type_func, "graph")
+        adj_args = (*node_args, self.edge_type_func, self.__class__.__name__)
 
         self.graph_attr_dict_factory = graph_dict_factory(*base_args)
+
         self.node_dict_factory = node_dict_factory(*node_args)
         self.node_attr_dict_factory = node_attr_dict_factory(*base_args)
 

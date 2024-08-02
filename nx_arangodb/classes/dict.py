@@ -732,7 +732,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         *args: Any,
         **kwargs: Any,
     ):
-        if graph_type not in {"graph", "digraph", "multigraph", "multidigraph"}:
+        if graph_type not in {"Graph", "DiGraph", "MultiGraph", "MultiDiGraph"}:
             raise ValueError(f"**graph_type** not supported: {graph_type}")
 
         super().__init__(*args, **kwargs)
@@ -750,8 +750,8 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         self.FETCHED_ALL_DATA = False
 
         self.graph_type = graph_type
-        self.is_directed = graph_type in {"digraph", "multidigraph"}
-        self.is_multigraph = graph_type in {"multigraph", "multidigraph"}
+        self.is_directed = graph_type in {"DiGraph", "MultiDiGraph"}
+        self.is_multigraph = graph_type in {"MultiGraph", "MultiDiGraph"}
 
         if adjlist_outer_dict is not None:
             self.traversal_direction = adjlist_outer_dict.traversal_direction
@@ -1058,7 +1058,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         *args: Any,
         **kwargs: Any,
     ):
-        if graph_type not in {"graph", "digraph", "multigraph", "multidigraph"}:
+        if graph_type not in {"Graph", "DiGraph", "MultiGraph", "MultiDiGraph"}:
             raise ValueError(f"**graph_type** not supported: {graph_type}")
 
         super().__init__(*args, **kwargs)
@@ -1075,8 +1075,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         self.FETCHED_ALL_DATA = False
 
         self.graph_type = graph_type
-        self.is_directed = graph_type in {"digraph", "multidigraph"}
-        self.is_multigraph = graph_type in {"multigraph", "multidigraph"}
+        self.is_directed = graph_type in {"DiGraph", "MultiDiGraph"}
+        self.is_multigraph = graph_type in {"MultiGraph", "MultiDiGraph"}
         self.traversal_direction = "OUTBOUND" if self.is_directed else "ANY"
         self.symmetrize_edges_if_directed = (
             symmetrize_edges_if_directed and self.is_directed

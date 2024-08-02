@@ -63,39 +63,6 @@ class DiGraph(nxadb_Graph, nx.DiGraph):
             self._pred.traversal_direction = "INBOUND"
 
     #######################
-    # Init helper methods #
-    #######################
-
-    def _set_factory_methods(self) -> None:
-        """Set the factory methods for the graph, _node, and _adj dictionaries.
-
-        The ArangoDB CRUD operations are handled by the modified dictionaries.
-
-        Handles the creation of the following dictionaries:
-        - graph_attr_dict_factory (graph-level attributes)
-        - node_dict_factory (nodes in the graph)
-        - node_attr_dict_factory (attributes of the nodes in the graph)
-        - adjlist_outer_dict_factory (outer dictionary for the adjacency list)
-        - adjlist_inner_dict_factory (inner dictionary for the adjacency list)
-        - edge_attr_dict_factory (attributes of the edges in the graph)
-        """
-
-        base_args = (self.db, self.adb_graph)
-        node_args = (*base_args, self.default_node_type)
-        adj_args = (*node_args, self.edge_type_func, "digraph")
-
-        self.graph_attr_dict_factory = graph_dict_factory(*base_args)
-
-        self.node_attr_dict_factory = node_attr_dict_factory(*base_args)
-        self.node_dict_factory = node_dict_factory(*node_args)
-
-        self.edge_attr_dict_factory = edge_attr_dict_factory(*base_args)
-        self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(*adj_args)
-        self.adjlist_outer_dict_factory = adjlist_outer_dict_factory(
-            *adj_args, self.symmetrize_edges
-        )
-
-    #######################
     # nx.DiGraph Overides #
     #######################
 

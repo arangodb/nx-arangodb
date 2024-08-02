@@ -56,8 +56,6 @@ class Graph(nx.Graph):
         if self._db is not None:
             self._set_graph_name(graph_name)
 
-        self.auto_sync = True
-
         self.graph_loader_parallelism = 10
         self.graph_loader_batch_size = 100000
 

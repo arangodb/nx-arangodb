@@ -567,6 +567,7 @@ def test_digraph_edges_crud(load_graph: Any) -> None:
     assert "_rev" not in G_1["person/1"]["person/2"]["object"]["sub_object"]
     assert db.document(edge_id)["object"]["sub_object"]["foo"] == "baz"
 
+
 def test_graph_dict_init(load_graph: Any) -> None:
     G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
     assert db.collection("_graphs").has("KarateGraph")

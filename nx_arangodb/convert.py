@@ -191,7 +191,7 @@ if GPU_ENABLED:
             G.edge_indices = edge_indices
             G.vertex_ids_to_index = vertex_ids_to_index
 
-        N = len(G.vertex_ids_to_index)
+        N = len(G.vertex_ids_to_index)  # type: ignore
         src_indices_cp = cp.array(G.src_indices)
         dst_indices_cp = cp.array(G.dst_indices)
         edge_indices_cp = cp.array(G.edge_indices)

@@ -17,10 +17,15 @@ from arango.database import StandardDatabase
 from arango.graph import Graph
 from phenolrs.networkx import NetworkXLoader
 from phenolrs.networkx.typings import (
-    DiGraphAdj,
-    GraphAdj,
-    MultiDiGraphAdj,
-    MultiGraphAdj,
+    ArangoIDtoIndex,
+    DiGraphAdjDict,
+    DstIndices,
+    EdgeIndices,
+    GraphAdjDict,
+    MultiDiGraphAdjDict,
+    MultiGraphAdjDict,
+    NodeDict,
+    SrcIndices,
 )
 
 import nx_arangodb as nxadb
@@ -44,12 +49,12 @@ def get_arangodb_graph(
     is_multigraph: bool,
     symmetrize_edges_if_directed: bool,
 ) -> Tuple[
-    dict[str, dict[str, Any]],
-    GraphAdj | DiGraphAdj | MultiGraphAdj | MultiDiGraphAdj,
-    npt.NDArray[np.int64],
-    npt.NDArray[np.int64],
-    npt.NDArray[np.int64],
-    dict[str, int],
+    NodeDict,
+    GraphAdjDict | DiGraphAdjDict | MultiGraphAdjDict | MultiDiGraphAdjDict,
+    SrcIndices,
+    DstIndices,
+    EdgeIndices,
+    ArangoIDtoIndex,
 ]:
     """Pulls the graph from the database, assuming the graph exists.
 

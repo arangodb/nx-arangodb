@@ -118,6 +118,9 @@ def build_graph_attr_dict_data(
     """
     graph_attr_dict_data = {}
     for key, value in data.items():
+        if value is None:
+            continue
+
         graph_attr_dict_value = process_graph_attr_dict_value(parent, key, value)
         graph_attr_dict_data[key] = graph_attr_dict_value
 
@@ -382,6 +385,9 @@ def build_node_attr_dict_data(
     """
     node_attr_dict_data = {}
     for key, value in data.items():
+        if value is None:
+            continue
+
         node_attr_dict_value = process_node_attr_dict_value(parent, key, value)
         node_attr_dict_data[key] = node_attr_dict_value
 
@@ -750,6 +756,9 @@ def build_edge_attr_dict_data(
     """
     edge_attr_dict_data = {}
     for key, value in data.items():
+        if value is None:
+            continue
+
         edge_attr_dict_value = process_edge_attr_dict_value(parent, key, value)
         edge_attr_dict_data[key] = edge_attr_dict_value
 

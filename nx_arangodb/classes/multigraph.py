@@ -41,9 +41,7 @@ class MultiGraph(nxadb_Graph, nx.MultiGraph):
 
     def _set_factory_methods(self) -> None:
         super()._set_factory_methods()
-
-        base_args = (self.db, self.adb_graph)
-        self.edge_key_dict_factory = edge_key_dict_factory(*base_args)
+        self.edge_key_dict_factory = edge_key_dict_factory(self.db, self.adb_graph)
 
     ##########################
     # nx.MultiGraph Overides #

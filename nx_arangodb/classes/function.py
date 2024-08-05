@@ -151,6 +151,19 @@ def key_is_string(func: Callable[..., Any]) -> Any:
     return wrapper
 
 
+def key_is_int(func: Callable[..., Any]) -> Any:
+    """Decorator to check if the key is an integer."""
+
+    def wrapper(self: Any, key: Any, *args: Any, **kwargs: Any) -> Any:
+        """"""
+        if not isinstance(key, int):
+            raise TypeError(f"{key} must be an integer.")
+
+        return func(self, key, *args, **kwargs)
+
+    return wrapper
+
+
 def logger_debug(func: Callable[..., Any]) -> Any:
     """Decorator to log debug messages."""
 
@@ -334,6 +347,7 @@ def aql_edge_exists(
         direction,
         return_clause="true",
         limit_one=True,
+        can_return_multiple=False,
     )
 
 
@@ -343,6 +357,7 @@ def aql_edge_get(
     dst_node_id: str,
     graph_name: str,
     direction: str,
+    can_return_multiple: bool = False,
 ) -> Any | None:
     return_clause = "DISTINCT e" if direction == "ANY" else "e"
     return aql_edge(
@@ -352,6 +367,8 @@ def aql_edge_get(
         graph_name,
         direction,
         return_clause=return_clause,
+        limit_one=False,
+        can_return_multiple=can_return_multiple,
     )
 
 
@@ -361,18 +378,19 @@ def aql_edge_id(
     dst_node_id: str,
     graph_name: str,
     direction: str,
-) -> str | None:
+    can_return_multiple: bool = False,
+) -> Any | None:
     return_clause = "DISTINCT e._id" if direction == "ANY" else "e._id"
-    result = aql_edge(
+    return aql_edge(
         db,
         src_node_id,
         dst_node_id,
         graph_name,
         direction,
         return_clause=return_clause,
+        limit_one=False,
+        can_return_multiple=can_return_multiple,
     )
-
-    return str(result) if result is not None else None
 
 
 def aql_edge(
@@ -382,8 +400,12 @@ def aql_edge(
     graph_name: str,
     direction: str,
     return_clause: str,
-    limit_one: bool = False,
+    limit_one: bool,
+    can_return_multiple: bool,
 ) -> Any | None:
+    if limit_one and can_return_multiple:
+        raise ValueError("Cannot return multiple results limit_one=True.")
+
     if direction == "INBOUND":
         filter_clause = "e._from == @dst_node_id"
     elif direction == "OUTBOUND":
@@ -410,7 +432,11 @@ def aql_edge(
         "graph_name": graph_name,
     }
 
-    return aql_single(db, query, bind_vars)
+    return (
+        aql_as_list(db, query, bind_vars)
+        if can_return_multiple
+        else aql_single(db, query, bind_vars)
+    )
 
 
 def aql_fetch_data(

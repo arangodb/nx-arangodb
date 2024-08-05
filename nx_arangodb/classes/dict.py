@@ -928,6 +928,27 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
 
     @logger_debug
     def __get_mirrored_edge_attr_dict(self, dst_node_id: str) -> EdgeAttrDict | None:
+        """This method is used to get the edge attribute dictionary of the
+        mirrored edge.
+
+        A "mirrored edge" is defined as a reference to an edge that represents
+        both the forward and reverse edge between two nodes. This is useful
+        because ArangoDB does not need to duplicate edges in both directions
+        in the database, therefore allowing us to save space.
+
+        If the Graph is Undirected:
+        - The "mirror" is the same adjlist_outer_dict because
+            the adjacency list is the same in both directions (i.e _adj)
+
+        If the Graph is Directed:
+        - The "mirror" is the "reverse" adjlist_outer_dict because
+            the adjacency list is different in both directions (i.e _pred and _succ)
+
+        :param dst_node_id: The destination node ID.
+        :type dst_node_id: str
+        :return: The edge attribute dictionary if it exists.
+        :rtype: EdgeAttrDict | None
+        """
         if self.adjlist_outer_dict is None:
             return None
 
@@ -1295,9 +1316,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     @key_is_string
     @logger_debug
     def __setitem__(self, src_key: str, adjlist_inner_dict: AdjListInnerDict) -> None:
-        """
-        g._adj['node/1'] = AdjListInnerDict()
-        """
+        """g._adj['node/1'] = AdjListInnerDict()"""
         assert isinstance(adjlist_inner_dict, AdjListInnerDict)
         assert len(adjlist_inner_dict.data) == 0
 
@@ -1310,9 +1329,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     @key_is_string
     @logger_debug
     def __delitem__(self, key: str) -> None:
-        """
-        del G._adj['node/1']
-        """
+        """del G._adj['node/1']"""
         # Nothing else to do here, as this delete is always invoked by
         # G.remove_node(), which already removes all edges via
         # del G._node['node/1']

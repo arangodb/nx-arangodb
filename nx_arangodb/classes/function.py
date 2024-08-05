@@ -17,10 +17,15 @@ from arango.database import StandardDatabase
 from arango.graph import Graph
 from phenolrs.networkx import NetworkXLoader
 from phenolrs.networkx.typings import (
-    DiGraphAdj,
-    GraphAdj,
-    MultiDiGraphAdj,
-    MultiGraphAdj,
+    ArangoIDtoIndex,
+    DiGraphAdjDict,
+    DstIndices,
+    EdgeIndices,
+    GraphAdjDict,
+    MultiDiGraphAdjDict,
+    MultiGraphAdjDict,
+    NodeDict,
+    SrcIndices,
 )
 
 import nx_arangodb as nxadb
@@ -44,12 +49,12 @@ def get_arangodb_graph(
     is_multigraph: bool,
     symmetrize_edges_if_directed: bool,
 ) -> Tuple[
-    dict[str, dict[str, Any]],
-    GraphAdj | DiGraphAdj | MultiGraphAdj | MultiDiGraphAdj,
-    npt.NDArray[np.int64],
-    npt.NDArray[np.int64],
-    npt.NDArray[np.int64],
-    dict[str, int],
+    NodeDict,
+    GraphAdjDict | DiGraphAdjDict | MultiGraphAdjDict | MultiDiGraphAdjDict,
+    SrcIndices,
+    DstIndices,
+    EdgeIndices,
+    ArangoIDtoIndex,
 ]:
     """Pulls the graph from the database, assuming the graph exists.
 
@@ -134,6 +139,7 @@ def key_is_string(func: Callable[..., Any]) -> Any:
     """Decorator to check if the key is a string."""
 
     def wrapper(self: Any, key: Any, *args: Any, **kwargs: Any) -> Any:
+        """"""
         if not isinstance(key, str):
             if not isinstance(key, (int, float)):
                 raise TypeError(f"{key} cannot be casted to string.")
@@ -158,9 +164,7 @@ def logger_debug(func: Callable[..., Any]) -> Any:
 def keys_are_strings(func: Callable[..., Any]) -> Any:
     """Decorator to check if the keys are strings."""
 
-    def wrapper(
-        self: Any, data: dict[Any, Any] | zip[Any], *args: Any, **kwargs: Any
-    ) -> Any:
+    def wrapper(self: Any, data: Any, *args: Any, **kwargs: Any) -> Any:
         data_dict = {}
 
         items: Any

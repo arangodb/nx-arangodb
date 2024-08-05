@@ -26,13 +26,11 @@ __all__ = [
 ]
 
 
-def _to_nx_graph(
-    G: Any, *args: Any, pull_graph: bool = True, **kwargs: Any
-) -> nx.Graph:
+def _to_nx_graph(G: Any, *args: Any, **kwargs: Any) -> nx.Graph:
     logger.debug(f"_to_nx_graph for {G.__class__.__name__}")
 
     if isinstance(G, nxadb.Graph | nxadb.DiGraph):
-        return nxadb_to_nx(G, pull_graph)
+        return nxadb_to_nx(G)
 
     if isinstance(G, nx.Graph):
         return G
@@ -104,23 +102,16 @@ def nx_to_nxadb(
         else:
             klass = nxadb.Graph
 
+    # graph_name=kwargs.get("graph_name") ?
     return klass(incoming_graph_data=graph)
 
 
-def nxadb_to_nx(G: nxadb.Graph, pull_graph: bool) -> nx.Graph:
+def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
     if not G.graph_exists_in_db:
         logger.debug("graph does not exist, nothing to pull")
         # TODO: Consider just returning G here?
         # Avoids the need to re-create the graph from scratch
         return G.to_networkx_class()(incoming_graph_data=G)
-
-    if not pull_graph:
-        if isinstance(G, nxadb.DiGraph):
-            m = "nx_arangodb.DiGraph has no CRUD Support yet. Cannot rely on remote connection."  # noqa: E501
-            raise NotImplementedError(m)
-
-        logger.debug("graph exists, but not pulling. relying on remote connection...")
-        return G
 
     # TODO: Re-enable this
     # if G.use_nx_cache and G._node and G._adj:
@@ -200,7 +191,7 @@ if GPU_ENABLED:
             G.edge_indices = edge_indices
             G.vertex_ids_to_index = vertex_ids_to_index
 
-        N = len(G.vertex_ids_to_index)
+        N = len(G.vertex_ids_to_index)  # type: ignore
         src_indices_cp = cp.array(G.src_indices)
         dst_indices_cp = cp.array(G.dst_indices)
         edge_indices_cp = cp.array(G.edge_indices)

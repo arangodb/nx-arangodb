@@ -151,8 +151,7 @@ def _run_with_backend(
 
 def _convert_to_backend(G_from: Any, backend_name: str) -> Any:
     if backend_name == "networkx":
-        pull_graph = nx.config.backends.arangodb.pull_graph
-        return nxadb._to_nx_graph(G_from, pull_graph=pull_graph)
+        return nxadb._to_nx_graph(G_from)
 
     if backend_name == "cugraph":
         return nxadb._to_nxcg_graph(G_from)

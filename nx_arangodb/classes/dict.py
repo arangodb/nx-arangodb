@@ -5,17 +5,16 @@ Used as the underlying data structure for NetworkX-ArangoDB graphs.
 
 from __future__ import annotations
 
-import json
-from collections import UserDict, defaultdict
+from collections import UserDict
 from collections.abc import Iterator
-from typing import Any, Callable, Generator
+from typing import Any, Callable
 
 from arango.database import StandardDatabase
-from arango.exceptions import DocumentInsertError
 from arango.graph import Graph
 
 from nx_arangodb.logger import logger
 
+from .enum import DIRECTED_GRAPH_TYPES, MULTIGRAPH_TYPES, GraphType, TraversalDirection
 from .function import (
     aql,
     aql_as_list,
@@ -50,10 +49,8 @@ from .function import (
 #############
 
 
-def graph_dict_factory(
-    db: StandardDatabase, graph_name: str
-) -> Callable[..., GraphDict]:
-    return lambda: GraphDict(db, graph_name)
+def graph_dict_factory(db: StandardDatabase, graph: Graph) -> Callable[..., GraphDict]:
+    return lambda: GraphDict(db, graph)
 
 
 def graph_attr_dict_factory(
@@ -79,8 +76,17 @@ def adjlist_outer_dict_factory(
     graph: Graph,
     default_node_type: str,
     edge_type_func: Callable[[str, str], str],
+    graph_type: str,
+    symmetrize_edges_if_directed: bool,
 ) -> Callable[..., AdjListOuterDict]:
-    return lambda: AdjListOuterDict(db, graph, default_node_type, edge_type_func)
+    return lambda: AdjListOuterDict(
+        db,
+        graph,
+        default_node_type,
+        edge_type_func,
+        graph_type,
+        symmetrize_edges_if_directed,
+    )
 
 
 def adjlist_inner_dict_factory(
@@ -88,10 +94,11 @@ def adjlist_inner_dict_factory(
     graph: Graph,
     default_node_type: str,
     edge_type_func: Callable[[str, str], str],
+    graph_type: str,
     adjlist_outer_dict: AdjListOuterDict | None = None,
 ) -> Callable[..., AdjListInnerDict]:
     return lambda: AdjListInnerDict(
-        db, graph, default_node_type, edge_type_func, adjlist_outer_dict
+        db, graph, default_node_type, edge_type_func, graph_type, adjlist_outer_dict
     )
 
 
@@ -149,18 +156,16 @@ class GraphDict(UserDict[str, Any]):
     """
 
     @logger_debug
-    def __init__(
-        self, db: StandardDatabase, graph_name: str, *args: Any, **kwargs: Any
-    ):
+    def __init__(self, db: StandardDatabase, graph: Graph, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.data: dict[str, Any] = {}
 
         self.db = db
-        self.graph_name = graph_name
+        self.adb_graph = graph
+        self.graph_name = graph.name
         self.COLLECTION_NAME = "nxadb_graphs"
-        self.graph_id = f"{self.COLLECTION_NAME}/{graph_name}"
+        self.graph_id = f"{self.COLLECTION_NAME}/{self.graph_name}"
 
-        self.adb_graph = db.graph(graph_name)
         self.collection = create_collection(db, self.COLLECTION_NAME)
         self.graph_attr_dict_factory = graph_attr_dict_factory(
             self.db, self.adb_graph, self.graph_id
@@ -670,7 +675,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
     def values(self) -> Any:
         """g._node.values()"""
         if not self.FETCHED_ALL_DATA:
-            self.__fetch_all()
+            self._fetch_all()
 
         yield from self.data.values()
 
@@ -680,7 +685,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         """g._node.items() or G._node.items(data='foo')"""
         if data is None:
             if not self.FETCHED_ALL_DATA:
-                self.__fetch_all()
+                self._fetch_all()
 
             yield from self.data.items()
         else:
@@ -689,7 +694,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             yield from result.items()
 
     @logger_debug
-    def __fetch_all(self):
+    def _fetch_all(self):
         self.clear()
 
         (
@@ -816,7 +821,6 @@ class EdgeAttrDict(UserDict[str, Any]):
 
         edge_attr_dict_value = process_edge_attr_dict_value(self, key, result)
         self.data[key] = edge_attr_dict_value
-
         return edge_attr_dict_value
 
     @key_is_string
@@ -889,10 +893,14 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
         graph: Graph,
         default_node_type: str,
         edge_type_func: Callable[[str, str], str],
+        graph_type: str,
         adjlist_outer_dict: AdjListOuterDict | None,
         *args: Any,
         **kwargs: Any,
     ):
+        if graph_type not in GraphType.__members__:
+            raise ValueError(f"**graph_type** not supported: {graph_type}")
+
         super().__init__(*args, **kwargs)
         self.data: dict[str, EdgeAttrDict] = {}
 
@@ -907,14 +915,50 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
 
         self.FETCHED_ALL_DATA = False
 
+        self.graph_type = graph_type
+        self.is_directed = graph_type in DIRECTED_GRAPH_TYPES
+        self.is_multigraph = graph_type in MULTIGRAPH_TYPES
+
+        if adjlist_outer_dict is not None:
+            self.traversal_direction = adjlist_outer_dict.traversal_direction
+        elif self.is_directed:
+            self.traversal_direction = TraversalDirection.OUTBOUND
+        else:
+            self.traversal_direction = TraversalDirection.ANY
+
     @logger_debug
     def __get_mirrored_edge_attr_dict(self, dst_node_id: str) -> EdgeAttrDict | None:
+        """This method is used to get the edge attribute dictionary of the
+        mirrored edge.
+
+        A "mirrored edge" is defined as a reference to an edge that represents
+        both the forward and reverse edge between two nodes. This is useful
+        because ArangoDB does not need to duplicate edges in both directions
+        in the database, therefore allowing us to save space.
+
+        If the Graph is Undirected:
+        - The "mirror" is the same adjlist_outer_dict because
+            the adjacency list is the same in both directions (i.e _adj)
+
+        If the Graph is Directed:
+        - The "mirror" is the "reverse" adjlist_outer_dict because
+            the adjacency list is different in both directions (i.e _pred and _succ)
+
+        :param dst_node_id: The destination node ID.
+        :type dst_node_id: str
+        :return: The edge attribute dictionary if it exists.
+        :rtype: EdgeAttrDict | None
+        """
         if self.adjlist_outer_dict is None:
             return None
 
-        if dst_node_id in self.adjlist_outer_dict.data:
-            if self.src_node_id in self.adjlist_outer_dict.data[dst_node_id].data:
-                return self.adjlist_outer_dict.data[dst_node_id].data[self.src_node_id]
+        mirror = self.adjlist_outer_dict
+        if self.is_directed:
+            mirror = mirror.mirror
+
+        if dst_node_id in mirror.data:
+            if self.src_node_id in mirror.data[dst_node_id].data:
+                return mirror.data[dst_node_id].data[self.src_node_id]
 
         return None
 
@@ -944,7 +988,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
             self.src_node_id,
             dst_node_id,
             self.graph.name,
-            direction="ANY",
+            direction=self.traversal_direction.name,
         )
 
         return result if result else False
@@ -971,7 +1015,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
             self.src_node_id,
             dst_node_id,
             self.graph.name,
-            direction="ANY",
+            direction=self.traversal_direction.name,
         )
 
         if not edge:
@@ -1011,7 +1055,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
             self.src_node_id,
             dst_node_id,
             self.graph.name,
-            direction="ANY",
+            direction=self.traversal_direction.name,
         ):
             self.graph.delete_edge(edge_id)
 
@@ -1040,7 +1084,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
             self.src_node_id,
             dst_node_id,
             self.graph.name,
-            direction="ANY",
+            direction=self.traversal_direction.name,
         )
 
         if not edge_id:
@@ -1057,10 +1101,11 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
             return len(self.data)
 
         # TODO: Create aql_edge_count() function
-        query = """
+        query = f"""
             RETURN LENGTH(
-                FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
-                    RETURN 1
+                FOR v, e IN 1..1 {self.traversal_direction.name} @src_node_id
+                GRAPH @graph_name
+                    RETURN DISTINCT e._id
             )
         """
 
@@ -1081,9 +1126,18 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
             yield from self.data.keys()
 
         else:
-            query = """
-                FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
-                    RETURN e._to
+
+            if self.traversal_direction == TraversalDirection.OUTBOUND:
+                return_str = "e._to"
+            elif self.traversal_direction == TraversalDirection.INBOUND:
+                return_str = "e._from"
+            else:
+                return_str = "e._to == @src_node_id ? e._from : e._to"
+
+            query = f"""
+                FOR v, e IN 1..1 {self.traversal_direction.name} @src_node_id
+                GRAPH @graph_name
+                    RETURN {return_str}
             """
 
             bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
@@ -1113,7 +1167,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
     def values(self) -> Any:
         """g._adj['node/1'].values()"""
         if not self.FETCHED_ALL_DATA:
-            self.__fetch_all()
+            self._fetch_all()
 
         yield from self.data.values()
 
@@ -1122,28 +1176,43 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
     def items(self) -> Any:
         """g._adj['node/1'].items()"""
         if not self.FETCHED_ALL_DATA:
-            self.__fetch_all()
+            self._fetch_all()
 
         yield from self.data.items()
 
     @logger_debug
-    def __fetch_all(self) -> None:
+    def _fetch_all(self) -> None:
         assert self.src_node_id
 
         self.clear()
 
-        query = """
-            FOR v, e IN 1..1 OUTBOUND @src_node_id GRAPH @graph_name
+        query = f"""
+            FOR v, e IN 1..1 {self.traversal_direction.name} @src_node_id
+            GRAPH @graph_name
                 RETURN e
         """
 
         bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
 
+        if self.traversal_direction == TraversalDirection.OUTBOUND:
+            dst_node_key = "_to"
+        elif self.traversal_direction == TraversalDirection.INBOUND:
+            dst_node_key = "_from"
+        else:
+            dst_node_key = None
+
         for edge in aql(self.db, query, bind_vars):
             edge_attr_dict = self.edge_attr_dict_factory()
             edge_attr_dict.edge_id = edge["_id"]
             edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
-            self.data[edge["_to"]] = edge_attr_dict
+
+            dst_node_id = (
+                edge[dst_node_key]
+                if dst_node_key
+                else edge["_to"] if self.src_node_id == edge["_from"] else edge["_from"]
+            )
+
+            self.data[dst_node_id] = edge_attr_dict
 
         self.FETCHED_ALL_DATA = True
 
@@ -1171,9 +1240,14 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         graph: Graph,
         default_node_type: str,
         edge_type_func: Callable[[str, str], str],
+        graph_type: str,
+        symmetrize_edges_if_directed: bool,
         *args: Any,
         **kwargs: Any,
     ):
+        if graph_type not in GraphType.__members__:
+            raise ValueError(f"**graph_type** not supported: {graph_type}")
+
         super().__init__(*args, **kwargs)
         self.data: dict[str, AdjListInnerDict] = {}
 
@@ -1182,10 +1256,22 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         self.edge_type_func = edge_type_func
         self.default_node_type = default_node_type
         self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(
-            db, graph, default_node_type, edge_type_func, self
+            db, graph, default_node_type, edge_type_func, graph_type, self
         )
 
         self.FETCHED_ALL_DATA = False
+
+        self.graph_type = graph_type
+        self.is_directed = graph_type in DIRECTED_GRAPH_TYPES
+        self.is_multigraph = graph_type in MULTIGRAPH_TYPES
+        self.traversal_direction = (
+            TraversalDirection.OUTBOUND if self.is_directed else TraversalDirection.ANY
+        )
+        self.symmetrize_edges_if_directed = (
+            symmetrize_edges_if_directed and self.is_directed
+        )
+
+        self.mirror: AdjListOuterDict
 
     @logger_debug
     def __repr__(self) -> str:
@@ -1230,42 +1316,20 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     @key_is_string
     @logger_debug
     def __setitem__(self, src_key: str, adjlist_inner_dict: AdjListInnerDict) -> None:
-        """
-        g._adj['node/1'] = AdjListInnerDict()
-        """
+        """g._adj['node/1'] = AdjListInnerDict()"""
         assert isinstance(adjlist_inner_dict, AdjListInnerDict)
-        assert len(adjlist_inner_dict.data) == 0  # See NOTE below
+        assert len(adjlist_inner_dict.data) == 0
 
-        src_node_type, src_node_id = get_node_type_and_id(
-            src_key, self.default_node_type
-        )
-
-        # NOTE: this might not actually be needed...
-        # results = {}
-        # for dst_key, edge_dict in adjlist_inner_dict.data.items():
-        #     dst_node_type, dst_node_id = get_node_type_and_id(
-        #         dst_key, self.default_node_type
-        #     )
-
-        #     edge_type = edge_dict.get("_edge_type")
-        #     if edge_type is None:
-        #         edge_type = self.edge_type_func(src_node_type, dst_node_type)
-
-        #     results[dst_key] = self.graph.link(
-        #         edge_type, src_node_id, dst_node_id, edge_dict
-        #     )
-
+        src_node_id = get_node_id(src_key, self.default_node_type)
         adjlist_inner_dict.src_node_id = src_node_id
-        # adjlist_inner_dict.data = results
-
+        adjlist_inner_dict.adjlist_outer_dict = self
+        adjlist_inner_dict.traversal_direction = self.traversal_direction
         self.data[src_node_id] = adjlist_inner_dict
 
     @key_is_string
     @logger_debug
     def __delitem__(self, key: str) -> None:
-        """
-        del G._adj['node/1']
-        """
+        """del G._adj['node/1']"""
         # Nothing else to do here, as this delete is always invoked by
         # G.remove_node(), which already removes all edges via
         # del G._node['node/1']
@@ -1319,7 +1383,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     def values(self) -> Any:
         """g._adj.values()"""
         if not self.FETCHED_ALL_DATA:
-            self.__fetch_all()
+            self._fetch_all()
 
         yield from self.data.values()
 
@@ -1334,7 +1398,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         """g._adj.items() or G._adj.items(data='foo')"""
         if data is None:
             if not self.FETCHED_ALL_DATA:
-                self.__fetch_all()
+                self._fetch_all()
 
             yield from self.data.items()
 
@@ -1344,8 +1408,52 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             yield from result
 
     @logger_debug
-    def __fetch_all(self) -> None:
+    def _fetch_all(self) -> None:
         self.clear()
+
+        def set_adj_inner_dict(
+            adj_outer_dict: AdjListOuterDict, node_id: str
+        ) -> AdjListInnerDict:
+            if node_id in adj_outer_dict.data:
+                return adj_outer_dict.data[node_id]
+
+            adj_inner_dict = self.adjlist_inner_dict_factory()
+            adj_inner_dict.src_node_id = node_id
+            adj_inner_dict.FETCHED_ALL_DATA = True
+            adj_outer_dict.data[node_id] = adj_inner_dict
+
+            return adj_inner_dict
+
+        def propagate_edge_undirected(
+            src_node_id: str, dst_node_id: str, edge_attr_dict: EdgeAttrDict
+        ) -> None:
+            self.data[dst_node_id].data[src_node_id] = edge_attr_dict
+
+        def propagate_edge_directed(
+            src_node_id: str, dst_node_id: str, edge_attr_dict: EdgeAttrDict
+        ) -> None:
+            set_adj_inner_dict(self.mirror, dst_node_id)
+            self.mirror.data[dst_node_id].data[src_node_id] = edge_attr_dict
+
+        def propagate_edge_directed_symmetric(
+            src_node_id: str,
+            dst_node_id: str,
+            edge_attr_dict: EdgeAttrDict,
+        ) -> None:
+            propagate_edge_directed(src_node_id, dst_node_id, edge_attr_dict)
+            propagate_edge_undirected(src_node_id, dst_node_id, edge_attr_dict)
+            set_adj_inner_dict(self.mirror, src_node_id)
+            self.mirror.data[src_node_id].data[dst_node_id] = edge_attr_dict
+
+        propagate_edge_func = (
+            propagate_edge_directed_symmetric
+            if self.is_directed and self.symmetrize_edges_if_directed
+            else (
+                propagate_edge_directed
+                if self.is_directed
+                else propagate_edge_undirected
+            )
+        )
 
         (
             _,
@@ -1358,39 +1466,32 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             load_coo=False,
             load_all_vertex_attributes=False,  # not used
             load_all_edge_attributes=True,
-            is_directed=False,  # TODO: Abstract based on Graph type
-            is_multigraph=False,  # TODO: Abstract based on Graph type
-            symmetrize_edges_if_directed=False,  # TODO: Abstract based on Graph type
+            is_directed=self.is_directed,
+            is_multigraph=self.is_multigraph,
+            symmetrize_edges_if_directed=self.symmetrize_edges_if_directed,
         )
+
+        if self.is_directed:
+            adj_dict = adj_dict["succ"]
 
         for src_node_id, inner_dict in adj_dict.items():
             for dst_node_id, edge in inner_dict.items():
 
-                if src_node_id in self.data:
-                    if dst_node_id in self.data[src_node_id].data:
-                        continue
+                if not self.is_directed:
+                    if src_node_id in self.data:
+                        if dst_node_id in self.data[src_node_id].data:
+                            continue  # can skip due not directed
 
-                if src_node_id in self.data:
-                    src_inner_dict = self.data[src_node_id]
-                else:
-                    src_inner_dict = self.adjlist_inner_dict_factory()
-                    src_inner_dict.src_node_id = src_node_id
-                    src_inner_dict.FETCHED_ALL_DATA = True
-                    self.data[src_node_id] = src_inner_dict
-
-                if dst_node_id in self.data:
-                    dst_inner_dict = self.data[dst_node_id]
-                else:
-                    dst_inner_dict = self.adjlist_inner_dict_factory()
-                    dst_inner_dict.src_node_id = dst_node_id
-                    src_inner_dict.FETCHED_ALL_DATA = True
-                    self.data[dst_node_id] = dst_inner_dict
+                src_inner_dict = set_adj_inner_dict(self, src_node_id)
+                _ = set_adj_inner_dict(self, dst_node_id)
 
                 edge_attr_dict = src_inner_dict.edge_attr_dict_factory()
                 edge_attr_dict.edge_id = edge["_id"]
                 edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
 
                 self.data[src_node_id].data[dst_node_id] = edge_attr_dict
-                self.data[dst_node_id].data[src_node_id] = edge_attr_dict
+                propagate_edge_func(src_node_id, dst_node_id, edge_attr_dict)
 
         self.FETCHED_ALL_DATA = True
+        if self.is_directed:
+            self.mirror.FETCHED_ALL_DATA = True

@@ -870,7 +870,63 @@ class EdgeAttrDict(UserDict[str, Any]):
         root_data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
 
 
-class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
+class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
+    """The second inner-level of the dict of dict of dict of dict
+    structure representing the Adjacency List of a MultiGraph.
+
+    Unique to MultiGraphs, edges are keyed by a numerical edge index, allowing
+    for multiple edges between the same nodes.
+
+    :param db: The ArangoDB database.
+    :type db: StandardDatabase
+    :param graph: The ArangoDB graph.
+    :type graph: Graph
+    """
+
+    @logger_debug
+    def __init__(
+        self,
+        db: StandardDatabase,
+        graph: Graph,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.data: dict[int, EdgeAttrDict] = {}
+
+        self.db = db
+        self.graph = graph
+        self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
+
+    # @logger_debug
+    # def __contains__(self, key: int) -> bool:
+    #     """0 in G._adj['node/1']['node/2']"""
+    #     super().__contains__(key)
+
+    @logger_debug
+    @key_is_int
+    # @key_is_string?
+    def __getitem__(self, key: int) -> EdgeAttrDict:
+        """G._adj['node/1']['node/2'][0]"""
+        raise NotImplementedError
+        # if value := self.data.get(key):
+        #     return value
+
+        # result = aql_doc_get_key(self.db, self.edge_id, key)
+
+        # if not result:
+        #     raise KeyError(key)
+
+        # edge_attr_dict = self.edge_attr_dict_factory()
+        # edge_attr_dict.edge_id = result["_id"]
+        # edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, result)
+        # self.data[key] = edge_attr_dict
+
+        # return edge_attr_dict
+
+
+class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
     """The inner-level of the dict of dict of dict structure
     representing the Adjacency List of a graph.
 
@@ -902,13 +958,14 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
             raise ValueError(f"**graph_type** not supported: {graph_type}")
 
         super().__init__(*args, **kwargs)
-        self.data: dict[str, EdgeAttrDict] = {}
+        self.data: dict[str, EdgeAttrDict | EdgeKeyDict] = {}
 
         self.db = db
         self.graph = graph
         self.edge_type_func = edge_type_func
         self.default_node_type = default_node_type
         self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
+        self.edge_key_dict_factory = edge_key_dict_factory(self.db, self.graph)
 
         self.src_node_id: str | None = None
         self.adjlist_outer_dict = adjlist_outer_dict
@@ -995,7 +1052,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict]):
 
     @key_is_string
     @logger_debug
-    def __getitem__(self, key: str) -> EdgeAttrDict:
+    def __getitem__(self, key: str) -> EdgeAttrDict | EdgeKeyDict:
         """g._adj['node/1']['node/2']"""
         dst_node_id = get_node_id(key, self.default_node_type)
 

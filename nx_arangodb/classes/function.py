@@ -333,6 +333,7 @@ def aql_edge_exists(
         graph_name,
         direction,
         return_clause="true",
+        limit_one=True,
     )
 
 
@@ -381,6 +382,7 @@ def aql_edge(
     graph_name: str,
     direction: str,
     return_clause: str,
+    limit_one: bool = False,
 ) -> Any | None:
     if direction == "INBOUND":
         filter_clause = "e._from == @dst_node_id"
@@ -394,9 +396,11 @@ def aql_edge(
     else:
         raise InvalidTraversalDirection(f"Invalid direction: {direction}")
 
+    limit_clause = "LIMIT 1" if limit_one else ""
     query = f"""
         FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
             FILTER {filter_clause}
+            {limit_clause}
             RETURN {return_clause}
     """
 

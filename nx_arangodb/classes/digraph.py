@@ -32,7 +32,6 @@ class DiGraph(nxadb_Graph, nx.DiGraph):
         *args: Any,
         **kwargs: Any,
     ):
-
         super().__init__(
             graph_name, default_node_type, edge_type_func, db, *args, **kwargs
         )

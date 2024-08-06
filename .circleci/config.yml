@@ -10,7 +10,7 @@ executors:
 
   machine-executor:
     machine:
-      image: circleci/classic:latest
+      image: ubuntu-2204:2024.01.1
 
 jobs:
   lint:

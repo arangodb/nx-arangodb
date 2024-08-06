@@ -40,9 +40,12 @@ class Graph(nx.Graph):
     def __init__(
         self,
         graph_name: str | None = None,
-        default_node_type: str = "node",
-        edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
+        default_node_type: str | None = None,
+        edge_type_func: Callable[[str, str], str] | None = None,
         db: StandardDatabase | None = None,
+        read_parallelism: int = 10,
+        read_batch_size: int = 100000,
+        write_batch_size: int = 50000,
         *args: Any,
         **kwargs: Any,
     ):
@@ -54,8 +57,10 @@ class Graph(nx.Graph):
         if self._db is not None:
             self._set_graph_name(graph_name)
 
-        self.graph_loader_parallelism = 10
-        self.graph_loader_batch_size = 100000
+        # We need to store the data transfer properties as some functions will need them
+        self.read_parallelism = read_parallelism
+        self.read_batch_size = read_batch_size
+        self.write_batch_size = write_batch_size
 
         # NOTE: Need to revisit these...
         # self.maintain_node_dict_cache = False
@@ -69,6 +74,12 @@ class Graph(nx.Graph):
         self.vertex_ids_to_index: dict[str, int] | None = None
 
         self.symmetrize_edges = False  # Does not apply to undirected graphs
+
+        prefix = f"{graph_name}_" if graph_name else ""
+        if default_node_type is None:
+            default_node_type = f"{prefix}node"
+        if edge_type_func is None:
+            edge_type_func = lambda u, v: f"{u}_to_{v}"  # noqa: E731
 
         self.default_node_type = default_node_type
         self.edge_type_func = edge_type_func
@@ -103,6 +114,8 @@ class Graph(nx.Graph):
                     self._graph_name,
                     incoming_graph_data,
                     edge_definitions=edge_definitions,
+                    batch_size=self.write_batch_size,
+                    use_async=True,
                 )
 
                 # No longer need this (we've already populated the graph)
@@ -135,8 +148,8 @@ class Graph(nx.Graph):
         config.username = self._username
         config.password = self._password
         config.db_name = self._db_name
-        config.load_parallelism = self.graph_loader_parallelism
-        config.load_batch_size = self.graph_loader_batch_size
+        config.read_parallelism = self.read_parallelism
+        config.read_batch_size = self.read_batch_size
 
     def _set_factory_methods(self) -> None:
         """Set the factory methods for the graph, _node, and _adj dictionaries.

@@ -54,6 +54,13 @@ jobs:
             sudo apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python3-openssl git
 
       - run:
+          name: Remove existing pyenv if exists
+          command: |
+            if [ -d "/opt/circleci/.pyenv" ]; then
+              sudo rm -rf /opt/circleci/.pyenv
+            fi  
+
+      - run:
           name: Install pyenv
           command: |
             curl https://pyenv.run | bash

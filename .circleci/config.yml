@@ -63,8 +63,8 @@ jobs:
           name: Setup Python
           command: |
             pyenv --version
-            pyenv install -f 3.11
-            pyenv global 3.11
+            pyenv install -f 3.10
+            pyenv global 3.10
 
       - run:
           name: Setup pip

@@ -36,3 +36,7 @@ class ShortestPathError(ArangoDBAlgorithmError):
 
 class MultipleEdgesFound(NetworkXArangoDBException):
     pass
+
+
+class EdgeTypeAmbiguity(NetworkXArangoDBException):
+    pass

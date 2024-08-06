@@ -116,6 +116,7 @@ class Graph(nx.Graph):
 
             self._set_factory_methods()
             self._set_arangodb_backend_config()
+            logger.info(f"Graph '{graph_name}' created.")
             self._graph_exists_in_db = True
 
         super().__init__(*args, **kwargs)

@@ -59,8 +59,8 @@ class Graph(nx.Graph):
             data_transfer_cfg = {}
 
         # Read the transfer config. If values not available, set defaults.
-        self.graph_loader_parallelism = data_transfer_cfg.get('parallelism', 10)
-        self.data_transfer_batch_size = data_transfer_cfg.get('batch_size', 100000)
+        self.graph_loader_parallelism = data_transfer_cfg.get("parallelism", 10)
+        self.data_transfer_batch_size = data_transfer_cfg.get("batch_size", 100000)
 
         # NOTE: Need to revisit these...
         # self.maintain_node_dict_cache = False

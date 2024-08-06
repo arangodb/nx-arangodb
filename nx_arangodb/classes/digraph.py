@@ -32,14 +32,9 @@ class DiGraph(nxadb_Graph, nx.DiGraph):
         *args: Any,
         **kwargs: Any,
     ):
-        self.edge_type_func = edge_type_func
-        self.default_node_type = default_node_type
-        if graph_name is not None:
-            self.edge_type_func = lambda u, v: f"{graph_name}_{u}_to_{v}"
-            self.default_node_type = f"{graph_name}_node"
 
         super().__init__(
-            graph_name, self.default_node_type, self.edge_type_func, db, *args, **kwargs
+            graph_name, default_node_type, edge_type_func, db, *args, **kwargs
         )
 
         self.symmetrize_edges = symmetrize_edges

@@ -48,16 +48,30 @@ jobs:
       - checkout
 
       - run:
-          name: Setup Python 3.10
-          command: sudo apt-get update && sudo apt-get install -y python3.10 python3.10-venv python3.10-dev
+          name: Install Dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl git
 
       - run:
-          name: Install System Dependencies
-          command: sudo apt-get install -y libssl-dev libffi-dev
+          name: Install pyenv
+          command: |
+            curl https://pyenv.run | bash
+            echo 'export PATH="$HOME/.pyenv/bin:$PATH"' >> ~/.bashrc
+            echo 'eval "$(pyenv init --path)"' >> ~/.bashrc
+            echo 'eval "$(pyenv init -)"' >> ~/.bashrc
+            echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
+            source ~/.bashrc
+
+      - run:
+          name: Install Python 3.10
+          command: |
+            pyenv install 3.10.6
+            pyenv global 3.10.6
 
       - run:
           name: Setup pip
-          command: python3.10 -m pip install --upgrade pip setuptools wheel
+          command: python -m pip install --upgrade pip setuptools wheel
 
       - run:
           name: Install packages

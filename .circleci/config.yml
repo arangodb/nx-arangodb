@@ -85,6 +85,4 @@ workflows:
   build:
     jobs:
       - lint
-      - test:
-          requires:
-            - lint
+      - test

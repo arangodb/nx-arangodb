@@ -1,0 +1,79 @@
+version: 2.1
+
+executors:
+  python-executor:
+    docker:
+      - image: circleci/python:3.10
+    environment:
+      PACKAGE_DIR: nx_arangodb
+      TESTS_DIR: tests
+
+jobs:
+  lint:
+    executor: python-executor
+    steps:
+      - checkout
+
+      - run:
+          name: Setup pip
+          command: python -m pip install --upgrade pip setuptools wheel
+
+      - run:
+          name: Install packages
+          command: pip install .[dev]
+
+      - run:
+          name: Run black
+          command: black --check --verbose --diff --color $PACKAGE_DIR $TESTS_DIR
+
+      - run:
+          name: Run flake8
+          command: flake8 $PACKAGE_DIR $TESTS_DIR
+
+      - run:
+          name: Run isort
+          command: isort --check --profile=black $PACKAGE_DIR $TESTS_DIR
+
+      - run:
+          name: Run mypy
+          command: mypy $PACKAGE_DIR $TESTS_DIR
+
+  test:
+    executor: python-executor
+    steps:
+      - checkout
+
+      - run:
+          name: Setup pip
+          command: python -m pip install --upgrade pip setuptools wheel
+
+      - run:
+          name: Install packages
+          command: pip install .[dev]
+
+      - run:
+          name: Install Phenolrs (temporary solution)
+          command: pip install phenolrs --find-links .
+
+      - run:
+          name: Set up ArangoDB
+          command: |
+            chmod +x starter.sh
+            ./starter.sh
+
+      - run:
+          name: Run local tests
+          command: pytest tests/test.py
+
+      - run:
+          name: Run NetworkX tests
+          command: ./run_nx_tests.sh
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - lint
+      - test:
+          requires:
+            - lint

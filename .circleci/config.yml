@@ -56,6 +56,10 @@ jobs:
           command: pip install .[dev]
 
       - run:
+          name: List files
+          command: ls -alh
+
+      - run:
           name: Install Phenolrs (temporary solution)
           command: pip install phenolrs --find-links .
 

@@ -79,8 +79,8 @@ def get_info():
         "username": None,
         "password": None,
         "db_name": None,
-        "load_parallelism": None,
-        "load_batch_size": None,
+        "read_parallelism": None,
+        "read_batch_size": None,
     }
 
     return d

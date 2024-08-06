@@ -43,6 +43,7 @@ class Graph(nx.Graph):
         default_node_type: str = "node",
         edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
         db: StandardDatabase | None = None,
+        data_transfer_cfg: dict[str, Any] | None = None,
         *args: Any,
         **kwargs: Any,
     ):
@@ -54,8 +55,12 @@ class Graph(nx.Graph):
         if self._db is not None:
             self._set_graph_name(graph_name)
 
-        self.graph_loader_parallelism = 10
-        self.graph_loader_batch_size = 100000
+        if data_transfer_cfg is None:
+            data_transfer_cfg = {}
+
+        # Read the transfer config. If values not available, set defaults.
+        self.graph_loader_parallelism = data_transfer_cfg.get('parallelism', 10)
+        self.data_transfer_batch_size = data_transfer_cfg.get('batch_size', 100000)
 
         # NOTE: Need to revisit these...
         # self.maintain_node_dict_cache = False
@@ -103,6 +108,8 @@ class Graph(nx.Graph):
                     self._graph_name,
                     incoming_graph_data,
                     edge_definitions=edge_definitions,
+                    batch_size=self.data_transfer_batch_size,
+                    use_async=True,
                 )
 
                 # No longer need this (we've already populated the graph)
@@ -135,7 +142,7 @@ class Graph(nx.Graph):
         config.password = self._password
         config.db_name = self._db_name
         config.load_parallelism = self.graph_loader_parallelism
-        config.load_batch_size = self.graph_loader_batch_size
+        config.load_batch_size = self.data_transfer_batch_size
 
     def _set_factory_methods(self) -> None:
         """Set the factory methods for the graph, _node, and _adj dictionaries.

@@ -40,8 +40,8 @@ class Graph(nx.Graph):
     def __init__(
         self,
         graph_name: str | None = None,
-        default_node_type: str = "node",
-        edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
+        default_node_type: str | None = None,
+        edge_type_func: Callable[[str, str], str] | None = None,
         db: StandardDatabase | None = None,
         *args: Any,
         **kwargs: Any,
@@ -69,6 +69,12 @@ class Graph(nx.Graph):
         self.vertex_ids_to_index: dict[str, int] | None = None
 
         self.symmetrize_edges = False  # Does not apply to undirected graphs
+
+        prefix = f"{graph_name}_" if graph_name else ""
+        if default_node_type is None:
+            default_node_type = f"{prefix}node"
+        if edge_type_func is None:
+            edge_type_func = lambda u, v: f"{u}_to_{v}"  # noqa: E731
 
         self.default_node_type = default_node_type
         self.edge_type_func = edge_type_func

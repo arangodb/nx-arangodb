@@ -915,6 +915,14 @@ class EdgeKeyDict(UserDict[int, EdgeAttrDict]):
         self.dst_node_id: str | None = None
 
     @logger_debug
+    def _create_edge_attr_dict(self, edge: dict[str, Any]) -> EdgeAttrDict:
+        edge_attr_dict = self.edge_attr_dict_factory()
+        edge_attr_dict.edge_id = edge["_id"]
+        edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, edge)
+
+        return edge_attr_dict
+
+    @logger_debug
     def __contains__(self, key: int) -> bool:
         """0 in G._adj['node/1']['node/2']"""
         return super().__contains__(key)
@@ -935,9 +943,58 @@ class EdgeKeyDict(UserDict[int, EdgeAttrDict]):
 
     @key_is_int
     @logger_debug
-    def __setitem__(self, key: int, value: EdgeAttrDict) -> None:
+    def __setitem__(self, key: int, edge_attr_dict: EdgeAttrDict) -> None:
         """G._adj['node/1']['node/2'][0] = {'foo': 'bar'}"""
-        raise NotImplementedError
+        self.data[key] = edge_attr_dict
+
+        # TODO: Parameterize the edge type key
+        edge_type_key = "_edge_type"
+
+        if edge_attr_dict.edge_id:
+            # NOTE: We can get here from L514 in networkx/multigraph.py
+            # Assuming that keydict.get(key) did not return None (L513)
+
+            # If the edge_id is already set, it means that the
+            # EdgeAttrDict.update() that was just called was
+            # able to update the edge in the database.
+            # Therefore, we don't need to insert anything.
+
+            if edge_type_key in edge_attr_dict.data:
+                m = f"Cannot set '{edge_type_key}' if edge already exists in DB."
+                raise EdgeTypeAmbiguity(m)
+
+            return
+
+        if not self.src_node_id or not self.dst_node_id:
+            logger.debug("Node IDs not set, skipping EdgeKeyDict(?).__setitem__()")
+            return
+
+        # NOTE: We can get here from L514 in networkx/multigraph.py
+        # Assuming that keydict.get(key) returned None (L513)
+
+        edge_type = edge_attr_dict.data.pop(edge_type_key, None)
+        if not edge_type:
+            edge_type = self.edge_type_func(self.src_node_id, self.dst_node_id)
+
+        edge = self.graph.link(
+            edge_type, self.src_node_id, self.dst_node_id, edge_attr_dict.data
+        )
+
+        edge_data: dict[str, Any] = {
+            **edge_attr_dict.data,
+            **edge,
+            "_from": self.src_node_id,
+            "_to": self.dst_node_id,
+        }
+
+        # We have to re-create the EdgeAttrDict because the
+        # previous one was created without any **edge_id**
+        # TODO: Could we somehow update the existing EdgeAttrDict?
+        # i.e edge_attr_dict.data = edge_data
+        # + some extra code to set the **edge_id** attribute
+        # for any nested EdgeAttrDicts within edge_attr_dict
+        edge_attr_dict = self._create_edge_attr_dict(edge_data)
+        self.data[key] = edge_attr_dict
 
     @key_is_int
     @logger_debug
@@ -1159,6 +1216,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         edge_key_dict.src_node_id = self.src_node_id
         edge_key_dict.dst_node_id = dst_node_id
 
+        # NOTE: The edges are sorted by _key
         for i, edge in enumerate(edges):
             edge_attr_dict = self._create_edge_attr_dict(edge)
             edge_key_dict.data[i] = edge_attr_dict
@@ -1248,10 +1306,37 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         self, edge_key_dict: EdgeKeyDict, dst_node_type: str, dst_node_id: str
     ) -> None:
         """Helper function for __setitem__ in MultiGraphs."""
-        # NOTE: See EdgeKeyDict.__setitem__() for information
-        # on why this method doesn't need to insert anything into the database.
         assert len(edge_key_dict.data) == 1
         assert list(edge_key_dict.data.keys())[0] == 0
+        assert edge_key_dict.src_node_id is None
+        assert edge_key_dict.dst_node_id is None
+
+        edge_attr_dict = edge_key_dict.data[0]
+
+        # TODO: Parameterize "_edge_type"
+        edge_type_key = "_edge_type"
+        edge_type = edge_attr_dict.data.pop(edge_type_key, None)
+        if edge_type is None:
+            edge_type = self.edge_type_func(self.src_node_type, dst_node_type)
+
+        edge = self.graph.link(
+            edge_type, self.src_node_id, dst_node_id, edge_attr_dict.data
+        )
+
+        edge_data: dict[str, Any] = {
+            **edge_attr_dict.data,
+            **edge,
+            "_from": self.src_node_id,
+            "_to": dst_node_id,
+        }
+
+        # We have to re-create the EdgeAttrDict because the
+        # previous one was created without any **edge_id**
+        # TODO: Could we somehow update the existing EdgeAttrDict?
+        # i.e edge_attr_dict.data = edge_data
+        # + some extra code to set the **edge_id** attribute
+        # for any nested EdgeAttrDicts within edge_attr_dict
+        edge_key_dict.data[0] = self._create_edge_attr_dict(edge_data)
         self.data[dst_node_id] = edge_key_dict
 
     @key_is_string

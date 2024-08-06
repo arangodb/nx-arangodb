@@ -418,11 +418,13 @@ def aql_edge(
     else:
         raise InvalidTraversalDirection(f"Invalid direction: {direction}")
 
-    limit_clause = "LIMIT 1" if limit_one else ""
+    limit_one_clause = "LIMIT 1" if limit_one else ""
+    sort_by_key_clause = "SORT e._key" if can_return_multiple else ""
     query = f"""
         FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
             FILTER {filter_clause}
-            {limit_clause}
+            {limit_one_clause}
+            {sort_by_key_clause}
             RETURN {return_clause}
     """
 

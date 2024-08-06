@@ -86,9 +86,9 @@ def get_arangodb_graph(
     config = nx.config.backends.arangodb
 
     kwargs = {}
-    if parallelism := config.get("load_parallelism"):
+    if parallelism := config.get("read_parallelism"):
         kwargs["parallelism"] = parallelism
-    if batch_size := config.get("load_batch_size"):
+    if batch_size := config.get("read_batch_size"):
         kwargs["batch_size"] = batch_size
 
     assert config.db_name

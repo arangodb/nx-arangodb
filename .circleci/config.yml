@@ -8,6 +8,10 @@ executors:
       PACKAGE_DIR: nx_arangodb
       TESTS_DIR: tests
 
+  machine-executor:
+    machine:
+      image: circleci/classic:latest
+
 jobs:
   lint:
     executor: python-executor
@@ -39,13 +43,13 @@ jobs:
           command: mypy $PACKAGE_DIR $TESTS_DIR
 
   test:
-    executor: python-executor
+    executor: machine-executor
     steps:
       - checkout
 
       - run:
           name: Setup pip
-          command: python -m pip install --upgrade pip setuptools wheel
+          command: sudo apt-get install -y python3-pip && python3 -m pip install --upgrade pip setuptools wheel
 
       - run:
           name: Install packages

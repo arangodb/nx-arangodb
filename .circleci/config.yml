@@ -48,6 +48,12 @@ jobs:
       - checkout
 
       - run:
+          name: Set up ArangoDB
+          command: |
+            chmod +x starter.sh
+            ./starter.sh
+
+      - run:
           name: Install Dependencies
           command: |
             sudo apt-get update
@@ -85,19 +91,9 @@ jobs:
           command: pip install .[dev]
 
       - run:
-          name: List files
-          command: ls -alh
-
-      - run:
           name: Install Phenolrs (temporary solution)
-          #command: pip install phenolrs --find-links .
-          command: pip install ./phenolrs-0.4.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl --verbose
-
-      - run:
-          name: Set up ArangoDB
-          command: |
-            chmod +x starter.sh
-            ./starter.sh
+          command: pip install phenolrs --find-links .
+          #command: pip install ./phenolrs-0.4.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
 
       - run:
           name: Run local tests

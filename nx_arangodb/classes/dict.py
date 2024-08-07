@@ -307,6 +307,9 @@ class GraphAttrDict(UserDict[str, Any]):
             self.db, self.graph, self.graph_id
         )
 
+    def clear(self) -> None:
+        raise NotImplementedError("Cannot clear GraphAttrDict")
+
     @key_is_string
     @logger_debug
     def __contains__(self, key: str) -> bool:
@@ -420,6 +423,7 @@ def get_update_dict(
     return update_dict
 
 
+@json_serializable
 class NodeAttrDict(UserDict[str, Any]):
     """The inner-level of the dict of dict structure
     representing the nodes (vertices) of a graph.
@@ -446,6 +450,9 @@ class NodeAttrDict(UserDict[str, Any]):
         self.root: NodeAttrDict | None = None
         self.parent_keys: list[str] = []
         self.node_attr_dict_factory = node_attr_dict_factory(self.db, self.graph)
+
+    def clear(self) -> None:
+        raise NotImplementedError("Cannot clear NodeAttrDict")
 
     @key_is_string
     @logger_debug
@@ -816,6 +823,9 @@ class EdgeAttrDict(UserDict[str, Any]):
         self.parent_keys: list[str] = []
         self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
 
+    def clear(self) -> None:
+        raise NotImplementedError("Cannot clear EdgeAttrDict")
+
     @key_is_string
     @logger_debug
     def __contains__(self, key: str) -> bool:
@@ -953,9 +963,8 @@ class EdgeKeyDict(UserDict[int, EdgeAttrDict]):
     @logger_debug
     def __contains__(self, key: int) -> bool:
         """0 in G._adj['node/1']['node/2']"""
-        return super().__contains__(key)
-        # TODO: See __getitem__ for more information
-        # The same logic applies here.
+        # I don't even know if this is possible or necessary
+        raise NotImplementedError("EdgeKeyDict.__contains__()")
 
     @key_is_int
     @logger_debug
@@ -1252,9 +1261,9 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         if self.adjlist_outer_dict is None:
             return None
 
-        mirror = self.adjlist_outer_dict
+        mirror = self.adjlist_outer_dict  # fake mirror (i.e G._adj)
         if self.is_directed:
-            mirror = mirror.mirror
+            mirror = mirror.mirror  # real mirror (i.e _pred or _succ)
 
         if dst_node_id in mirror.data:
             if self.src_node_id in mirror.data[dst_node_id].data:
@@ -1477,6 +1486,11 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         self.data.pop(dst_node_id, None)
 
         if self.__get_mirrored_edge_attr_or_key_dict(dst_node_id):
+            # We're skipping the DB deletion because the
+            # edge deletion for mirrored edges is handled
+            # twice (once for each direction).
+            # i.e the DB edge will be deleted in via the
+            # delitem() call on the mirrored edge
             return
 
         result = aql_edge_id(

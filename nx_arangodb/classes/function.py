@@ -393,6 +393,46 @@ def aql_edge_id(
     )
 
 
+def aql_edge_count(
+    db: StandardDatabase,
+    src_node_id: str,
+    dst_node_id: str,
+    graph_name: str,
+    direction: str,
+) -> int:
+    filter_clause = aql_edge_direction_filter(direction)
+
+    query = f"""
+        FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
+            FILTER {filter_clause}
+            COLLECT WITH COUNT INTO length
+            RETURN length
+    """
+
+    bind_vars = {
+        "src_node_id": src_node_id,
+        "dst_node_id": dst_node_id,
+        "graph_name": graph_name,
+    }
+
+    result = aql_single(db, query, bind_vars)
+
+    return int(result) if result is not None else 0
+
+
+def aql_edge_direction_filter(direction: str) -> str:
+    if direction == "INBOUND":
+        return "e._from == @dst_node_id"
+    if direction == "OUTBOUND":
+        return "e._to == @dst_node_id"
+    if direction == "ANY":
+        return """
+            (e._from == @dst_node_id AND e._to == @src_node_id)
+            OR (e._to == @dst_node_id AND e._from == @src_node_id)
+        """
+    raise InvalidTraversalDirection(f"Invalid direction: {direction}")
+
+
 def aql_edge(
     db: StandardDatabase,
     src_node_id: str,
@@ -406,25 +446,13 @@ def aql_edge(
     if limit_one and can_return_multiple:
         raise ValueError("Cannot return multiple results limit_one=True.")
 
-    if direction == "INBOUND":
-        filter_clause = "e._from == @dst_node_id"
-    elif direction == "OUTBOUND":
-        filter_clause = "e._to == @dst_node_id"
-    elif direction == "ANY":
-        filter_clause = """
-            (e._from == @dst_node_id AND e._to == @src_node_id)
-            OR (e._to == @dst_node_id AND e._from == @src_node_id)
-        """
-    else:
-        raise InvalidTraversalDirection(f"Invalid direction: {direction}")
-
+    filter_clause = aql_edge_direction_filter(direction)
     limit_one_clause = "LIMIT 1" if limit_one else ""
-    sort_by_key_clause = "SORT e._key" if can_return_multiple else ""
+    # sort_by_id_clause = "SORT e._id" if can_return_multiple else ""
     query = f"""
         FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
             FILTER {filter_clause}
             {limit_one_clause}
-            {sort_by_key_clause}
             RETURN {return_clause}
     """
 

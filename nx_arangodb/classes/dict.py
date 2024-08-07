@@ -24,6 +24,7 @@ from .function import (
     aql_doc_get_keys,
     aql_doc_get_length,
     aql_doc_has_key,
+    aql_edge_count,
     aql_edge_exists,
     aql_edge_get,
     aql_edge_id,
@@ -106,9 +107,15 @@ def adjlist_inner_dict_factory(
 
 
 def edge_key_dict_factory(
-    db: StandardDatabase, graph: Graph
+    db: StandardDatabase,
+    graph: Graph,
+    edge_type_func: Callable[[str, str], str],
+    is_directed: bool,
+    adjlist_inner_dict: AdjListInnerDict | None = None,
 ) -> Callable[..., EdgeKeyDict]:
-    return lambda: EdgeKeyDict(db, graph)
+    return lambda: EdgeKeyDict(
+        db, graph, edge_type_func, is_directed, adjlist_inner_dict
+    )
 
 
 def edge_attr_dict_factory(
@@ -304,10 +311,11 @@ class GraphAttrDict(UserDict[str, Any]):
     @logger_debug
     def __contains__(self, key: str) -> bool:
         """'bar' in G.graph['foo']"""
-        if key in self.data:
-            return True
+        return key in self.data
+        # if key in self.data:
+        #     return True
 
-        return aql_doc_has_key(self.db, self.graph.name, key)
+        # return aql_doc_has_key(self.db, self.graph.name, key, self.parent_keys)
 
     @key_is_string
     @logger_debug
@@ -443,11 +451,12 @@ class NodeAttrDict(UserDict[str, Any]):
     @logger_debug
     def __contains__(self, key: str) -> bool:
         """'foo' in G._node['node/1']"""
-        if key in self.data:
-            return True
+        return key in self.data
+        # if key in self.data:
+        #     return True
 
-        assert self.node_id
-        return aql_doc_has_key(self.db, self.node_id, key, self.parent_keys)
+        # assert self.node_id
+        # return aql_doc_has_key(self.db, self.node_id, key, self.parent_keys)
 
     @key_is_string
     @logger_debug
@@ -582,6 +591,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         if vertex := self.graph.vertex(node_id):
             node_attr_dict: NodeAttrDict = self.node_attr_dict_factory()
+            # node_attr_dict.FETCHED_ALL_DATA = True
             node_attr_dict.node_id = node_id
             node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, vertex)
             self.data[node_id] = node_attr_dict
@@ -770,6 +780,7 @@ def build_edge_attr_dict_data(
     return edge_attr_dict_data
 
 
+@json_serializable
 class EdgeAttrDict(UserDict[str, Any]):
     """The innermost-level of the dict of dict of dict structure
     representing the Adjacency List of a graph.
@@ -809,11 +820,12 @@ class EdgeAttrDict(UserDict[str, Any]):
     @logger_debug
     def __contains__(self, key: str) -> bool:
         """'foo' in G._adj['node/1']['node/2']"""
-        if key in self.data:
-            return True
+        return key in self.data
+        # if key in self.data:
+        #     return True
 
-        assert self.edge_id
-        return aql_doc_has_key(self.db, self.edge_id, key, self.parent_keys)
+        # assert self.edge_id
+        # return aql_doc_has_key(self.db, self.edge_id, key, self.parent_keys)
 
     @key_is_string
     @logger_debug
@@ -886,6 +898,12 @@ class EdgeKeyDict(UserDict[int, EdgeAttrDict]):
     Unique to MultiGraphs, edges are keyed by a numerical edge index, allowing
     for multiple edges between the same nodes.
 
+    ASSUMPTIONS (for now):
+    - keys must be integers
+    - keys must be ordered from 0 to n-1 (n is the number of edges between two nodes)
+    - key-to-edge mapping is 1-to-1
+    - key-to-edge mapping order is not guaranteed (because DB order is never guaranteed)
+
     :param db: The ArangoDB database.
     :type db: StandardDatabase
     :param graph: The ArangoDB graph.
@@ -898,6 +916,8 @@ class EdgeKeyDict(UserDict[int, EdgeAttrDict]):
         db: StandardDatabase,
         graph: Graph,
         edge_type_func: Callable[[str, str], str],
+        is_directed: bool,
+        adjlist_inner_dict: AdjListInnerDict | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -913,6 +933,14 @@ class EdgeKeyDict(UserDict[int, EdgeAttrDict]):
 
         self.src_node_id: str | None = None
         self.dst_node_id: str | None = None
+        self.FETCHED_ALL_DATA = False
+
+        if adjlist_inner_dict is not None:
+            self.traversal_direction = adjlist_inner_dict.traversal_direction
+        elif is_directed:
+            self.traversal_direction = TraversalDirection.OUTBOUND
+        else:
+            self.traversal_direction = TraversalDirection.ANY
 
     @logger_debug
     def _create_edge_attr_dict(self, edge: dict[str, Any]) -> EdgeAttrDict:
@@ -939,66 +967,68 @@ class EdgeKeyDict(UserDict[int, EdgeAttrDict]):
         # We don't want to fetch all 1 million edges at once.
         # We should only fetch the edge by index when it is accessed.
         # Therefore, **key** can be used as an OFFSET via the LIMIT clause in AQL.
+        # This would only work if we combine it with a SORT by edge IDs.
         # For now, we assume a reasonable number of edges between two nodes.
 
     @key_is_int
     @logger_debug
     def __setitem__(self, key: int, edge_attr_dict: EdgeAttrDict) -> None:
         """G._adj['node/1']['node/2'][0] = {'foo': 'bar'}"""
-        self.data[key] = edge_attr_dict
+        raise NotImplementedError("EdgeKeyDict.__setitem__()")
+        # self.data[key] = edge_attr_dict
 
-        # TODO: Parameterize the edge type key
-        edge_type_key = "_edge_type"
+        # # TODO: Parameterize the edge type key
+        # edge_type_key = "_edge_type"
 
-        if edge_attr_dict.edge_id:
-            # NOTE: We can get here from L514 in networkx/multigraph.py
-            # Assuming that keydict.get(key) did not return None (L513)
+        # if edge_attr_dict.edge_id:
+        #     # NOTE: We can get here from L514 in networkx/multigraph.py
+        #     # Assuming that keydict.get(key) did not return None (L513)
 
-            # If the edge_id is already set, it means that the
-            # EdgeAttrDict.update() that was just called was
-            # able to update the edge in the database.
-            # Therefore, we don't need to insert anything.
+        #     # If the edge_id is already set, it means that the
+        #     # EdgeAttrDict.update() that was just called was
+        #     # able to update the edge in the database.
+        #     # Therefore, we don't need to insert anything.
 
-            if edge_type_key in edge_attr_dict.data:
-                m = f"Cannot set '{edge_type_key}' if edge already exists in DB."
-                raise EdgeTypeAmbiguity(m)
+        #     if edge_type_key in edge_attr_dict.data:
+        #         m = f"Cannot set '{edge_type_key}' if edge already exists in DB."
+        #         raise EdgeTypeAmbiguity(m)
 
-            return
+        #     return
 
-        if not self.src_node_id or not self.dst_node_id:
-            logger.debug("Node IDs not set, skipping EdgeKeyDict(?).__setitem__()")
-            return
+        # if not self.src_node_id or not self.dst_node_id:
+        #     logger.debug("Node IDs not set, skipping EdgeKeyDict(?).__setitem__()")
+        #     return
 
-        # NOTE: We can get here from L514 in networkx/multigraph.py
-        # Assuming that keydict.get(key) returned None (L513)
+        # # NOTE: We can get here from L514 in networkx/multigraph.py
+        # # Assuming that keydict.get(key) returned None (L513)
 
-        edge_type = edge_attr_dict.data.pop(edge_type_key, None)
-        if not edge_type:
-            edge_type = self.edge_type_func(self.src_node_id, self.dst_node_id)
+        # edge_type = edge_attr_dict.data.pop(edge_type_key, None)
+        # if not edge_type:
+        #     edge_type = self.edge_type_func(self.src_node_id, self.dst_node_id)
 
-        edge = self.graph.link(
-            edge_type, self.src_node_id, self.dst_node_id, edge_attr_dict.data
-        )
+        # edge = self.graph.link(
+        #     edge_type, self.src_node_id, self.dst_node_id, edge_attr_dict.data
+        # )
 
-        edge_data: dict[str, Any] = {
-            **edge_attr_dict.data,
-            **edge,
-            "_from": self.src_node_id,
-            "_to": self.dst_node_id,
-        }
+        # edge_data: dict[str, Any] = {
+        #     **edge_attr_dict.data,
+        #     **edge,
+        #     "_from": self.src_node_id,
+        #     "_to": self.dst_node_id,
+        # }
 
-        # We have to re-create the EdgeAttrDict because the
-        # previous one was created without any **edge_id**
-        # TODO: Could we somehow update the existing EdgeAttrDict?
-        # i.e edge_attr_dict.data = edge_data
-        # + some extra code to set the **edge_id** attribute
-        # for any nested EdgeAttrDicts within edge_attr_dict
-        edge_attr_dict = self._create_edge_attr_dict(edge_data)
-        self.data[key] = edge_attr_dict
+        # # We have to re-create the EdgeAttrDict because the
+        # # previous one was created without any **edge_id**
+        # # TODO: Could we somehow update the existing EdgeAttrDict?
+        # # i.e edge_attr_dict.data = edge_data
+        # # + some extra code to set the **edge_id** attribute
+        # # for any nested EdgeAttrDicts within edge_attr_dict
+        # edge_attr_dict = self._create_edge_attr_dict(edge_data)
+        # self.data[key] = edge_attr_dict
 
     @key_is_int
     @logger_debug
-    def __deltitem__(self, key: int) -> None:
+    def __delitem__(self, key: int) -> None:
         """del G._adj['node/1']['node/2'][0]"""
         edge_id = self.data[key].edge_id
 
@@ -1007,10 +1037,102 @@ class EdgeKeyDict(UserDict[int, EdgeAttrDict]):
 
         self.data.pop(key, None)
 
-    def popitem(self) -> tuple[int, EdgeAttrDict]:
+    def popitem(self) -> tuple[int, dict[str, Any]]:  # type: ignore
         """G._adj['node/1']['node/2'].popitem()"""
-        # TODO: Delete self.data[len(self.data) - 1]
-        raise NotImplementedError("EdgeKeyDict.popitem()")
+        last_key = list(self.data.keys())[-1]
+        edge_attr_dict = self.data[last_key]
+        assert hasattr(edge_attr_dict, "to_dict")
+        dict = edge_attr_dict.to_dict()
+        self.__delitem__(last_key)
+        return (last_key, dict)
+
+    @logger_debug
+    def __len__(self) -> int:
+        """len(g._adj['node/1']['node/2'])"""
+        assert self.src_node_id
+        assert self.dst_node_id
+
+        if self.FETCHED_ALL_DATA:
+            return len(self.data)
+
+        return aql_edge_count(
+            self.db,
+            self.src_node_id,
+            self.dst_node_id,
+            self.graph.name,
+            self.traversal_direction.name,
+        )
+
+    @logger_debug
+    def __iter__(self) -> Iterator[int]:
+        """for k in g._adj['node/1']['node/2']"""
+        if self.FETCHED_ALL_DATA:
+            yield from self.data.keys()
+
+        else:
+            length = self.__len__()
+            yield from range(length)
+
+    # TODO: Revisit typing of return value
+    @logger_debug
+    def keys(self) -> Any:
+        """g._adj['node/1']['node/2'].keys()"""
+        return self.__iter__()
+
+    @logger_debug
+    def clear(self) -> None:
+        """G._adj['node/1']['node/2'].clear()"""
+        self.data.clear()
+        self.FETCHED_ALL_DATA = False
+
+    @keys_are_strings
+    @logger_debug
+    def update(self, edges: Any) -> None:
+        """g._adj['node/1']['node/2'].update({0: {'foo': 'bar'}, 1: {'baz': 'qux'}})"""
+        raise NotImplementedError("EdgeKeyDict.update()")
+
+    # TODO: Revisit typing of return value
+    @logger_debug
+    def values(self) -> Any:
+        """g._adj['node/1']['node/2'].values()"""
+        if not self.FETCHED_ALL_DATA:
+            self._fetch_all()
+
+        yield from self.data.values()
+
+    # TODO: Revisit typing of return value
+    @logger_debug
+    def items(self) -> Any:
+        """g._adj['node/1']['node/2'].items()"""
+        if not self.FETCHED_ALL_DATA:
+            self._fetch_all()
+
+        yield from self.data.items()
+
+    @logger_debug
+    def _fetch_all(self) -> None:
+        assert self.src_node_id
+        assert self.dst_node_id
+
+        self.clear()
+
+        edges: list[dict[str, Any]] | None = aql_edge_get(
+            self.db,
+            self.src_node_id,
+            self.dst_node_id,
+            self.graph.name,
+            direction=self.traversal_direction.name,
+            can_return_multiple=True,
+        )
+
+        if edges is None:
+            raise ValueError("Failed to fetch edges")
+
+        for i, edge in enumerate(edges):
+            edge_attr_dict = self._create_edge_attr_dict(edge)
+            self.data[i] = edge_attr_dict
+
+        self.FETCHED_ALL_DATA = True
 
 
 class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
@@ -1045,6 +1167,10 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             raise ValueError(f"**graph_type** not supported: {graph_type}")
 
         super().__init__(*args, **kwargs)
+        self.graph_type = graph_type
+        self.is_directed = graph_type in DIRECTED_GRAPH_TYPES
+        self.is_multigraph = graph_type in MULTIGRAPH_TYPES
+
         self.data: dict[str, EdgeAttrDict | EdgeKeyDict] = {}
 
         self.db = db
@@ -1052,7 +1178,9 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         self.edge_type_func = edge_type_func
         self.default_node_type = default_node_type
         self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
-        self.edge_key_dict_factory = edge_key_dict_factory(self.db, self.graph)
+        self.edge_key_dict_factory = edge_key_dict_factory(
+            self.db, self.graph, edge_type_func, self.is_directed, self
+        )
 
         self.src_node_id: str | None = None
         self.__src_node_type: str | None = None
@@ -1060,10 +1188,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
         self.FETCHED_ALL_DATA = False
 
-        self.graph_type = graph_type
-        self.is_directed = graph_type in DIRECTED_GRAPH_TYPES
-        self.is_multigraph = graph_type in MULTIGRAPH_TYPES
-
+        self.traversal_direction: TraversalDirection
         if adjlist_outer_dict is not None:
             self.traversal_direction = adjlist_outer_dict.traversal_direction
         elif self.is_directed:
@@ -1184,9 +1309,13 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         if self.FETCHED_ALL_DATA:
             raise KeyError(key)
 
-        assert self.src_node_id
+        return self.__getitem_helper_func(key, dst_node_id)  # type: ignore
 
-        result = aql_edge_get(
+    @logger_debug
+    def __getitem__graph(self, key: str, dst_node_id: str) -> EdgeAttrDict:
+        """Helper function for __getitem__ in Graphs."""
+        assert self.src_node_id
+        edge: dict[str, Any] | None = aql_edge_get(
             self.db,
             self.src_node_id,
             dst_node_id,
@@ -1195,34 +1324,34 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             can_return_multiple=self.is_multigraph,
         )
 
-        if not result:
+        if not edge:
             raise KeyError(key)
 
-        return self.__getitem_helper_func(dst_node_id, result)
-
-    @logger_debug
-    def __getitem__graph(self, dst_node_id: str, edge: dict[str, Any]) -> EdgeAttrDict:
-        """Helper function for __getitem__ in Graphs."""
         edge_attr_dict: EdgeAttrDict = self._create_edge_attr_dict(edge)
+
         self.data[dst_node_id] = edge_attr_dict
         return edge_attr_dict
 
     @logger_debug
-    def __getitem__multigraph(
-        self, dst_node_id: str, edges: list[dict[str, Any]]
-    ) -> EdgeKeyDict:
+    def __getitem__multigraph(self, key: str, dst_node_id: str) -> EdgeKeyDict:
         """Helper function for __getitem__ in MultiGraphs."""
+        assert self.src_node_id
+        result = aql_edge_exists(
+            self.db,
+            self.src_node_id,
+            dst_node_id,
+            self.graph.name,
+            direction=self.traversal_direction.name,
+        )
+
+        if not result:
+            raise KeyError(key)
+
         edge_key_dict = self.edge_key_dict_factory()
         edge_key_dict.src_node_id = self.src_node_id
         edge_key_dict.dst_node_id = dst_node_id
 
-        # NOTE: The edges are sorted by _key
-        for i, edge in enumerate(edges):
-            edge_attr_dict = self._create_edge_attr_dict(edge)
-            edge_key_dict.data[i] = edge_attr_dict
-
         self.data[dst_node_id] = edge_key_dict
-
         return edge_key_dict
 
     @key_is_string
@@ -1522,6 +1651,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             edge_key_dict = self.edge_key_dict_factory()
             edge_key_dict.src_node_id = self.src_node_id
             edge_key_dict.dst_node_id = dst_node_id
+            edge_key_dict.FETCHED_ALL_DATA = True
 
         assert isinstance(edge_key_dict, EdgeKeyDict)
         edge_key_dict.data[len(edge_key_dict.data)] = edge_attr_dict
@@ -1603,12 +1733,14 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         if self.FETCHED_ALL_DATA:
             return False
 
+        # TODO: Cache this, similar to __getitem__ in AdjListOuterDict
+
         return bool(self.graph.has_vertex(node_id))
 
     @key_is_string
     @logger_debug
     def __getitem__(self, key: str) -> AdjListInnerDict:
-        """G.adj["node/1"]"""
+        """G._adj["node/1"]"""
         node_id = get_node_id(key, self.default_node_type)
 
         if value := self.data.get(node_id):

@@ -4,7 +4,7 @@ import networkx as nx
 from arango.database import StandardDatabase
 
 import nx_arangodb as nxadb
-from nx_arangodb.classes.graph import Graph as nxadb_Graph
+from nx_arangodb.classes.graph import Graph
 
 from .dict import AdjListOuterDict
 from .enum import TraversalDirection
@@ -14,7 +14,7 @@ networkx_api = nxadb.utils.decorators.networkx_class(nx.DiGraph)  # type: ignore
 __all__ = ["DiGraph"]
 
 
-class DiGraph(nxadb_Graph, nx.DiGraph):
+class DiGraph(Graph, nx.DiGraph):
     __networkx_backend__: ClassVar[str] = "arangodb"  # nx >=3.2
     __networkx_plugin__: ClassVar[str] = "arangodb"  # nx <3.2
 

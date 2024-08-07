@@ -4,7 +4,7 @@ import networkx as nx
 from arango.database import StandardDatabase
 
 import nx_arangodb as nxadb
-from nx_arangodb.classes.graph import Graph as nxadb_Graph
+from nx_arangodb.classes.graph import Graph
 from nx_arangodb.logger import logger
 
 from .dict import edge_key_dict_factory
@@ -14,7 +14,7 @@ networkx_api = nxadb.utils.decorators.networkx_class(nx.MultiGraph)  # type: ign
 __all__ = ["MultiGraph"]
 
 
-class MultiGraph(nxadb_Graph, nx.MultiGraph):
+class MultiGraph(Graph, nx.MultiGraph):
     __networkx_backend__: ClassVar[str] = "arangodb"  # nx >=3.2
     __networkx_plugin__: ClassVar[str] = "arangodb"  # nx <3.2
 
@@ -41,7 +41,9 @@ class MultiGraph(nxadb_Graph, nx.MultiGraph):
 
     def _set_factory_methods(self) -> None:
         super()._set_factory_methods()
-        self.edge_key_dict_factory = edge_key_dict_factory(self.db, self.adb_graph)
+        self.edge_key_dict_factory = edge_key_dict_factory(
+            self.db, self.adb_graph, self.edge_type_func, self.is_directed()
+        )
 
     ##########################
     # nx.MultiGraph Overides #

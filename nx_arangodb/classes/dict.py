@@ -694,7 +694,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         """g._node.update({'node/1': {'foo': 'bar'}, 'node/2': {'baz': 'qux'}})"""
         raise NotImplementedError("NodeDict.update()")
 
-    # TODO: Revisit typing of return value
     @logger_debug
     def values(self) -> Any:
         """g._node.values()"""
@@ -703,7 +702,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         yield from self.data.values()
 
-    # TODO: Revisit typing of return value
     @logger_debug
     def items(self, data: str | None = None, default: Any | None = None) -> Any:
         """g._node.items() or G._node.items(data='foo')"""
@@ -1082,13 +1080,11 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
 
             yield from edge_ids
 
-    # TODO: Revisit typing of return value
     @logger_debug
     def keys(self) -> Any:
         """g._adj['node/1']['node/2'].keys()"""
         return self.__iter__()
 
-    # TODO: Revisit typing of return value
     @logger_debug
     def values(self) -> Any:
         """g._adj['node/1']['node/2'].values()"""
@@ -1097,7 +1093,6 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
 
         yield from self.data.values()
 
-    # TODO: Revisit typing of return value
     @logger_debug
     def items(self) -> Any:
         """g._adj['node/1']['node/2'].items()"""
@@ -1628,7 +1623,6 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
             yield from aql(self.db, query, bind_vars)
 
-    # TODO: Revisit typing of return value
     @logger_debug
     def keys(self) -> Any:
         """g._adj['node/1'].keys()"""
@@ -1646,7 +1640,6 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
         raise NotImplementedError("AdjListInnerDict.update()")
 
-    # TODO: Revisit typing of return value
     @logger_debug
     def values(self) -> Any:
         """g._adj['node/1'].values()"""
@@ -1655,7 +1648,6 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
         yield from self.data.values()
 
-    # TODO: Revisit typing of return value
     @logger_debug
     def items(self) -> Any:
         """g._adj['node/1'].items()"""
@@ -1723,6 +1715,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
         assert isinstance(edge_key_dict, EdgeKeyDict)
         edge_key_dict.data[edge_attr_dict.edge_id] = edge_attr_dict
+        self.data[dst_node_id] = edge_key_dict
 
 
 class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
@@ -1876,7 +1869,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             for collection in self.graph.vertex_collections():
                 yield from self.graph.vertex_collection(collection).ids()
 
-    # TODO: Revisit typing of return value
     @logger_debug
     def keys(self) -> Any:
         """g._adj.keys()"""
@@ -1888,17 +1880,12 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         self.data.clear()
         self.FETCHED_ALL_DATA = False
 
-        # if clear_remote:
-        #     for ed in self.graph.edge_definitions():
-        #         self.graph.edge_collection(ed["edge_collection"]).truncate()
-
     @keys_are_strings
     @logger_debug
     def update(self, edges: Any) -> None:
         """g._adj.update({'node/1': {'node/2': {'foo': 'bar'}})"""
         raise NotImplementedError("AdjListOuterDict.update()")
 
-    # TODO: Revisit typing of return value
     @logger_debug
     def values(self) -> Any:
         """g._adj.values()"""
@@ -1907,14 +1894,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
         yield from self.data.values()
 
-    # TODO: Revisit typing of return value
     @logger_debug
     def items(self, data: str | None = None, default: Any | None = None) -> Any:
-        # TODO: Revisit typing
-        # -> (
-        #     Generator[tuple[str, AdjListInnerDict], None, None]
-        #     | Generator[tuple[str, str, Any], None, None]
-        # ):
         """g._adj.items() or G._adj.items(data='foo')"""
         if data is None:
             if not self.FETCHED_ALL_DATA:
@@ -1980,23 +1961,34 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         )
 
         def set_edge_graph(
-            src_node_id: str, dst_node_id: str, edge_attr_dict: EdgeAttrDict
-        ) -> None:
-            self.data[src_node_id].data[dst_node_id] = edge_attr_dict
+            src_node_id: str, dst_node_id: str, edge: dict[str, Any]
+        ) -> EdgeAttrDict:
+            adjlist_inner_dict = self.data[src_node_id]
+
+            edge_attr_dict: EdgeAttrDict
+            edge_attr_dict = adjlist_inner_dict._create_edge_attr_dict(edge)
+
+            adjlist_inner_dict.data[dst_node_id] = edge_attr_dict
+
+            return edge_attr_dict
 
         def set_edge_multigraph(
-            src_node_id: str, dst_node_id: str, edge_attr_dict: EdgeAttrDict
-        ) -> None:
-            adj_list_inner_dict = self.data[src_node_id]
-            edge_key_dict = adj_list_inner_dict.data.get(dst_node_id)
-            if edge_key_dict is None:
-                edge_key_dict = adj_list_inner_dict.edge_key_dict_factory()
-                edge_key_dict.src_node_id = src_node_id
-                edge_key_dict.dst_node_id = dst_node_id
-                edge_key_dict.FETCHED_ALL_DATA = True
+            src_node_id: str, dst_node_id: str, edges: dict[int, dict[str, Any]]
+        ) -> EdgeKeyDict:
+            adjlist_inner_dict = self.data[src_node_id]
 
-            assert isinstance(edge_key_dict, EdgeKeyDict)
-            edge_key_dict.data[edge_attr_dict.edge_id] = edge_attr_dict
+            edge_key_dict = adjlist_inner_dict.edge_key_dict_factory()
+            edge_key_dict.src_node_id = src_node_id
+            edge_key_dict.dst_node_id = dst_node_id
+            edge_key_dict.FETCHED_ALL_DATA = True
+
+            for edge in edges.values():
+                edge_attr_dict = adjlist_inner_dict._create_edge_attr_dict(edge)
+                edge_key_dict.data[edge["_id"]] = edge_attr_dict
+
+            adjlist_inner_dict.data[dst_node_id] = edge_key_dict
+
+            return edge_key_dict
 
         set_edge_func = set_edge_multigraph if self.is_multigraph else set_edge_graph
 
@@ -2020,19 +2012,20 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             adj_dict = adj_dict["succ"]
 
         for src_node_id, inner_dict in adj_dict.items():
-            for dst_node_id, edge in inner_dict.items():
+            for dst_node_id, edge_or_edges in inner_dict.items():
 
                 if not self.is_directed:
                     if src_node_id in self.data:
                         if dst_node_id in self.data[src_node_id].data:
                             continue  # can skip due not directed
 
-                src_inner_dict = set_adj_inner_dict(self, src_node_id)
-                _ = set_adj_inner_dict(self, dst_node_id)
+                set_adj_inner_dict(self, src_node_id)
+                set_adj_inner_dict(self, dst_node_id)
+                edge_attr_or_key_dict = set_edge_func(  # type: ignore[operator]
+                    src_node_id, dst_node_id, edge_or_edges
+                )
 
-                edge_attr_dict = src_inner_dict._create_edge_attr_dict(edge)
-                set_edge_func(src_node_id, dst_node_id, edge_attr_dict)
-                propagate_edge_func(src_node_id, dst_node_id, edge_attr_dict)
+                propagate_edge_func(src_node_id, dst_node_id, edge_attr_or_key_dict)
 
         self.FETCHED_ALL_DATA = True
         if self.is_directed:

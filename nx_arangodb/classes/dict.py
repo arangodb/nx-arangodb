@@ -783,10 +783,10 @@ def process_edge_attr_dict_value(parent: EdgeAttrDict, key: str, value: Any) -> 
 
 @json_serializable
 class EdgeAttrDict(UserDict[str, Any]):
-    """The innermost-level of the dict of dict of dict structure
+    """The innermost-level of the dict of dict (of dict) of dict structure
     representing the Adjacency List of a graph.
 
-    The innermost-dict is keyed by the edge attribute key.
+    EdgeAttrDict is keyed by the edge attribute key.
 
     :param db: The ArangoDB database.
     :type db: StandardDatabase
@@ -895,8 +895,10 @@ class EdgeAttrDict(UserDict[str, Any]):
 
 
 class EdgeKeyDict(UserDict[int, EdgeAttrDict]):
-    """The second inner-level of the dict of dict of dict of dict
+    """The (optional) 3rd level of the dict of dict (*of dict*) of dict
     structure representing the Adjacency List of a MultiGraph.
+
+    EdgeKeyDict is keyed by an arbitrary dictionary key (usually an integer).
 
     Unique to MultiGraphs, edges are keyed by a numerical edge index, allowing
     for multiple edges between the same nodes.
@@ -1140,10 +1142,10 @@ class EdgeKeyDict(UserDict[int, EdgeAttrDict]):
 
 
 class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
-    """The inner-level of the dict of dict of dict structure
+    """The 2nd level of the dict of dict (of dict) of dict structure
     representing the Adjacency List of a graph.
 
-    The inner-dict is keyed by the node ID of the destination node.
+    AdjListInnerDict is keyed by the node ID of the destination node.
 
     :param db: The ArangoDB database.
     :type db: StandardDatabase
@@ -1709,10 +1711,10 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
 
 class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
-    """The outer-level of the dict of dict of dict structure
+    """The 1st level of the dict of dict (of dict) of dict
     representing the Adjacency List of a graph.
 
-    The outer-dict is keyed by the node ID of the source node.
+    AdjListOuterDict is keyed by the node ID of the source node.
 
     :param db: The ArangoDB database.
     :type db: StandardDatabase

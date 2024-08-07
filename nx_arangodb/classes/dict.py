@@ -314,11 +314,10 @@ class GraphAttrDict(UserDict[str, Any]):
     @logger_debug
     def __contains__(self, key: str) -> bool:
         """'bar' in G.graph['foo']"""
-        return key in self.data
-        # if key in self.data:
-        #     return True
+        if key in self.data:
+            return True
 
-        # return aql_doc_has_key(self.db, self.graph.name, key, self.parent_keys)
+        return aql_doc_has_key(self.db, self.graph.name, key, self.parent_keys)
 
     @key_is_string
     @logger_debug
@@ -458,12 +457,11 @@ class NodeAttrDict(UserDict[str, Any]):
     @logger_debug
     def __contains__(self, key: str) -> bool:
         """'foo' in G._node['node/1']"""
-        return key in self.data
-        # if key in self.data:
-        #     return True
+        if key in self.data:
+            return True
 
-        # assert self.node_id
-        # return aql_doc_has_key(self.db, self.node_id, key, self.parent_keys)
+        assert self.node_id
+        return aql_doc_has_key(self.db, self.node_id, key, self.parent_keys)
 
     @key_is_string
     @logger_debug
@@ -582,7 +580,13 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         if self.FETCHED_ALL_DATA:
             return False
 
-        return bool(self.graph.has_vertex(node_id))
+        if self.graph.has_vertex(node_id):
+            empty_node_attr_dict = self.node_attr_dict_factory()
+            empty_node_attr_dict.node_id = node_id
+            self.data[node_id] = empty_node_attr_dict
+            return True
+
+        return False
 
     @key_is_string
     @logger_debug
@@ -830,12 +834,11 @@ class EdgeAttrDict(UserDict[str, Any]):
     @logger_debug
     def __contains__(self, key: str) -> bool:
         """'foo' in G._adj['node/1']['node/2']"""
-        return key in self.data
-        # if key in self.data:
-        #     return True
+        if key in self.data:
+            return True
 
-        # assert self.edge_id
-        # return aql_doc_has_key(self.db, self.edge_id, key, self.parent_keys)
+        assert self.edge_id
+        return aql_doc_has_key(self.db, self.edge_id, key, self.parent_keys)
 
     @key_is_string
     @logger_debug
@@ -1206,11 +1209,13 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             self.traversal_direction = TraversalDirection.ANY
 
         if self.is_multigraph:
+            self.__contains_helper_func = self.__contains__multigraph
             self.__getitem_helper_func = self.__getitem__multigraph
             self.__setitem_helper_func = self.__setitem__multigraph
             self.__delitem_helper_func = self.__delitem__multigraph
             self.__fetch_all_helper_func = self.__fetch_all_multigraph
         else:
+            self.__contains_helper_func = self.__contains__graph
             self.__getitem_helper_func = self.__getitem__graph
             self.__setitem_helper_func = self.__setitem__graph
             self.__delitem_helper_func = self.__delitem__graph
@@ -1300,7 +1305,26 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             direction=self.traversal_direction.name,
         )
 
-        return result if result else False
+        if not result:
+            return False
+
+        self.__contains_helper_func(dst_node_id)
+
+        return True
+
+    @logger_debug
+    def __contains__graph(self, dst_node_id: str) -> None:
+        """Helper function for __contains__ in Graphs."""
+        empty_edge_attr_dict = self.edge_attr_dict_factory()
+        self.data[dst_node_id] = empty_edge_attr_dict
+
+    @logger_debug
+    def __contains__multigraph(self, dst_node_id: str) -> None:
+        """Helper function for __contains__ in MultiGraphs."""
+        lazy_edge_key_dict = self.edge_key_dict_factory()
+        lazy_edge_key_dict.src_node_id = self.src_node_id
+        lazy_edge_key_dict.dst_node_id = dst_node_id
+        self.data[dst_node_id] = lazy_edge_key_dict
 
     @key_is_string
     @logger_debug
@@ -1356,12 +1380,12 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         if not result:
             raise KeyError(key)
 
-        edge_key_dict = self.edge_key_dict_factory()
-        edge_key_dict.src_node_id = self.src_node_id
-        edge_key_dict.dst_node_id = dst_node_id
+        lazy_edge_key_dict = self.edge_key_dict_factory()
+        lazy_edge_key_dict.src_node_id = self.src_node_id
+        lazy_edge_key_dict.dst_node_id = dst_node_id
 
-        self.data[dst_node_id] = edge_key_dict
-        return edge_key_dict
+        self.data[dst_node_id] = lazy_edge_key_dict
+        return lazy_edge_key_dict
 
     @key_is_string
     @logger_debug
@@ -1747,9 +1771,13 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         if self.FETCHED_ALL_DATA:
             return False
 
-        # TODO: Cache this, similar to __getitem__ in AdjListOuterDict
+        if self.graph.has_vertex(node_id):
+            lazy_adjlist_inner_dict = self.adjlist_inner_dict_factory()
+            lazy_adjlist_inner_dict.src_node_id = node_id
+            self.data[node_id] = lazy_adjlist_inner_dict
+            return True
 
-        return bool(self.graph.has_vertex(node_id))
+        return False
 
     @key_is_string
     @logger_debug
@@ -1757,15 +1785,21 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         """G._adj["node/1"]"""
         node_id = get_node_id(key, self.default_node_type)
 
-        if value := self.data.get(node_id):
-            return value
+        if node_id in self.data:
+            # Notice that we're not using the walrus operator here
+            # compared to other __getitem__ methods.
+            # This is because AdjListInnerDict is lazily created
+            # when the second key is accessed (e.g G._adj["node/1"]["node/2"]).
+            # Therefore, there is no actual data in AdjListInnerDict.data
+            # when it is first created!
+            return self.data[node_id]
 
         if self.graph.has_vertex(node_id):
-            adjlist_inner_dict: AdjListInnerDict = self.adjlist_inner_dict_factory()
-            adjlist_inner_dict.src_node_id = node_id
-            self.data[node_id] = adjlist_inner_dict
+            lazy_adjlist_inner_dict = self.adjlist_inner_dict_factory()
+            lazy_adjlist_inner_dict.src_node_id = node_id
+            self.data[node_id] = lazy_adjlist_inner_dict
 
-            return adjlist_inner_dict
+            return lazy_adjlist_inner_dict
 
         raise KeyError(key)
 

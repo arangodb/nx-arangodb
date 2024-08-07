@@ -567,3 +567,13 @@ def get_node_type_and_id(key: str, default_node_type: str) -> tuple[str, str]:
         return key.split("/")[0], key
 
     return default_node_type, f"{default_node_type}/{key}"
+
+
+def get_update_dict(
+    parent_keys: list[str], update_dict: dict[str, Any]
+) -> dict[str, Any]:
+    if parent_keys:
+        for key in reversed(parent_keys):
+            update_dict = {key: update_dict}
+
+    return update_dict

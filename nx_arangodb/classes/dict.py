@@ -39,6 +39,7 @@ from .function import (
     get_arangodb_graph,
     get_node_id,
     get_node_type_and_id,
+    get_update_dict,
     json_serializable,
     key_is_int,
     key_is_not_reserved,
@@ -75,21 +76,21 @@ def node_attr_dict_factory(
     return lambda: NodeAttrDict(db, graph)
 
 
-def adjlist_outer_dict_factory(
+def edge_attr_dict_factory(
+    db: StandardDatabase, graph: Graph
+) -> Callable[..., EdgeAttrDict]:
+    return lambda: EdgeAttrDict(db, graph)
+
+
+def edge_key_dict_factory(
     db: StandardDatabase,
     graph: Graph,
-    default_node_type: str,
     edge_type_func: Callable[[str, str], str],
-    graph_type: str,
-    symmetrize_edges_if_directed: bool,
-) -> Callable[..., AdjListOuterDict]:
-    return lambda: AdjListOuterDict(
-        db,
-        graph,
-        default_node_type,
-        edge_type_func,
-        graph_type,
-        symmetrize_edges_if_directed,
+    is_directed: bool,
+    adjlist_inner_dict: AdjListInnerDict | None = None,
+) -> Callable[..., EdgeKeyDict]:
+    return lambda: EdgeKeyDict(
+        db, graph, edge_type_func, is_directed, adjlist_inner_dict
     )
 
 
@@ -106,22 +107,22 @@ def adjlist_inner_dict_factory(
     )
 
 
-def edge_key_dict_factory(
+def adjlist_outer_dict_factory(
     db: StandardDatabase,
     graph: Graph,
+    default_node_type: str,
     edge_type_func: Callable[[str, str], str],
-    is_directed: bool,
-    adjlist_inner_dict: AdjListInnerDict | None = None,
-) -> Callable[..., EdgeKeyDict]:
-    return lambda: EdgeKeyDict(
-        db, graph, edge_type_func, is_directed, adjlist_inner_dict
+    graph_type: str,
+    symmetrize_edges_if_directed: bool,
+) -> Callable[..., AdjListOuterDict]:
+    return lambda: AdjListOuterDict(
+        db,
+        graph,
+        default_node_type,
+        edge_type_func,
+        graph_type,
+        symmetrize_edges_if_directed,
     )
-
-
-def edge_attr_dict_factory(
-    db: StandardDatabase, graph: Graph
-) -> Callable[..., EdgeAttrDict]:
-    return lambda: EdgeAttrDict(db, graph)
 
 
 #########
@@ -381,19 +382,6 @@ class GraphAttrDict(UserDict[str, Any]):
 ########
 
 
-def process_node_attr_dict_value(parent: NodeAttrDict, key: str, value: Any) -> Any:
-    if not isinstance(value, dict):
-        return value
-
-    node_attr_dict = parent.node_attr_dict_factory()
-    node_attr_dict.root = parent.root or parent
-    node_attr_dict.node_id = parent.node_id
-    node_attr_dict.parent_keys = parent.parent_keys + [key]
-    node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, value)
-
-    return node_attr_dict
-
-
 def build_node_attr_dict_data(
     parent: NodeAttrDict, data: dict[str, Any]
 ) -> dict[str, Any | NodeAttrDict]:
@@ -412,14 +400,17 @@ def build_node_attr_dict_data(
     return node_attr_dict_data
 
 
-def get_update_dict(
-    parent_keys: list[str], update_dict: dict[str, Any]
-) -> dict[str, Any]:
-    if parent_keys:
-        for key in reversed(parent_keys):
-            update_dict = {key: update_dict}
+def process_node_attr_dict_value(parent: NodeAttrDict, key: str, value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
 
-    return update_dict
+    node_attr_dict = parent.node_attr_dict_factory()
+    node_attr_dict.root = parent.root or parent
+    node_attr_dict.node_id = parent.node_id
+    node_attr_dict.parent_keys = parent.parent_keys + [key]
+    node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, value)
+
+    return node_attr_dict
 
 
 @json_serializable
@@ -756,19 +747,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 #############
 
 
-def process_edge_attr_dict_value(parent: EdgeAttrDict, key: str, value: Any) -> Any:
-    if not isinstance(value, dict):
-        return value
-
-    edge_attr_dict = parent.edge_attr_dict_factory()
-    edge_attr_dict.root = parent.root or parent
-    edge_attr_dict.edge_id = parent.edge_id
-    edge_attr_dict.parent_keys = parent.parent_keys + [key]
-    edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, value)
-
-    return edge_attr_dict
-
-
 def build_edge_attr_dict_data(
     parent: EdgeAttrDict, data: dict[str, Any]
 ) -> dict[str, Any | EdgeAttrDict]:
@@ -788,6 +766,19 @@ def build_edge_attr_dict_data(
         edge_attr_dict_data[key] = edge_attr_dict_value
 
     return edge_attr_dict_data
+
+
+def process_edge_attr_dict_value(parent: EdgeAttrDict, key: str, value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+
+    edge_attr_dict = parent.edge_attr_dict_factory()
+    edge_attr_dict.root = parent.root or parent
+    edge_attr_dict.edge_id = parent.edge_id
+    edge_attr_dict.parent_keys = parent.parent_keys + [key]
+    edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, value)
+
+    return edge_attr_dict
 
 
 @json_serializable

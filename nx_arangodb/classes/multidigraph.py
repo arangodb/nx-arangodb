@@ -24,3 +24,11 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         super().__init__(*args, **kwargs)
         m = "nxadb.MultiDiGraph has not been implemented yet. This is a pass-through subclass of nx.MultiDiGraph for now."  # noqa
         logger.warning(m)
+
+    #######################
+    # Init helper methods #
+    #######################
+
+    ##########################
+    # nx.MultiGraph Overides #
+    ##########################

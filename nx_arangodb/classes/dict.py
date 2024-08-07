@@ -568,6 +568,13 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         self.FETCHED_ALL_DATA = False
 
+    def _create_node_attr_dict(self, vertex: dict[str, Any]) -> NodeAttrDict:
+        node_attr_dict = self.node_attr_dict_factory()
+        node_attr_dict.node_id = vertex["_id"]
+        node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, vertex)
+
+        return node_attr_dict
+
     @key_is_string
     @logger_debug
     def __contains__(self, key: str) -> bool:
@@ -601,10 +608,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             raise KeyError(key)
 
         if vertex := self.graph.vertex(node_id):
-            node_attr_dict: NodeAttrDict = self.node_attr_dict_factory()
-            # node_attr_dict.FETCHED_ALL_DATA = True
-            node_attr_dict.node_id = node_id
-            node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, vertex)
+            node_attr_dict = self._create_node_attr_dict(vertex)
             self.data[node_id] = node_attr_dict
 
             return node_attr_dict
@@ -625,9 +629,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         result = doc_insert(self.db, node_type, node_id, value.data)
 
-        node_attr_dict = self.node_attr_dict_factory()
-        node_attr_dict.node_id = node_id
-        node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, result)
+        node_attr_dict = self._create_node_attr_dict(result)
 
         self.data[node_id] = node_attr_dict
 
@@ -743,10 +745,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         )
 
         for node_id, node_data in node_dict.items():
-            node_attr_dict = self.node_attr_dict_factory()
-            node_attr_dict.node_id = node_id
-            node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, node_data)
-
+            node_attr_dict = self._create_node_attr_dict(node_data)
             self.data[node_id] = node_attr_dict
 
         self.FETCHED_ALL_DATA = True
@@ -1053,8 +1052,10 @@ class EdgeKeyDict(UserDict[int, EdgeAttrDict]):
         """G._adj['node/1']['node/2'].popitem()"""
         last_key = list(self.data.keys())[-1]
         edge_attr_dict = self.data[last_key]
+
         assert hasattr(edge_attr_dict, "to_dict")
         dict = edge_attr_dict.to_dict()
+
         self.__delitem__(last_key)
         return (last_key, dict)
 
@@ -1209,17 +1210,19 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             self.traversal_direction = TraversalDirection.ANY
 
         if self.is_multigraph:
-            self.__contains_helper_func = self.__contains__multigraph
-            self.__getitem_helper_func = self.__getitem__multigraph
-            self.__setitem_helper_func = self.__setitem__multigraph
-            self.__delitem_helper_func = self.__delitem__multigraph
-            self.__fetch_all_helper_func = self.__fetch_all_multigraph
+            self.__contains_helper = self.__contains__multigraph
+            self.__getitem_helper_db = self.__getitem__multigraph_db
+            self.__getitem_helper_cache = self.__getitem__multigraph_cache
+            self.__setitem_helper = self.__setitem__multigraph
+            self.__delitem_helper = self.__delitem__multigraph
+            self.__fetch_all_helper = self.__fetch_all_multigraph
         else:
-            self.__contains_helper_func = self.__contains__graph
-            self.__getitem_helper_func = self.__getitem__graph
-            self.__setitem_helper_func = self.__setitem__graph
-            self.__delitem_helper_func = self.__delitem__graph
-            self.__fetch_all_helper_func = self.__fetch_all_graph
+            self.__contains_helper = self.__contains__graph
+            self.__getitem_helper_db = self.__getitem__graph_db
+            self.__getitem_helper_cache = self.__getitem__graph_cache
+            self.__setitem_helper = self.__setitem__graph
+            self.__delitem_helper = self.__delitem__graph
+            self.__fetch_all_helper = self.__fetch_all_graph
 
     @property
     def src_node_type(self) -> str:
@@ -1308,7 +1311,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         if not result:
             return False
 
-        self.__contains_helper_func(dst_node_id)
+        self.__contains_helper(dst_node_id)
 
         return True
 
@@ -1332,8 +1335,8 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         """g._adj['node/1']['node/2']"""
         dst_node_id = get_node_id(key, self.default_node_type)
 
-        if result := self.data.get(dst_node_id):
-            return result
+        if self.__getitem_helper_cache(dst_node_id):
+            return self.data[dst_node_id]
 
         if result := self.__get_mirrored_edge_attr_or_key_dict(dst_node_id):
             self.data[dst_node_id] = result
@@ -1342,11 +1345,19 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         if self.FETCHED_ALL_DATA:
             raise KeyError(key)
 
-        return self.__getitem_helper_func(key, dst_node_id)  # type: ignore
+        return self.__getitem_helper_db(key, dst_node_id)  # type: ignore
 
     @logger_debug
-    def __getitem__graph(self, key: str, dst_node_id: str) -> EdgeAttrDict:
-        """Helper function for __getitem__ in Graphs."""
+    def __getitem__graph_cache(self, dst_node_id: str) -> bool:
+        """Cache Helper function for __getitem__ in Graphs."""
+        if _ := self.data.get(dst_node_id):
+            return True
+
+        return False
+
+    @logger_debug
+    def __getitem__graph_db(self, key: str, dst_node_id: str) -> EdgeAttrDict:
+        """DB Helper function for __getitem__ in Graphs."""
         assert self.src_node_id
         edge: dict[str, Any] | None = aql_edge_get(
             self.db,
@@ -1366,7 +1377,18 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         return edge_attr_dict
 
     @logger_debug
-    def __getitem__multigraph(self, key: str, dst_node_id: str) -> EdgeKeyDict:
+    def __getitem__multigraph_cache(self, dst_node_id: str) -> bool:
+        """Cache Helper function for __getitem__ in Graphs."""
+        # Notice that we're not using the walrus operator here
+        # compared to other __getitem__ methods.
+        # This is because EdgeKeyDict is lazily created
+        # when the second key is accessed (e.g G._adj["node/1"]["node/2"]).
+        # Therefore, there is no actual data in EdgeKeyDict.data
+        # when it is first created!
+        return dst_node_id in self.data
+
+    @logger_debug
+    def __getitem__multigraph_db(self, key: str, dst_node_id: str) -> EdgeKeyDict:
         """Helper function for __getitem__ in MultiGraphs."""
         assert self.src_node_id
         result = aql_edge_exists(
@@ -1403,7 +1425,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             self.data[dst_node_id] = result
             return
 
-        self.__setitem_helper_func(value, dst_node_type, dst_node_id)
+        self.__setitem_helper(value, dst_node_type, dst_node_id)
 
     @logger_debug
     def __setitem__graph(
@@ -1529,7 +1551,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             # TODO: Should we raise a KeyError instead?
             return
 
-        self.__delitem_helper_func(result)
+        self.__delitem_helper(result)
 
     @key_is_string
     @logger_debug
@@ -1664,7 +1686,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
                 else edge["_to"] if self.src_node_id == edge["_from"] else edge["_from"]
             )
 
-            self.__fetch_all_helper_func(edge_attr_dict, dst_node_id)
+            self.__fetch_all_helper(edge_attr_dict, dst_node_id)
 
         self.FETCHED_ALL_DATA = True
 

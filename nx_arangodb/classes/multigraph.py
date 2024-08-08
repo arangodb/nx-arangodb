@@ -50,6 +50,10 @@ class MultiGraph(Graph, nx.MultiGraph):
     ##########################
 
     def add_edge(self, u_for_edge, v_for_edge, key=None, **attr):
+        if key is not None:
+            m = "ArangoDB MultiGraph does not support custom edge keys yet."
+            logger.warning(m)
+
         _ = super().add_edge(u_for_edge, v_for_edge, key="-1", **attr)
 
         ######################

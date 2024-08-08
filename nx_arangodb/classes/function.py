@@ -164,6 +164,22 @@ def key_is_int(func: Callable[..., Any]) -> Any:
     return wrapper
 
 
+def key_is_adb_id(func: Callable[..., Any]) -> Any:
+    """Decorator to check if the key is an ArangoDB ID."""
+
+    def wrapper(self: Any, key: Any, *args: Any, **kwargs: Any) -> Any:
+        """"""
+        if not isinstance(key, str):
+            raise TypeError(f"{key} must be a string.")
+
+        if "/" not in key:
+            raise ValueError(f"{key} is not an ArangoDB ID.")
+
+        return func(self, key, *args, **kwargs)
+
+    return wrapper
+
+
 def logger_debug(func: Callable[..., Any]) -> Any:
     """Decorator to log debug messages."""
 
@@ -393,7 +409,30 @@ def aql_edge_id(
     )
 
 
-def aql_edge_count(
+def aql_edge_count_src(
+    db: StandardDatabase,
+    src_node_id: str,
+    graph_name: str,
+    direction: str,
+) -> int:
+    query = f"""
+        RETURN LENGTH(
+            FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
+                RETURN DISTINCT e._id
+        )
+    """
+
+    bind_vars = {
+        "src_node_id": src_node_id,
+        "graph_name": graph_name,
+    }
+
+    result = aql_single(db, query, bind_vars)
+
+    return int(result) if result is not None else 0
+
+
+def aql_edge_count_src_dst(
     db: StandardDatabase,
     src_node_id: str,
     dst_node_id: str,

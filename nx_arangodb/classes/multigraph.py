@@ -35,6 +35,9 @@ class MultiGraph(Graph, nx.MultiGraph):
             graph_name, default_node_type, edge_type_func, db, *args, **kwargs
         )
 
+        if self._graph_exists_in_db:
+            self.add_edge = self.add_edge_override
+
     #######################
     # Init helper methods #
     #######################
@@ -49,7 +52,7 @@ class MultiGraph(Graph, nx.MultiGraph):
     # nx.MultiGraph Overides #
     ##########################
 
-    def add_edge(self, u_for_edge, v_for_edge, key=None, **attr):
+    def add_edge_override(self, u_for_edge, v_for_edge, key=None, **attr):
         if key is not None:
             m = "ArangoDB MultiGraph does not support custom edge keys yet."
             logger.warning(m)

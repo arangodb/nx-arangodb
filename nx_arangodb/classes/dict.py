@@ -25,7 +25,8 @@ from .function import (
     aql_doc_get_keys,
     aql_doc_get_length,
     aql_doc_has_key,
-    aql_edge_count,
+    aql_edge_count_src,
+    aql_edge_count_src_dst,
     aql_edge_exists,
     aql_edge_get,
     aql_edge_id,
@@ -42,6 +43,7 @@ from .function import (
     get_node_type_and_id,
     get_update_dict,
     json_serializable,
+    key_is_adb_id,
     key_is_int,
     key_is_not_reserved,
     key_is_string,
@@ -567,6 +569,12 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         return node_attr_dict
 
+    def __repr__(self) -> str:
+        return f"NodeDict('{self.graph.name}')"
+
+    def __str__(self) -> str:
+        return f"NodeDict('{self.graph.name}')"
+
     @key_is_string
     @logger_debug
     def __contains__(self, key: str) -> bool:
@@ -897,16 +905,15 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
     """The (optional) 3rd level of the dict of dict (*of dict*) of dict
     structure representing the Adjacency List of a MultiGraph.
 
-    EdgeKeyDict is keyed by an arbitrary dictionary key (usually an integer).
+    EdgeKeyDict is keyed by ArangoDB Edge IDs.
 
     Unique to MultiGraphs, edges are keyed by a numerical edge index, allowing
     for multiple edges between the same nodes.
 
     ASSUMPTIONS (for now):
-    - keys must be integers
-    - keys must be ordered from 0 to n-1 (n is the number of edges between two nodes)
+    - keys must be ArangoDB Edge IDs
     - key-to-edge mapping is 1-to-1
-    - key-to-edge mapping order is not guaranteed (because DB order is never guaranteed)
+    - order is not guaranteed (because DB order is never guaranteed)
 
     :param db: The ArangoDB database.
     :type db: StandardDatabase
@@ -946,6 +953,26 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         else:
             self.traversal_direction = TraversalDirection.ANY
 
+        if self.traversal_direction == TraversalDirection.OUTBOUND:
+            self.__is_valid_edge = self.__is_valid_edge_outbound
+        elif self.traversal_direction == TraversalDirection.INBOUND:
+            self.__is_valid_edge = self.__is_valid_edge_inbound
+        else:
+            self.__is_valid_edge = self.__is_valid_edge_any
+
+    def __is_valid_edge_outbound(self, edge: dict[str, Any]) -> bool:
+        return bool(
+            edge["_from"] == self.src_node_id and edge["_to"] == self.dst_node_id
+        )
+
+    def __is_valid_edge_inbound(self, edge: dict[str, Any]) -> bool:
+        return bool(
+            edge["_from"] == self.dst_node_id and edge["_to"] == self.src_node_id
+        )
+
+    def __is_valid_edge_any(self, edge: dict[str, Any]) -> bool:
+        return self.__is_valid_edge_outbound(edge) or self.__is_valid_edge_inbound(edge)
+
     @logger_debug
     def _create_edge_attr_dict(self, edge: dict[str, Any]) -> EdgeAttrDict:
         edge_attr_dict = self.edge_attr_dict_factory()
@@ -954,29 +981,73 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
 
         return edge_attr_dict
 
-    @logger_debug
-    def __contains__(self, key: int) -> bool:
-        """0 in G._adj['node/1']['node/2']"""
-        # I don't even know if this is possible or necessary
-        raise NotImplementedError("EdgeKeyDict.__contains__()")
+    def __repr__(self) -> str:
+        return f"EdgeKeyDict('{self.src_node_id}', '{self.dst_node_id}')"
 
-    @key_is_string
+    def __str__(self) -> str:
+        return f"EdgeKeyDict('{self.src_node_id}', '{self.dst_node_id}')"
+
+    @key_is_adb_id
+    @logger_debug
+    def __contains__(self, key: str) -> bool:
+        """'edge/1' in G._adj['node/1']['node/2']"""
+        if key in self.data:
+            return True
+
+        if self.FETCHED_ALL_DATA:
+            return False
+
+        edge = self.graph.edge(key)
+
+        if edge is None:
+            logger.warning(f"Edge '{key}' does not exist in Graph.")
+            return False
+
+        if not self.__is_valid_edge(edge):
+            m = f"Edge '{key}' exists, but does not match the source & destination nodes."  # noqa
+            logger.warning(m)
+            return False
+
+        # Contrary to other __contains__ methods, we immediately
+        # populate the Dict Data because we had to retrieve
+        # the entire edge from the database to check if it is valid.
+        edge_attr_dict = self._create_edge_attr_dict(edge)
+        self.data[key] = edge_attr_dict
+        return True
+
+    @key_is_adb_id
     @logger_debug
     def __getitem__(self, key: str) -> EdgeAttrDict:
         """G._adj['node/1']['node/2']['edge/1']"""
-        return super().__getitem__(key)
-        # TODO: Consider the following situation:
-        # There are 1 million edges between two nodes.
-        # We don't want to fetch all 1 million edges at once.
-        # We should only fetch the edge by index when it is accessed.
-        # Therefore, **key** can be used as an OFFSET via the LIMIT clause in AQL.
-        # This would only work if we combine it with a SORT by edge IDs.
-        # For now, we assume a reasonable number of edges between two nodes.
+        # Notice the use of walrus operator here,
+        # because we can return the value immediately
+        # given that __contains__ builds EdgeAttrDict.data
+        if value := self.data.get(key):
+            return value
 
-    @key_is_int
+        if self.FETCHED_ALL_DATA:
+            raise KeyError(key)
+
+        edge = self.graph.edge(key)
+
+        if edge is None:
+            raise KeyError(key)
+
+        if not self.__is_valid_edge(edge):
+            m = f"Edge '{key}' exists, but does not match the source & destination nodes."  # noqa
+            raise KeyError(m)
+
+        edge_attr_dict: EdgeAttrDict = self._create_edge_attr_dict(edge)
+        self.data[key] = edge_attr_dict
+        return edge_attr_dict
+
     @logger_debug
-    def __setitem__(self, key: int, edge_attr_dict: EdgeAttrDict) -> None:
-        """G._adj['node/1']['node/2'][-1] = {'foo': 'bar'}"""
+    def __setitem__(self, key: str, edge_attr_dict: EdgeAttrDict) -> None:
+        """G._adj['node/1']['node/2']["-1"] = {'foo': 'bar'}"""
+        if key != "-1":
+            m = "Custom edge keys are not yet supported in MultiGraphs."
+            raise NotImplementedError(m)
+
         raise NotImplementedError("EdgeKeyDict.__setitem__()")
         # self.data[key] = edge_attr_dict
 
@@ -1041,6 +1112,32 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         self.data.pop(key, None)
 
     @logger_debug
+    def clear(self) -> None:
+        """G._adj['node/1']['node/2'].clear()"""
+        self.data.clear()
+        self.FETCHED_ALL_DATA = False
+
+    @keys_are_strings
+    @logger_debug
+    def update(self, edges: Any) -> None:
+        """g._adj['node/1']['node/2'].update(
+            {'edge/1': {'foo': 'bar'}, 'edge/2': {'baz': 'qux'}}
+        )
+        """
+        raise NotImplementedError("EdgeKeyDict.update()")
+
+    def popitem(self) -> tuple[str, dict[str, Any]]:  # type: ignore
+        """G._adj['node/1']['node/2'].popitem()"""
+        last_key = list(self.data.keys())[-1]
+        edge_attr_dict = self.data[last_key]
+
+        assert hasattr(edge_attr_dict, "to_dict")
+        dict = edge_attr_dict.to_dict()
+
+        self.__delitem__(last_key)
+        return (last_key, dict)
+
+    @logger_debug
     def __len__(self) -> int:
         """len(g._adj['node/1']['node/2'])"""
         assert self.src_node_id
@@ -1049,7 +1146,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         if self.FETCHED_ALL_DATA:
             return len(self.data)
 
-        return aql_edge_count(
+        return aql_edge_count_src_dst(
             self.db,
             self.src_node_id,
             self.dst_node_id,
@@ -1126,29 +1223,6 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
 
         self.FETCHED_ALL_DATA = True
 
-    @logger_debug
-    def clear(self) -> None:
-        """G._adj['node/1']['node/2'].clear()"""
-        self.data.clear()
-        self.FETCHED_ALL_DATA = False
-
-    @keys_are_strings
-    @logger_debug
-    def update(self, edges: Any) -> None:
-        """g._adj['node/1']['node/2'].update({0: {'foo': 'bar'}, 1: {'baz': 'qux'}})"""
-        raise NotImplementedError("EdgeKeyDict.update()")
-
-    def popitem(self) -> tuple[str, dict[str, Any]]:  # type: ignore
-        """G._adj['node/1']['node/2'].popitem()"""
-        last_key = list(self.data.keys())[-1]
-        edge_attr_dict = self.data[last_key]
-
-        assert hasattr(edge_attr_dict, "to_dict")
-        dict = edge_attr_dict.to_dict()
-
-        self.__delitem__(last_key)
-        return (last_key, dict)
-
 
 class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
     """The 2nd level of the dict of dict (of dict) of dict structure
@@ -1190,6 +1264,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
         self.db = db
         self.graph = graph
+        self.edge_type_key = "_edge_type"
         self.edge_type_func = edge_type_func
         self.default_node_type = default_node_type
         self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
@@ -1281,13 +1356,11 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
         return None
 
-    @logger_debug
     def __repr__(self) -> str:
-        return f"'{self.src_node_id}'"
+        return f"AdjListInnerDict('{self.src_node_id}')"
 
-    @logger_debug
     def __str__(self) -> str:
-        return f"'{self.src_node_id}'"
+        return f"AdjListInnerDict('{self.src_node_id}')"
 
     @key_is_string
     @logger_debug
@@ -1383,8 +1456,8 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         """Cache Helper function for __getitem__ in Graphs."""
         # Notice that we're not using the walrus operator here
         # compared to other __getitem__ methods.
-        # This is because EdgeKeyDict is lazily created
-        # when the second key is accessed (e.g G._adj["node/1"]["node/2"]).
+        # This is because EdgeKeyDict is lazily populated
+        # when the second key is accessed (e.g G._adj["node/1"]["node/2"]['edge/1']).
         # Therefore, there is no actual data in EdgeKeyDict.data
         # when it is first created!
         return dst_node_id in self.data
@@ -1434,22 +1507,19 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         self, edge_attr_dict: EdgeAttrDict, dst_node_type: str, dst_node_id: str
     ) -> None:
         """Helper function for __setitem__ in Graphs."""
-        # TODO: Parameterize "_edge_type"
-        edge_type_key = "_edge_type"
-
         if edge_attr_dict.edge_id:
             # If the edge_id is already set, it means that the
             # EdgeAttrDict.update() that was just called was
             # able to update the edge in the database.
             # Therefore, we don't need to insert anything.
 
-            if edge_type_key in edge_attr_dict.data:
-                m = f"Cannot set '{edge_type_key}' if edge already exists in DB."
+            if self.edge_type_key in edge_attr_dict.data:
+                m = f"Cannot set '{self.edge_type_key}' if edge already exists in DB."
                 raise EdgeTypeAmbiguity(m)
 
             return
 
-        edge_type = edge_attr_dict.data.pop(edge_type_key, None)
+        edge_type = edge_attr_dict.data.pop(self.edge_type_key, None)
         if edge_type is None:
             edge_type = self.edge_type_func(self.src_node_type, dst_node_type)
 
@@ -1499,9 +1569,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
         edge_attr_dict = edge_key_dict.data["-1"]
 
-        # TODO: Parameterize "_edge_type"
-        edge_type_key = "_edge_type"
-        edge_type = edge_attr_dict.data.pop(edge_type_key, None)
+        edge_type = edge_attr_dict.data.pop(self.edge_type_key, None)
         if edge_type is None:
             edge_type = self.edge_type_func(self.src_node_type, dst_node_type)
 
@@ -1524,6 +1592,10 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         # + some extra code to set the **edge_id** attribute
         # for any nested EdgeAttrDicts within edge_attr_dict
         edge_key_dict.data[edge_id] = self._create_edge_attr_dict(edge_data)
+        edge_key_dict.src_node_id = self.src_node_id
+        edge_key_dict.dst_node_id = dst_node_id
+        edge_key_dict.traversal_direction = self.traversal_direction
+
         self.data[dst_node_id] = edge_key_dict
 
     @key_is_string
@@ -1579,24 +1651,9 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         if self.FETCHED_ALL_DATA:
             return len(self.data)
 
-        # TODO: Create aql_edge_count() function
-        query = f"""
-            RETURN LENGTH(
-                FOR v, e IN 1..1 {self.traversal_direction.name} @src_node_id
-                GRAPH @graph_name
-                    RETURN DISTINCT e._id
-            )
-        """
-
-        bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
-
-        result = aql_single(self.db, query, bind_vars)
-        #####
-
-        if result is None:
-            return 0
-
-        return int(result)
+        return aql_edge_count_src(
+            self.db, self.src_node_id, self.graph.name, self.traversal_direction.name
+        )
 
     @logger_debug
     def __iter__(self) -> Iterator[str]:
@@ -1774,13 +1831,11 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
         self.mirror: AdjListOuterDict
 
-    @logger_debug
     def __repr__(self) -> str:
-        return f"'{self.graph.name}'"
+        return f"AdjListOuterDict('{self.graph.name}')"
 
-    @logger_debug
     def __str__(self) -> str:
-        return f"'{self.graph.name}'"
+        return f"AdjListOuterDict('{self.graph.name}')"
 
     @key_is_string
     @logger_debug
@@ -1811,7 +1866,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         if node_id in self.data:
             # Notice that we're not using the walrus operator here
             # compared to other __getitem__ methods.
-            # This is because AdjListInnerDict is lazily created
+            # This is because AdjListInnerDict is lazily populated
             # when the second key is accessed (e.g G._adj["node/1"]["node/2"]).
             # Therefore, there is no actual data in AdjListInnerDict.data
             # when it is first created!

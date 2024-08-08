@@ -25,8 +25,8 @@ class MultiGraph(Graph, nx.MultiGraph):
     def __init__(
         self,
         graph_name: str | None = None,
-        default_node_type: str = "node",
-        edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
+        default_node_type: str | None = None,
+        edge_type_func: Callable[[str, str], str] | None = None,
         db: StandardDatabase | None = None,
         *args: Any,
         **kwargs: Any,
@@ -48,3 +48,30 @@ class MultiGraph(Graph, nx.MultiGraph):
     ##########################
     # nx.MultiGraph Overides #
     ##########################
+
+    def add_edge(self, u_for_edge, v_for_edge, key=None, **attr):
+        if key is not None:
+            raise NotImplementedError("Custom edge keys are not yet supported")
+
+        key = super().add_edge(u_for_edge, v_for_edge, key="-1", **attr)
+
+        ######################
+        # NOTE: monkey patch #
+        ######################
+
+        # Old:
+        # return key
+
+        # New:
+        keys = list(self._adj[u_for_edge][v_for_edge].data.keys())
+        last_key = keys[-1]
+        return last_key
+
+        # Reason:
+        # nxadb.MultiGraph does not yet support the ability to work
+        # with custom edge keys. As a Database, we must rely on the official
+        # ArangoDB Edge _id to uniquely identify edges. The EdgeKeyDict.__setitem__
+        # method will be responsible for setting the edge key to the _id of the edge
+        # document. This will allow us to use the edge key as a unique identifier
+
+        ###########################

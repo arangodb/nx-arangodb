@@ -172,7 +172,7 @@ def key_is_adb_id(func: Callable[..., Any]) -> Any:
         if not isinstance(key, str):
             raise TypeError(f"{key} must be a string.")
 
-        if "/" not in key:
+        if key != "-1" and "/" not in key:
             raise ValueError(f"{key} is not an ArangoDB ID.")
 
         return func(self, key, *args, **kwargs)

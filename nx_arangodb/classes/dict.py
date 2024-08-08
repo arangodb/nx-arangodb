@@ -567,6 +567,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         self.node_attr_dict_factory = node_attr_dict_factory(self.db, self.graph)
 
         self.FETCHED_ALL_DATA = False
+        self.FETCHED_ALL_IDS = False
 
     def _create_node_attr_dict(self, vertex: dict[str, Any]) -> NodeAttrDict:
         node_attr_dict = self.node_attr_dict_factory()
@@ -576,10 +577,13 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         return node_attr_dict
 
     def __repr__(self) -> str:
+        if self.FETCHED_ALL_IDS:
+            return self.data.keys().__repr__()
+
         return f"NodeDict('{self.graph.name}')"
 
     def __str__(self) -> str:
-        return f"NodeDict('{self.graph.name}')"
+        return self.__repr__()
 
     @key_is_string
     @logger_debug
@@ -590,7 +594,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         if node_id in self.data:
             return True
 
-        if self.FETCHED_ALL_DATA:
+        if self.FETCHED_ALL_IDS:
             return False
 
         if self.graph.has_vertex(node_id):
@@ -610,7 +614,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         if vertex := self.data.get(node_id):
             return vertex
 
-        if self.FETCHED_ALL_DATA:
+        if node_id not in self.data and self.FETCHED_ALL_IDS:
             raise KeyError(key)
 
         if vertex := self.graph.vertex(node_id):
@@ -681,11 +685,16 @@ class NodeDict(UserDict[str, NodeAttrDict]):
     @logger_debug
     def __iter__(self) -> Iterator[str]:
         """iter(g._node)"""
-        if self.FETCHED_ALL_DATA:
+        if self.FETCHED_ALL_IDS:
             yield from self.data.keys()
         else:
+            self.FETCHED_ALL_IDS = True
             for collection in self.graph.vertex_collections():
-                yield from self.graph.vertex_collection(collection).ids()
+                for node_id in self.graph.vertex_collection(collection).ids():
+                    empty_node_attr_dict = self.node_attr_dict_factory()
+                    empty_node_attr_dict.node_id = node_id
+                    self.data[node_id] = empty_node_attr_dict
+                    yield node_id
 
     @logger_debug
     def keys(self) -> Any:
@@ -697,10 +706,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         """g._node.clear()"""
         self.data.clear()
         self.FETCHED_ALL_DATA = False
-
-        # if clear_remote:
-        #     for collection in self.graph.vertex_collections():
-        #         self.graph.vertex_collection(collection).truncate()
+        self.FETCHED_ALL_IDS = False
 
     @keys_are_strings
     @logger_debug
@@ -753,6 +759,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             self.data[node_id] = node_attr_dict
 
         self.FETCHED_ALL_DATA = True
+        self.FETCHED_ALL_IDS = True
 
 
 #############
@@ -957,6 +964,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         self.adjlist_inner_dict = adjlist_inner_dict
 
         self.FETCHED_ALL_DATA = False
+        self.FETCHED_ALL_IDS = False
 
         if adjlist_inner_dict is not None:
             self.traversal_direction = adjlist_inner_dict.traversal_direction
@@ -1029,10 +1037,13 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         return edge_attr_dict
 
     def __repr__(self) -> str:
+        if self.FETCHED_ALL_DATA:
+            return self.data.__repr__()
+
         return f"EdgeKeyDict('{self.src_node_id}', '{self.dst_node_id}')"
 
     def __str__(self) -> str:
-        return f"EdgeKeyDict('{self.src_node_id}', '{self.dst_node_id}')"
+        return self.__repr__()
 
     @key_is_adb_id
     @logger_debug
@@ -1041,7 +1052,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         if key in self.data:
             return True
 
-        if self.FETCHED_ALL_DATA:
+        if self.FETCHED_ALL_IDS:
             return False
 
         edge = self.graph.edge(key)
@@ -1066,12 +1077,14 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
     @logger_debug
     def __getitem__(self, key: str) -> EdgeAttrDict:
         """G._adj['node/1']['node/2']['edge/1']"""
-        # Notice the use of walrus operator here,
-        # because we can return the value immediately
-        # given that __contains__ builds EdgeAttrDict.data
+        # HACK: This is a workaround for the fact that
+        # nxadb.MultiGraph does not yet support edge keys
         if key == "-1":
             raise KeyError(key)
 
+        # Notice the use of walrus operator here,
+        # because we can return the value immediately
+        # given that __contains__ builds EdgeAttrDict.data
         if value := self.data.get(key):
             return value
 
@@ -1079,7 +1092,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
             self.data[key] = result
             return result  # type: ignore # false positive
 
-        if self.FETCHED_ALL_DATA:
+        if key not in self.data and self.FETCHED_ALL_IDS:
             raise KeyError(key)
 
         edge = self.graph.edge(key)
@@ -1175,6 +1188,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         """G._adj['node/1']['node/2'].clear()"""
         self.data.clear()
         self.FETCHED_ALL_DATA = False
+        self.FETCHED_ALL_IDS = False
 
     @keys_are_strings
     @logger_debug
@@ -1202,7 +1216,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         assert self.src_node_id
         assert self.dst_node_id
 
-        if self.FETCHED_ALL_DATA:
+        if self.FETCHED_ALL_IDS:
             return len(self.data)
 
         return aql_edge_count_src_dst(
@@ -1216,14 +1230,13 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
     @logger_debug
     def __iter__(self) -> Iterator[str]:
         """for k in g._adj['node/1']['node/2']"""
-        if self.FETCHED_ALL_DATA:
+        if self.FETCHED_ALL_IDS:
             yield from self.data.keys()
 
         else:
-            # TODO: Should we just fetch the edges instead of
-            # only fetching the IDs?
             assert self.src_node_id
             assert self.dst_node_id
+
             edge_ids: list[str] | None = aql_edge_id(
                 self.db,
                 self.src_node_id,
@@ -1236,7 +1249,10 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
             if edge_ids is None:
                 raise ValueError("Failed to fetch Edge IDs")
 
-            yield from edge_ids
+            self.FETCHED_ALL_IDS = True
+            for edge_id in edge_ids:
+                self.data[edge_id] = self.edge_attr_dict_factory()
+                yield edge_id
 
     @logger_debug
     def keys(self) -> Any:
@@ -1283,6 +1299,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
             self.data[edge["_id"]] = edge_attr_dict
 
         self.FETCHED_ALL_DATA = True
+        self.FETCHED_ALL_IDS = True
 
 
 class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
@@ -1338,6 +1355,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         self.adjlist_outer_dict = adjlist_outer_dict
 
         self.FETCHED_ALL_DATA = False
+        self.FETCHED_ALL_IDS = False
 
         self.traversal_direction: TraversalDirection
         if adjlist_outer_dict is not None:
@@ -1418,10 +1436,13 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         return None
 
     def __repr__(self) -> str:
+        if self.FETCHED_ALL_DATA:
+            return self.data.__repr__()
+
         return f"AdjListInnerDict('{self.src_node_id}')"
 
     def __str__(self) -> str:
-        return f"AdjListInnerDict('{self.src_node_id}')"
+        return self.__repr__()
 
     @key_is_string
     @logger_debug
@@ -1433,7 +1454,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         if dst_node_id in self.data:
             return True
 
-        if self.FETCHED_ALL_DATA:
+        if self.FETCHED_ALL_IDS:
             return False
 
         result = aql_edge_exists(
@@ -1478,7 +1499,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             self.data[dst_node_id] = result
             return result  # type: ignore # false positive
 
-        if self.FETCHED_ALL_DATA:
+        if key not in self.data and self.FETCHED_ALL_IDS:
             raise KeyError(key)
 
         return self.__getitem_helper_db(key, dst_node_id)  # type: ignore
@@ -1710,7 +1731,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         """len(g._adj['node/1'])"""
         assert self.src_node_id
 
-        if self.FETCHED_ALL_DATA:
+        if self.FETCHED_ALL_IDS:
             return len(self.data)
 
         return aql_edge_count_src(
@@ -1720,7 +1741,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
     @logger_debug
     def __iter__(self) -> Iterator[str]:
         """for k in g._adj['node/1']"""
-        if self.FETCHED_ALL_DATA:
+        if self.FETCHED_ALL_IDS:
             yield from self.data.keys()
 
         else:
@@ -1740,7 +1761,10 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
             bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
 
-            yield from aql(self.db, query, bind_vars)
+            self.FETCHED_ALL_IDS = True
+            for edge_id in aql(self.db, query, bind_vars):
+                self.__contains_helper(edge_id)
+                yield edge_id
 
     @logger_debug
     def keys(self) -> Any:
@@ -1752,6 +1776,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         """G._adj['node/1'].clear()"""
         self.data.clear()
         self.FETCHED_ALL_DATA = False
+        self.FETCHED_ALL_IDS = False
 
     @keys_are_strings
     @logger_debug
@@ -1808,6 +1833,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             self.__fetch_all_helper(edge_attr_dict, dst_node_id)
 
         self.FETCHED_ALL_DATA = True
+        self.FETCHED_ALL_IDS = True
 
     @logger_debug
     def __fetch_all_graph(self, edge_attr_dict: EdgeAttrDict, dst_node_id: str) -> None:
@@ -1831,6 +1857,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             edge_key_dict.src_node_id = self.src_node_id
             edge_key_dict.dst_node_id = dst_node_id
             edge_key_dict.FETCHED_ALL_DATA = True
+            edge_key_dict.FETCHED_ALL_IDS = True
 
         assert isinstance(edge_key_dict, EdgeKeyDict)
         edge_key_dict.data[edge_attr_dict.edge_id] = edge_attr_dict
@@ -1884,6 +1911,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         )
 
         self.FETCHED_ALL_DATA = False
+        self.FETCHED_ALL_IDS = False
 
         self.traversal_direction = (
             TraversalDirection.OUTBOUND if self.is_directed else TraversalDirection.ANY
@@ -1895,10 +1923,13 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         self.mirror: AdjListOuterDict
 
     def __repr__(self) -> str:
+        if self.FETCHED_ALL_DATA:
+            return self.data.__repr__()
+
         return f"AdjListOuterDict('{self.graph.name}')"
 
     def __str__(self) -> str:
-        return f"AdjListOuterDict('{self.graph.name}')"
+        return self.__repr__()
 
     @key_is_string
     @logger_debug
@@ -1909,7 +1940,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         if node_id in self.data:
             return True
 
-        if self.FETCHED_ALL_DATA:
+        if self.FETCHED_ALL_IDS:
             return False
 
         if self.graph.has_vertex(node_id):
@@ -1934,6 +1965,9 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             # Therefore, there is no actual data in AdjListInnerDict.data
             # when it is first created!
             return self.data[node_id]
+
+        if self.FETCHED_ALL_IDS:
+            raise KeyError(key)
 
         if self.graph.has_vertex(node_id):
             lazy_adjlist_inner_dict = self.adjlist_inner_dict_factory()
@@ -1980,12 +2014,17 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     @logger_debug
     def __iter__(self) -> Iterator[str]:
         """for k in g._adj"""
-        if self.FETCHED_ALL_DATA:
+        if self.FETCHED_ALL_IDS:
             yield from self.data.keys()
 
         else:
+            self.FETCHED_ALL_IDS = True
             for collection in self.graph.vertex_collections():
-                yield from self.graph.vertex_collection(collection).ids()
+                for node_id in self.graph.vertex_collection(collection).ids():
+                    lazy_adjlist_inner_dict = self.adjlist_inner_dict_factory()
+                    lazy_adjlist_inner_dict.src_node_id = node_id
+                    self.data[node_id] = lazy_adjlist_inner_dict
+                    yield node_id
 
     @logger_debug
     def keys(self) -> Any:
@@ -1997,6 +2036,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         """g._node.clear()"""
         self.data.clear()
         self.FETCHED_ALL_DATA = False
+        self.FETCHED_ALL_IDS = False
 
     @keys_are_strings
     @logger_debug
@@ -2039,6 +2079,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             adj_inner_dict = self.adjlist_inner_dict_factory()
             adj_inner_dict.src_node_id = node_id
             adj_inner_dict.FETCHED_ALL_DATA = True
+            adj_inner_dict.FETCHED_ALL_IDS = True
             adj_outer_dict.data[node_id] = adj_inner_dict
 
             return adj_inner_dict
@@ -2099,6 +2140,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             edge_key_dict.src_node_id = src_node_id
             edge_key_dict.dst_node_id = dst_node_id
             edge_key_dict.FETCHED_ALL_DATA = True
+            edge_key_dict.FETCHED_ALL_IDS = True
 
             for edge in edges.values():
                 edge_attr_dict = adjlist_inner_dict._create_edge_attr_dict(edge)
@@ -2146,5 +2188,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
                 propagate_edge_func(src_node_id, dst_node_id, edge_attr_or_key_dict)
 
         self.FETCHED_ALL_DATA = True
+        self.FETCHED_ALL_IDS = True
         if self.is_directed:
             self.mirror.FETCHED_ALL_DATA = True
+            self.mirror.FETCHED_ALL_IDS = True

@@ -50,10 +50,7 @@ class MultiGraph(Graph, nx.MultiGraph):
     ##########################
 
     def add_edge(self, u_for_edge, v_for_edge, key=None, **attr):
-        if key is not None:
-            raise NotImplementedError("Custom edge keys are not yet supported")
-
-        key = super().add_edge(u_for_edge, v_for_edge, key="-1", **attr)
+        _ = super().add_edge(u_for_edge, v_for_edge, key="-1", **attr)
 
         ######################
         # NOTE: monkey patch #

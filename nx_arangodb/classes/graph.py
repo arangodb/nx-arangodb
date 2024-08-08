@@ -86,8 +86,14 @@ class Graph(nx.Graph):
         self.default_edge_type = edge_type_func(default_node_type, default_node_type)
 
         # self.__qa_chain = None
-
         incoming_graph_data = kwargs.get("incoming_graph_data")
+
+        # TODO: Consider this
+        # if not self.__graph_name:
+        #     if incoming_graph_data is not None:
+        #         m = "Must set **graph_name** if passing **incoming_graph_data**"
+        #         raise ValueError(m)
+
         if self._graph_exists_in_db:
             if incoming_graph_data is not None:
                 m = "Cannot pass both **incoming_graph_data** and **graph_name** yet if the already graph exists"  # noqa: E501

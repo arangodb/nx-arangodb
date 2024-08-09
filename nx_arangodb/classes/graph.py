@@ -320,15 +320,23 @@ class Graph(nx.Graph):
             logger.warning("nxadb.CustomNodeView is currently EXPERIMENTAL")
             return CustomNodeView(self)
 
-        return nx.classes.reportviews.NodeView(self)
+        return super().nodes
 
     @cached_property
     def edges(self):
         if self.graph_exists_in_db:
+            if self.is_directed():
+                logger.warning("CustomEdgeView for Directed Graphs not yet implemented")
+                return super().edges
+
+            if self.is_multigraph():
+                logger.warning("CustomEdgeView for MultiGraphs not yet implemented")
+                return super().edges
+
             logger.warning("nxadb.CustomEdgeView is currently EXPERIMENTAL")
             return CustomEdgeView(self)
 
-        return nx.classes.reportviews.EdgeView(self)
+        return super().edges
 
     def add_node(self, node_for_adding, **attr):
         if node_for_adding not in self._node:

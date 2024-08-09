@@ -26,13 +26,26 @@ class MultiGraph(Graph, nx.MultiGraph):
         self,
         graph_name: str | None = None,
         default_node_type: str | None = None,
+        edge_type_key: str = "_edge_type",
         edge_type_func: Callable[[str, str], str] | None = None,
         db: StandardDatabase | None = None,
+        read_parallelism: int = 10,
+        read_batch_size: int = 100000,
+        write_batch_size: int = 50000,
         *args: Any,
         **kwargs: Any,
     ):
         super().__init__(
-            graph_name, default_node_type, edge_type_func, db, *args, **kwargs
+            graph_name,
+            default_node_type,
+            edge_type_key,
+            edge_type_func,
+            db,
+            read_parallelism,
+            read_batch_size,
+            write_batch_size,
+            *args,
+            **kwargs,
         )
 
         if self._graph_exists_in_db:
@@ -45,7 +58,11 @@ class MultiGraph(Graph, nx.MultiGraph):
     def _set_factory_methods(self) -> None:
         super()._set_factory_methods()
         self.edge_key_dict_factory = edge_key_dict_factory(
-            self.db, self.adb_graph, self.edge_type_func, self.is_directed()
+            self.db,
+            self.adb_graph,
+            self.edge_type_key,
+            self.edge_type_func,
+            self.is_directed(),
         )
 
     ##########################

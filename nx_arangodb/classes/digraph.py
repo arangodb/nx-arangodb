@@ -26,14 +26,27 @@ class DiGraph(Graph, nx.DiGraph):
         self,
         graph_name: str | None = None,
         default_node_type: str | None = None,
+        edge_type_key: str = "_edge_type",
         edge_type_func: Callable[[str, str], str] | None = None,
         db: StandardDatabase | None = None,
+        read_parallelism: int = 10,
+        read_batch_size: int = 100000,
+        write_batch_size: int = 50000,
         symmetrize_edges: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
         super().__init__(
-            graph_name, default_node_type, edge_type_func, db, *args, **kwargs
+            graph_name,
+            default_node_type,
+            edge_type_key,
+            edge_type_func,
+            db,
+            read_parallelism,
+            read_batch_size,
+            write_batch_size,
+            *args,
+            **kwargs,
         )
 
         self.symmetrize_edges = symmetrize_edges

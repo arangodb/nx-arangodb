@@ -53,12 +53,6 @@ from .function import (
 )
 
 #############
-# Constants #
-#############
-
-EDGE_TYPE_KEY = "_edge_type"
-
-#############
 # Factories #
 #############
 
@@ -94,12 +88,13 @@ def edge_attr_dict_factory(
 def edge_key_dict_factory(
     db: StandardDatabase,
     graph: Graph,
+    edge_type_key: str,
     edge_type_func: Callable[[str, str], str],
     is_directed: bool,
     adjlist_inner_dict: AdjListInnerDict | None = None,
 ) -> Callable[..., EdgeKeyDict]:
     return lambda: EdgeKeyDict(
-        db, graph, edge_type_func, is_directed, adjlist_inner_dict
+        db, graph, edge_type_key, edge_type_func, is_directed, adjlist_inner_dict
     )
 
 
@@ -107,12 +102,19 @@ def adjlist_inner_dict_factory(
     db: StandardDatabase,
     graph: Graph,
     default_node_type: str,
+    edge_type_key: str,
     edge_type_func: Callable[[str, str], str],
     graph_type: str,
     adjlist_outer_dict: AdjListOuterDict | None = None,
 ) -> Callable[..., AdjListInnerDict]:
     return lambda: AdjListInnerDict(
-        db, graph, default_node_type, edge_type_func, graph_type, adjlist_outer_dict
+        db,
+        graph,
+        default_node_type,
+        edge_type_key,
+        edge_type_func,
+        graph_type,
+        adjlist_outer_dict,
     )
 
 
@@ -120,6 +122,7 @@ def adjlist_outer_dict_factory(
     db: StandardDatabase,
     graph: Graph,
     default_node_type: str,
+    edge_type_key: str,
     edge_type_func: Callable[[str, str], str],
     graph_type: str,
     symmetrize_edges_if_directed: bool,
@@ -128,6 +131,7 @@ def adjlist_outer_dict_factory(
         db,
         graph,
         default_node_type,
+        edge_type_key,
         edge_type_func,
         graph_type,
         symmetrize_edges_if_directed,
@@ -939,6 +943,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         self,
         db: StandardDatabase,
         graph: Graph,
+        edge_type_key: str,
         edge_type_func: Callable[[str, str], str],
         is_directed: bool,
         adjlist_inner_dict: AdjListInnerDict | None = None,
@@ -953,7 +958,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
 
         self.db = db
         self.graph = graph
-        self.edge_type_key = EDGE_TYPE_KEY
+        self.edge_type_key = edge_type_key
         self.edge_type_func = edge_type_func
         self._default_edge_type: str | None = None
         self.graph_name = graph.name
@@ -980,6 +985,17 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         else:
             self.__is_valid_edge = self.__is_valid_edge_any
 
+    @property
+    def default_edge_type(self) -> str:
+        if self._default_edge_type is None:
+            assert self.src_node_id
+            assert self.dst_node_id
+            src_node_type = self.src_node_id.split("/")[0]
+            dst_node_type = self.dst_node_id.split("/")[0]
+            self._default_edge_type = self.edge_type_func(src_node_type, dst_node_type)
+
+        return self._default_edge_type
+
     def __is_valid_edge_outbound(self, edge: dict[str, Any]) -> bool:
         return bool(
             edge["_from"] == self.src_node_id and edge["_to"] == self.dst_node_id
@@ -993,20 +1009,29 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
     def __is_valid_edge_any(self, edge: dict[str, Any]) -> bool:
         return self.__is_valid_edge_outbound(edge) or self.__is_valid_edge_inbound(edge)
 
-    @property
-    def default_edge_type(self) -> str:
-        if self._default_edge_type is None:
-            assert self.src_node_id
-            assert self.dst_node_id
-            src_node_type = self.src_node_id.split("/")[0]
-            dst_node_type = self.dst_node_id.split("/")[0]
-            self._default_edge_type = self.edge_type_func(src_node_type, dst_node_type)
-
-        return self._default_edge_type
-
     @logger_debug
     def __get_mirrored_edge_attr(self, edge_id: str) -> EdgeAttrDict | None:
-        """"""
+        """This method is used to get the EdgeAttrDict of the
+        "mirrored" EdgeKeyDict.
+
+        A "mirrored edge" is defined as a reference to an edge that
+        represents both the forward and reverse edge between two nodes. This is useful
+        because ArangoDB does not need to duplicate edges in both directions
+        in the database.
+
+        If the Graph is Undirected:
+        - The "mirror" is the same adjlist_outer_dict because
+            the adjacency list is the same in both directions (i.e _adj)
+
+        If the Graph is Directed:
+        - The "mirror" is the "reverse" adjlist_outer_dict because
+            the adjacency list is different in both directions (i.e _pred and _succ)
+
+        :param dst_node_id: The destination node ID.
+        :type dst_node_id: str
+        :return: The edge attribute dictionary if it exists.
+        :rtype: EdgeAttrDict | None
+        """
         if self.adjlist_inner_dict is None:
             return None
 
@@ -1324,6 +1349,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         db: StandardDatabase,
         graph: Graph,
         default_node_type: str,
+        edge_type_key: str,
         edge_type_func: Callable[[str, str], str],
         graph_type: str,
         adjlist_outer_dict: AdjListOuterDict | None,
@@ -1342,12 +1368,12 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
         self.db = db
         self.graph = graph
-        self.edge_type_key = EDGE_TYPE_KEY
+        self.edge_type_key = edge_type_key
         self.edge_type_func = edge_type_func
         self.default_node_type = default_node_type
         self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
         self.edge_key_dict_factory = edge_key_dict_factory(
-            self.db, self.graph, edge_type_func, self.is_directed, self
+            self.db, self.graph, edge_type_key, edge_type_func, self.is_directed, self
         )
 
         self.src_node_id: str | None = None
@@ -1400,14 +1426,13 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
     def __get_mirrored_edge_attr_or_key_dict(
         self, dst_node_id: str
     ) -> EdgeAttrDict | EdgeKeyDict | None:
-        # TODO: Update docstring to reflect EdgeKeyDict
-        """This method is used to get the edge attribute dictionary of the
-        mirrored edge.
+        """This method is used to get the EdgeAttrDict or EdgeKeyDict of the
+        "mirrored" AdJlistInnerDict.
 
-        A "mirrored edge" is defined as a reference to an edge that represents
-        both the forward and reverse edge between two nodes. This is useful
+        A "mirrored edge" is defined as a reference to an edge (or multiple edges) that
+        represents both the forward and reverse edge between two nodes. This is useful
         because ArangoDB does not need to duplicate edges in both directions
-        in the database, therefore allowing us to save space.
+        in the database.
 
         If the Graph is Undirected:
         - The "mirror" is the same adjlist_outer_dict because
@@ -1886,6 +1911,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         db: StandardDatabase,
         graph: Graph,
         default_node_type: str,
+        edge_type_key: str,
         edge_type_func: Callable[[str, str], str],
         graph_type: str,
         symmetrize_edges_if_directed: bool,
@@ -1904,10 +1930,17 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
         self.db = db
         self.graph = graph
+        self.edge_type_key = edge_type_key
         self.edge_type_func = edge_type_func
         self.default_node_type = default_node_type
         self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(
-            db, graph, default_node_type, edge_type_func, graph_type, self
+            db,
+            graph,
+            default_node_type,
+            edge_type_key,
+            edge_type_func,
+            graph_type,
+            self,
         )
 
         self.FETCHED_ALL_DATA = False

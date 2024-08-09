@@ -41,6 +41,7 @@ class Graph(nx.Graph):
         self,
         graph_name: str | None = None,
         default_node_type: str | None = None,
+        edge_type_key: str = "_edge_type",
         edge_type_func: Callable[[str, str], str] | None = None,
         db: StandardDatabase | None = None,
         read_parallelism: int = 10,
@@ -84,6 +85,7 @@ class Graph(nx.Graph):
         self.default_node_type = default_node_type
         self.edge_type_func = edge_type_func
         self.default_edge_type = edge_type_func(default_node_type, default_node_type)
+        self.edge_type_key = edge_type_key
 
         # self.__qa_chain = None
         incoming_graph_data = kwargs.get("incoming_graph_data")
@@ -173,7 +175,12 @@ class Graph(nx.Graph):
 
         base_args = (self.db, self.adb_graph)
         node_args = (*base_args, self.default_node_type)
-        adj_args = (*node_args, self.edge_type_func, self.__class__.__name__)
+        adj_args = (
+            *node_args,
+            self.edge_type_key,
+            self.edge_type_func,
+            self.__class__.__name__,
+        )
 
         self.graph_attr_dict_factory = graph_dict_factory(*base_args)
 

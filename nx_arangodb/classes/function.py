@@ -164,16 +164,21 @@ def key_is_int(func: Callable[..., Any]) -> Any:
     return wrapper
 
 
-def key_is_adb_id(func: Callable[..., Any]) -> Any:
+def key_is_adb_id_or_int(func: Callable[..., Any]) -> Any:
     """Decorator to check if the key is an ArangoDB ID."""
 
     def wrapper(self: Any, key: Any, *args: Any, **kwargs: Any) -> Any:
         """"""
-        if not isinstance(key, str):
-            raise TypeError(f"{key} must be a string.")
+        if isinstance(key, str):
+            if key != "-1" and "/" not in key:
+                raise ValueError(f"{key} is not an ArangoDB ID.")
 
-        if key != "-1" and "/" not in key:
-            raise ValueError(f"{key} is not an ArangoDB ID.")
+        elif isinstance(key, int):
+            m = "Edge order is not guaranteed when using int as an edge key. It may raise a KeyError. Use at your own risk."  # noqa
+            logger.warning(m)
+
+        else:
+            raise TypeError(f"{key} is not an ArangoDB Edge _id or integer.")
 
         return func(self, key, *args, **kwargs)
 

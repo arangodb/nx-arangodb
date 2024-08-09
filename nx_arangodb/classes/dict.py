@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections import UserDict
 from collections.abc import Iterator
+from itertools import islice
 from typing import Any, Callable
 
 from arango.cursor import Cursor
@@ -43,7 +44,7 @@ from .function import (
     get_node_type_and_id,
     get_update_dict,
     json_serializable,
-    key_is_adb_id,
+    key_is_adb_id_or_int,
     key_is_int,
     key_is_not_reserved,
     key_is_string,
@@ -1000,6 +1001,15 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
 
         return self._default_edge_type
 
+    def __process_int_edge_key(self, key: int) -> str:
+        if key < 0:
+            key = len(self.data) + key
+
+        if key < 0 or key >= len(self.data):
+            raise KeyError(key)
+
+        return next(islice(self.data.keys(), key, key + 1))
+
     def __is_valid_edge_outbound(self, edge: dict[str, Any]) -> bool:
         return bool(
             edge["_from"] == self.src_node_id and edge["_to"] == self.dst_node_id
@@ -1074,10 +1084,16 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
     def __str__(self) -> str:
         return self.__repr__()
 
-    @key_is_adb_id
+    @key_is_adb_id_or_int
     @logger_debug
-    def __contains__(self, key: str) -> bool:
-        """'edge/1' in G._adj['node/1']['node/2']"""
+    def __contains__(self, key: str | int) -> bool:
+        """
+        'edge/1' in G._adj['node/1']['node/2']
+        0 in G._adj['node/1']['node/2']
+        """
+        if isinstance(key, int):
+            key = self.__process_int_edge_key(key)
+
         if key in self.data:
             return True
 
@@ -1102,14 +1118,17 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         self.data[key] = edge_attr_dict
         return True
 
-    @key_is_adb_id
+    @key_is_adb_id_or_int
     @logger_debug
-    def __getitem__(self, key: str) -> EdgeAttrDict:
+    def __getitem__(self, key: str | int) -> EdgeAttrDict:
         """G._adj['node/1']['node/2']['edge/1']"""
         # HACK: This is a workaround for the fact that
         # nxadb.MultiGraph does not yet support edge keys
         if key == "-1":
             raise KeyError(key)
+
+        if isinstance(key, int):
+            key = self.__process_int_edge_key(key)
 
         # Notice the use of walrus operator here,
         # because we can return the value immediately

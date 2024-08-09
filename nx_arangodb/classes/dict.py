@@ -1974,6 +1974,17 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
         self.mirror: AdjListOuterDict
 
+    def __get_mirrored_adjlist_inner_dict(
+        self, node_id: str
+    ) -> AdjListInnerDict | None:
+        if not self.is_directed:
+            return None
+
+        if node_id in self.mirror.data:
+            return self.mirror.data[node_id]
+
+        return None
+
     def __repr__(self) -> str:
         if self.FETCHED_ALL_DATA:
             return self.data.__repr__()
@@ -2017,6 +2028,13 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             # Therefore, there is no actual data in AdjListInnerDict.data
             # when it is first created!
             return self.data[node_id]
+
+        if self.__get_mirrored_adjlist_inner_dict(node_id):
+            lazy_adjlist_inner_dict = self.adjlist_inner_dict_factory()
+            lazy_adjlist_inner_dict.src_node_id = node_id
+            self.data[node_id] = lazy_adjlist_inner_dict
+
+            return lazy_adjlist_inner_dict
 
         if self.FETCHED_ALL_IDS:
             raise KeyError(key)

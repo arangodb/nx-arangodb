@@ -971,19 +971,23 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         self.FETCHED_ALL_DATA = False
         self.FETCHED_ALL_IDS = False
 
-        if adjlist_inner_dict is not None:
-            self.traversal_direction = adjlist_inner_dict.traversal_direction
-        elif self.is_directed:
-            self.traversal_direction = TraversalDirection.OUTBOUND
-        else:
-            self.traversal_direction = TraversalDirection.ANY
+        self.traversal_direction = (
+            adjlist_inner_dict.traversal_direction
+            if adjlist_inner_dict is not None
+            else (
+                TraversalDirection.OUTBOUND
+                if self.is_directed
+                else TraversalDirection.ANY
+            )
+        )
 
-        if self.traversal_direction == TraversalDirection.OUTBOUND:
-            self.__is_valid_edge = self.__is_valid_edge_outbound
-        elif self.traversal_direction == TraversalDirection.INBOUND:
-            self.__is_valid_edge = self.__is_valid_edge_inbound
-        else:
-            self.__is_valid_edge = self.__is_valid_edge_any
+        edge_validation_methods = {
+            TraversalDirection.OUTBOUND: self.__is_valid_edge_outbound,
+            TraversalDirection.INBOUND: self.__is_valid_edge_inbound,
+            TraversalDirection.ANY: self.__is_valid_edge_any,
+        }
+
+        self.__is_valid_edge = edge_validation_methods[self.traversal_direction]
 
     @property
     def default_edge_type(self) -> str:
@@ -1383,13 +1387,24 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         self.FETCHED_ALL_DATA = False
         self.FETCHED_ALL_IDS = False
 
-        self.traversal_direction: TraversalDirection
-        if adjlist_outer_dict is not None:
-            self.traversal_direction = adjlist_outer_dict.traversal_direction
-        elif self.is_directed:
-            self.traversal_direction = TraversalDirection.OUTBOUND
-        else:
-            self.traversal_direction = TraversalDirection.ANY
+        self.traversal_direction: TraversalDirection = (
+            adjlist_outer_dict.traversal_direction
+            if adjlist_outer_dict is not None
+            else (
+                TraversalDirection.OUTBOUND
+                if self.is_directed
+                else TraversalDirection.ANY
+            )
+        )
+
+        direction_mappings = {
+            TraversalDirection.OUTBOUND: ("e._to", "_to"),
+            TraversalDirection.INBOUND: ("e._from", "_from"),
+            TraversalDirection.ANY: ("e._to == @src_node_id ? e._from : e._to", None),
+        }
+
+        k = self.traversal_direction
+        self.__iter__return_str, self._fetch_all_dst_node_key = direction_mappings[k]
 
         if self.is_multigraph:
             self.__contains_helper = self.__contains__multigraph
@@ -1770,18 +1785,10 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             yield from self.data.keys()
 
         else:
-
-            if self.traversal_direction == TraversalDirection.OUTBOUND:
-                return_str = "e._to"
-            elif self.traversal_direction == TraversalDirection.INBOUND:
-                return_str = "e._from"
-            else:
-                return_str = "e._to == @src_node_id ? e._from : e._to"
-
             query = f"""
                 FOR v, e IN 1..1 {self.traversal_direction.name} @src_node_id
                 GRAPH @graph_name
-                    RETURN {return_str}
+                    RETURN {self.__iter__return_str}
             """
 
             bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
@@ -1839,19 +1846,12 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
         bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
 
-        if self.traversal_direction == TraversalDirection.OUTBOUND:
-            dst_node_key = "_to"
-        elif self.traversal_direction == TraversalDirection.INBOUND:
-            dst_node_key = "_from"
-        else:
-            dst_node_key = None
-
         for edge in aql(self.db, query, bind_vars):
             edge_attr_dict: EdgeAttrDict = self._create_edge_attr_dict(edge)
 
             dst_node_id: str = (
-                edge[dst_node_key]
-                if dst_node_key
+                edge[self._fetch_all_dst_node_key]
+                if self._fetch_all_dst_node_key
                 else edge["_to"] if self.src_node_id == edge["_from"] else edge["_from"]
             )
 

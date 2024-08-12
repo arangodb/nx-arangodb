@@ -1977,6 +1977,27 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     def __get_mirrored_adjlist_inner_dict(
         self, node_id: str
     ) -> AdjListInnerDict | None:
+        """This method is used to get the AdjListInnerDict of the
+        "mirrored" AdjListOuterDict.
+
+        A "mirrored edge" is defined as a reference to an edge that
+        represents both the forward and reverse edge between two nodes. This is useful
+        because ArangoDB does not need to duplicate edges in both directions
+        in the database.
+
+        If the Graph is Undirected:
+        - The "mirror" is the same AdjListOuterDict because
+            the adjacency list is the same in both directions (i.e _adj)
+
+        If the Graph is Directed:
+        - The "mirror" is the "reverse" AdjListOuterDict because
+            the adjacency list is different in both directions (i.e _pred and _succ)
+
+        :param node_id: The source node ID.
+        :type node_id: str
+        :return: The adjacency list inner dictionary if it exists.
+        :rtype: AdjListInnerDict | None
+        """
         if not self.is_directed:
             return None
 

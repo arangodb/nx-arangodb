@@ -101,7 +101,13 @@ def adjlist_inner_dict_factory(
     adjlist_outer_dict: AdjListOuterDict | None = None,
 ) -> Callable[..., AdjListInnerDict]:
     return lambda: AdjListInnerDict(
-        db, graph, default_node_type, edge_type_func, edge_collection_attributes,graph_type, adjlist_outer_dict
+        db,
+        graph,
+        default_node_type,
+        edge_type_func,
+        edge_collection_attributes,
+        graph_type,
+        adjlist_outer_dict,
     )
 
 
@@ -1264,7 +1270,13 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         self.edge_collection_attributes = edge_collection_attributes
         self.default_node_type = default_node_type
         self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(
-            db, graph, default_node_type, edge_type_func, self.edge_collection_attributes, graph_type, self
+            db,
+            graph,
+            default_node_type,
+            edge_type_func,
+            self.edge_collection_attributes,
+            graph_type,
+            self,
         )
 
         self.FETCHED_ALL_DATA = False

@@ -21,9 +21,6 @@ class CustomNodeView(nx.classes.reportviews.NodeView):
             return self
         return CustomNodeDataView(self._nodes, data, default)
 
-    def update(self, data):
-        self._nodes.update(data)
-
 
 class CustomNodeDataView(nx.classes.reportviews.NodeDataView):
     def __iter__(self):

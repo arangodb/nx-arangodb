@@ -715,21 +715,9 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
     @keys_are_strings
     @logger_debug
-    def update(self, nodes: dict[str, dict[str, Any]]) -> None:
+    def update(self, nodes: Any) -> None:
         """g._node.update({'node/1': {'foo': 'bar'}, 'node/2': {'baz': 'qux'}})"""
-        # TODO: Remove in preparation for GA-153
-        # This is just a temporary solution to test something out
-        import networkx as nx
-
-        config = nx.config.backends.arangodb
-        sample_node_id = next(iter(nodes.keys()))
-        collection = sample_node_id.split("/")[0]
-        nodes_list = [
-            {"_id": node_id, **node_data} for node_id, node_data in nodes.items()
-        ]
-        self.db.collection(collection).import_bulk(
-            nodes_list, batch_size=config.write_batch_size, on_duplicate="update"
-        )
+        raise NotImplementedError("NodeDict.update()")
 
     @logger_debug
     def values(self) -> Any:

@@ -152,9 +152,6 @@ def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
 if GPU_ENABLED:
 
     def nxadb_to_nxcg(G: nxadb.Graph, as_directed: bool = False) -> nxcg.Graph:
-        if G.is_multigraph():
-            raise NotImplementedError("Multigraphs not yet supported")
-
         if (
             G.use_coo_cache
             and G.src_indices is not None

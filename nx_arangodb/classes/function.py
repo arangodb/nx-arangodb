@@ -88,7 +88,6 @@ def get_arangodb_graph(
     assert config.host
     assert config.username
     assert config.password
-    print(config)
 
     (
         node_dict,

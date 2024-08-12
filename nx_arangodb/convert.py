@@ -14,10 +14,10 @@ try:
     import nx_cugraph as nxcg
 
     GPU_ENABLED = True
-    logger.info("NXCG is enabled.")
+    logger.info("NetworkX-cuGraph is enabled.")
 except Exception as e:
     GPU_ENABLED = False
-    logger.info(f"NXCG is disabled. {e}.")
+    logger.info(f"NetworkX-cuGraph is disabled: {e}.")
 
 __all__ = [
     "_to_nx_graph",

@@ -84,17 +84,11 @@ def get_arangodb_graph(
         metagraph["edgeCollections"] = {}
 
     config = nx.config.backends.arangodb
-
-    kwargs = {}
-    if parallelism := config.get("read_parallelism"):
-        kwargs["parallelism"] = parallelism
-    if batch_size := config.get("read_batch_size"):
-        kwargs["batch_size"] = batch_size
-
     assert config.db_name
     assert config.host
     assert config.username
     assert config.password
+    print(config)
 
     (
         node_dict,
@@ -117,7 +111,8 @@ def get_arangodb_graph(
         is_directed=is_directed,
         is_multigraph=is_multigraph,
         symmetrize_edges_if_directed=symmetrize_edges_if_directed,
-        **kwargs,
+        parallelism=config.read_parallelism,
+        batch_size=config.read_batch_size,
     )
 
     return (

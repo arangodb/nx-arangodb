@@ -314,6 +314,20 @@ class Graph(nx.Graph):
     # nx.Graph Overides #
     #####################
 
+    def copy(self, *args, **kwargs):
+        raise NotImplementedError("Copying an ArangoDB Graph is not yet implemented")
+
+    def subgraph(self, nbunch):
+        raise NotImplementedError("Subgraphing is not yet implemented")
+
+    def clear(self):
+        logger.info("Note that clearing only erases the local cache")
+        super().clear()
+
+    def clear_edges(self):
+        logger.info("Note that clearing edges ony erases the edges in the local cache")
+        super().clear_edges()
+
     @cached_property
     def nodes(self):
         if self.graph_exists_in_db:

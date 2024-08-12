@@ -121,14 +121,18 @@ def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
 
     start_time = time.time()
 
+    do_load_all_edge_attributes = True
+    if G.get_edge_attributes is not None and len(G.get_edge_attributes) == 0:
+        do_load_all_edge_attributes = False
+
     node_dict, adj_dict, *_ = nxadb.classes.function.get_arangodb_graph(
         adb_graph=G.adb_graph,
         load_node_dict=True,
         load_adj_dict=True,
         load_coo=False,
+        edge_collections_attributes=G.get_edge_attributes,
         load_all_vertex_attributes=False,
-        # TODO: Only return the edge attributes that are needed
-        load_all_edge_attributes=True,
+        load_all_edge_attributes=do_load_all_edge_attributes,
         is_directed=G.is_directed(),
         is_multigraph=G.is_multigraph(),
         symmetrize_edges_if_directed=G.symmetrize_edges if G.is_directed() else False,
@@ -168,14 +172,19 @@ if GPU_ENABLED:
         else:
             start_time = time.time()
 
+            do_load_all_edge_attributes = True
+            if G.get_edge_attributes is not None and len(G.get_edge_attributes) == 0:
+                do_load_all_edge_attributes = False
+
             _, _, src_indices, dst_indices, edge_indices, vertex_ids_to_index = (
                 nxadb.classes.function.get_arangodb_graph(
                     adb_graph=G.adb_graph,
                     load_node_dict=False,
                     load_adj_dict=False,
                     load_coo=True,
+                    edge_collections_attributes=G.get_edge_attributes,
                     load_all_vertex_attributes=False,  # not used
-                    load_all_edge_attributes=False,  # not used
+                    load_all_edge_attributes=do_load_all_edge_attributes,
                     is_directed=G.is_directed(),
                     is_multigraph=G.is_multigraph(),
                     symmetrize_edges_if_directed=(

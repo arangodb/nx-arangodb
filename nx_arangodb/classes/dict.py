@@ -76,6 +76,7 @@ def adjlist_outer_dict_factory(
     graph: Graph,
     default_node_type: str,
     edge_type_func: Callable[[str, str], str],
+    edge_collection_attributes: set[str],
     graph_type: str,
     symmetrize_edges_if_directed: bool,
 ) -> Callable[..., AdjListOuterDict]:
@@ -84,6 +85,7 @@ def adjlist_outer_dict_factory(
         graph,
         default_node_type,
         edge_type_func,
+        edge_collection_attributes,
         graph_type,
         symmetrize_edges_if_directed,
     )
@@ -705,6 +707,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             load_node_dict=True,
             load_adj_dict=False,
             load_coo=False,
+            edge_collections_attributes=set(),
             load_all_vertex_attributes=True,
             load_all_edge_attributes=False,  # not used
             is_directed=False,  # not used
@@ -1240,6 +1243,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         graph: Graph,
         default_node_type: str,
         edge_type_func: Callable[[str, str], str],
+        edge_collection_attributes: set[str],
         graph_type: str,
         symmetrize_edges_if_directed: bool,
         *args: Any,
@@ -1254,6 +1258,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         self.db = db
         self.graph = graph
         self.edge_type_func = edge_type_func
+        self.edge_collection_attributes = edge_collection_attributes
         self.default_node_type = default_node_type
         self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(
             db, graph, default_node_type, edge_type_func, graph_type, self
@@ -1455,6 +1460,10 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             )
         )
 
+        do_load_all_edge_attributes = True
+        if len(self.edge_collection_attributes) > 0:
+            do_load_all_edge_attributes = False
+
         (
             _,
             adj_dict,
@@ -1464,8 +1473,9 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             load_node_dict=False,
             load_adj_dict=True,
             load_coo=False,
+            edge_collections_attributes=self.edge_collection_attributes,
             load_all_vertex_attributes=False,  # not used
-            load_all_edge_attributes=True,
+            load_all_edge_attributes=do_load_all_edge_attributes,
             is_directed=self.is_directed,
             is_multigraph=self.is_multigraph,
             symmetrize_edges_if_directed=self.symmetrize_edges_if_directed,

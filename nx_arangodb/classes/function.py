@@ -38,11 +38,30 @@ from ..exceptions import (
 )
 
 
+def _build_meta_graph(
+    v_cols: list[str], e_cols: set[str], edge_collections_attributes: set[str]
+) -> dict[str, dict[str, Any]]:
+    if len(edge_collections_attributes) == 0:
+        return {
+            "vertexCollections": {col: set() for col in v_cols},
+            "edgeCollections": {col: set() for col in e_cols},
+        }
+    else:
+        return {
+            "vertexCollections": {col: set() for col in v_cols},
+            "edgeCollections": {
+                col: {attr: set() for attr in edge_collections_attributes}
+                for col in e_cols
+            },
+        }
+
+
 def get_arangodb_graph(
     adb_graph: Graph,
     load_node_dict: bool,
     load_adj_dict: bool,
     load_coo: bool,
+    edge_collections_attributes: set[str],
     load_all_vertex_attributes: bool,
     load_all_edge_attributes: bool,
     is_directed: bool,
@@ -69,10 +88,9 @@ def get_arangodb_graph(
     edge_definitions = adb_graph.edge_definitions()
     e_cols = {c["edge_collection"] for c in edge_definitions}
 
-    metagraph: dict[str, dict[str, Any]] = {
-        "vertexCollections": {col: set() for col in v_cols},
-        "edgeCollections": {col: set() for col in e_cols},
-    }
+    metagraph: dict[str, dict[str, Any]] = _build_meta_graph(
+        v_cols, e_cols, edge_collections_attributes
+    )
 
     if not any((load_node_dict, load_adj_dict, load_coo)):
         raise ValueError("At least one of the load flags must be True.")
@@ -96,22 +114,28 @@ def get_arangodb_graph(
     assert config.username
     assert config.password
 
-    node_dict, adj_dict, src_indices, dst_indices, edge_indices, vertex_ids_to_index = (
-        NetworkXLoader.load_into_networkx(
-            config.db_name,
-            metagraph=metagraph,
-            hosts=[config.host],
-            username=config.username,
-            password=config.password,
-            load_adj_dict=load_adj_dict,
-            load_coo=load_coo,
-            load_all_vertex_attributes=load_all_vertex_attributes,
-            load_all_edge_attributes=load_all_edge_attributes,
-            is_directed=is_directed,
-            is_multigraph=is_multigraph,
-            symmetrize_edges_if_directed=symmetrize_edges_if_directed,
-            **kwargs,
-        )
+    (
+        node_dict,
+        adj_dict,
+        src_indices,
+        dst_indices,
+        edge_indices,
+        vertex_ids_to_index,
+        _,
+    ) = NetworkXLoader.load_into_networkx(
+        config.db_name,
+        metagraph=metagraph,
+        hosts=[config.host],
+        username=config.username,
+        password=config.password,
+        load_adj_dict=load_adj_dict,
+        load_coo=load_coo,
+        load_all_vertex_attributes=load_all_vertex_attributes,
+        load_all_edge_attributes=load_all_edge_attributes,
+        is_directed=is_directed,
+        is_multigraph=is_multigraph,
+        symmetrize_edges_if_directed=symmetrize_edges_if_directed,
+        **kwargs,
     )
 
     return (

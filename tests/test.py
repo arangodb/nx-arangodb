@@ -3,6 +3,7 @@ from typing import Any, Callable
 import networkx as nx
 import pytest
 from arango import DocumentDeleteError
+from phenolrs import PhenolError
 
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict import EdgeAttrDict, NodeAttrDict
@@ -70,6 +71,42 @@ def test_load_graph_from_nxadb():
     assert db.collection("person_to_person").count() == len(G_NX.edges)
 
     db.delete_graph(graph_name, drop_collections=True)
+
+
+def test_load_graph_from_nxadb_specific_edge_attributes_and_load_all_edges_true():
+    graph_name = "KarateGraph"
+
+    db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
+
+    with pytest.raises(PhenolError):
+        graph = nxadb.Graph(
+            graph_name=graph_name,
+            incoming_graph_data=G_NX,
+            default_node_type="person",
+            edge_collections_attributes={"weight"},
+        )
+        graph._adj._fetch_all()
+
+
+def test_load_graph_from_nxadb_specific_edge_attributes_and_load_all_edges_false():
+    graph_name = "KarateGraph"
+
+    db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
+
+    graph = nxadb.Graph(
+        graph_name=graph_name,
+        incoming_graph_data=G_NX,
+        default_node_type="person",
+        edge_collections_attributes={"weight"},
+    )
+    graph._adj._fetch_all()
+
+    print(graph._adj.items())
+    # iterate through all graph._adj.items()
+    for _from, adj in graph._adj.items():
+        for _to, edge in adj.items():
+            assert "weight" in edge
+            assert isinstance(edge["weight"], (int, float))
 
 
 @pytest.mark.parametrize(

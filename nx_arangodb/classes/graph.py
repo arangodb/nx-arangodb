@@ -42,6 +42,7 @@ class Graph(nx.Graph):
         graph_name: str | None = None,
         default_node_type: str | None = None,
         edge_type_func: Callable[[str, str], str] | None = None,
+        edge_collections_attributes: set[str] | None = None,
         db: StandardDatabase | None = None,
         read_parallelism: int = 10,
         read_batch_size: int = 100000,
@@ -61,6 +62,9 @@ class Graph(nx.Graph):
         self.read_parallelism = read_parallelism
         self.read_batch_size = read_batch_size
         self.write_batch_size = write_batch_size
+
+        if edge_collections_attributes is not None:
+            self._set_edge_collections_attributes_to_fetch(edge_collections_attributes)
 
         # NOTE: Need to revisit these...
         # self.maintain_node_dict_cache = False
@@ -166,7 +170,12 @@ class Graph(nx.Graph):
 
         base_args = (self.db, self.adb_graph)
         node_args = (*base_args, self.default_node_type)
-        adj_args = (*node_args, self.edge_type_func, self.__class__.__name__)
+        adj_args = (
+            *node_args,
+            self.edge_type_func,
+            self.get_edge_attributes,
+            self.__class__.__name__,
+        )
 
         self.graph_attr_dict_factory = graph_dict_factory(*base_args)
 
@@ -190,6 +199,12 @@ class Graph(nx.Graph):
                 to_vertex_collections=[self.default_node_type],
             )
 
+    def _set_edge_collections_attributes_to_fetch(self, attributes: set[str]) -> None:
+        if len(attributes) > 0:
+            self._edge_collections_attributes = attributes
+            if "_id" not in attributes:
+                self._edge_collections_attributes.add("_id")
+
     ###########
     # Getters #
     ###########
@@ -211,6 +226,10 @@ class Graph(nx.Graph):
     @property
     def graph_exists_in_db(self) -> bool:
         return self._graph_exists_in_db
+
+    @property
+    def get_edge_attributes(self) -> set[str]:
+        return self._edge_collections_attributes
 
     ###########
     # Setters #

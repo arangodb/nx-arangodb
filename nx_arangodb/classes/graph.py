@@ -158,6 +158,7 @@ class Graph(nx.Graph):
         config.db_name = self._db_name
         config.read_parallelism = self.read_parallelism
         config.read_batch_size = self.read_batch_size
+        config.write_batch_size = self.write_batch_size
 
     def _set_factory_methods(self) -> None:
         """Set the factory methods for the graph, _node, and _adj dictionaries.

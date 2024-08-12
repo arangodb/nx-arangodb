@@ -15,7 +15,7 @@ try:
 
     GPU_ENABLED = True
     logger.info("NXCG is enabled.")
-except ModuleNotFoundError as e:
+except Exception as e:
     GPU_ENABLED = False
     logger.info(f"NXCG is disabled. {e}.")
 

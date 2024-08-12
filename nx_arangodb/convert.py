@@ -208,7 +208,7 @@ if GPU_ENABLED:
                 # edge_masks,
                 # node_values,
                 # node_masks,
-                key_to_id=vertex_ids_to_index,
+                key_to_id=G.vertex_ids_to_index,
                 # edge_keys=edge_keys,
             )
 
@@ -226,5 +226,5 @@ if GPU_ENABLED:
                 # edge_masks,
                 # node_values,
                 # node_masks,
-                key_to_id=vertex_ids_to_index,
+                key_to_id=G.vertex_ids_to_index,
             )

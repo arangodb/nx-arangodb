@@ -925,13 +925,15 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
 
     EdgeKeyDict is keyed by ArangoDB Edge IDs.
 
-    Unique to MultiGraphs, edges are keyed by a numerical edge index, allowing
-    for multiple edges between the same nodes.
+    Unique to MultiGraphs, edges are keyed by ArangoDB Edge IDs, allowing
+    for multiple edges between the same nodes. Alternatively, if an Edge
+    is already fetched, then it can also be keyed by a numerical index.
+    However, this is not recommended because consistent ordering of edges
+    is not guaranteed.
 
     ASSUMPTIONS (for now):
     - keys must be ArangoDB Edge IDs
     - key-to-edge mapping is 1-to-1
-    - order is not guaranteed (because DB order is never guaranteed)
 
     :param db: The ArangoDB database.
     :type db: StandardDatabase

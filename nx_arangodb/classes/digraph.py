@@ -4,7 +4,7 @@ import networkx as nx
 from arango.database import StandardDatabase
 
 import nx_arangodb as nxadb
-from nx_arangodb.classes.graph import Graph as nxadb_Graph
+from nx_arangodb.classes.graph import Graph
 
 from .dict import AdjListOuterDict
 from .enum import TraversalDirection
@@ -14,7 +14,7 @@ networkx_api = nxadb.utils.decorators.networkx_class(nx.DiGraph)  # type: ignore
 __all__ = ["DiGraph"]
 
 
-class DiGraph(nxadb_Graph, nx.DiGraph):
+class DiGraph(Graph, nx.DiGraph):
     __networkx_backend__: ClassVar[str] = "arangodb"  # nx >=3.2
     __networkx_plugin__: ClassVar[str] = "arangodb"  # nx <3.2
 
@@ -25,15 +25,28 @@ class DiGraph(nxadb_Graph, nx.DiGraph):
     def __init__(
         self,
         graph_name: str | None = None,
-        default_node_type: str = "node",
-        edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
+        default_node_type: str | None = None,
+        edge_type_key: str = "_edge_type",
+        edge_type_func: Callable[[str, str], str] | None = None,
         db: StandardDatabase | None = None,
+        read_parallelism: int = 10,
+        read_batch_size: int = 100000,
+        write_batch_size: int = 50000,
         symmetrize_edges: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
         super().__init__(
-            graph_name, default_node_type, edge_type_func, db, *args, **kwargs
+            graph_name,
+            default_node_type,
+            edge_type_key,
+            edge_type_func,
+            db,
+            read_parallelism,
+            read_batch_size,
+            write_batch_size,
+            *args,
+            **kwargs,
         )
 
         self.symmetrize_edges = symmetrize_edges

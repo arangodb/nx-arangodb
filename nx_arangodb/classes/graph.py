@@ -11,7 +11,12 @@ from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 import nx_arangodb as nxadb
-from nx_arangodb.exceptions import DatabaseNotSet, GraphNameNotSet
+from nx_arangodb.exceptions import (
+    DatabaseNotSet,
+    EdgeTypeAmbiguity,
+    GraphNameNotSet,
+    InvalidDefaultNodeType,
+)
 from nx_arangodb.logger import logger
 
 from .dict import (
@@ -41,6 +46,7 @@ class Graph(nx.Graph):
         self,
         graph_name: str | None = None,
         default_node_type: str | None = None,
+        edge_type_key: str = "_edge_type",
         edge_type_func: Callable[[str, str], str] | None = None,
         db: StandardDatabase | None = None,
         read_parallelism: int = 10,
@@ -67,6 +73,7 @@ class Graph(nx.Graph):
         # self.maintain_adj_dict_cache = False
         self.use_nx_cache = True
         self.use_coo_cache = True
+        # self.__qa_chain = None
 
         self.src_indices: npt.NDArray[np.int64] | None = None
         self.dst_indices: npt.NDArray[np.int64] | None = None
@@ -75,37 +82,78 @@ class Graph(nx.Graph):
 
         self.symmetrize_edges = False  # Does not apply to undirected graphs
 
-        prefix = f"{graph_name}_" if graph_name else ""
-        if default_node_type is None:
-            default_node_type = f"{prefix}node"
-        if edge_type_func is None:
-            edge_type_func = lambda u, v: f"{u}_to_{v}"  # noqa: E731
-
-        self.default_node_type = default_node_type
-        self.edge_type_func = edge_type_func
-        self.default_edge_type = edge_type_func(default_node_type, default_node_type)
-
-        # self.__qa_chain = None
+        self.edge_type_key = edge_type_key
 
         incoming_graph_data = kwargs.get("incoming_graph_data")
+
+        # TODO: Consider this
+        # if not self.__graph_name:
+        #     if incoming_graph_data is not None:
+        #         m = "Must set **graph_name** if passing **incoming_graph_data**"
+        #         raise ValueError(m)
+
         if self._graph_exists_in_db:
             if incoming_graph_data is not None:
                 m = "Cannot pass both **incoming_graph_data** and **graph_name** yet if the already graph exists"  # noqa: E501
                 raise NotImplementedError(m)
 
+            if edge_type_func is not None:
+                m = "Cannot pass **edge_type_func** if the graph already exists"
+                raise NotImplementedError(m)
+
             self.adb_graph = self.db.graph(self._graph_name)
-            self._create_default_collections()
+            vertex_collections = self.adb_graph.vertex_collections()
+            edge_definitions = self.adb_graph.edge_definitions()
+
+            if default_node_type is None:
+                default_node_type = list(vertex_collections)[0]
+                logger.info(f"Default node type set to '{default_node_type}'")
+            elif default_node_type not in vertex_collections:
+                m = f"Default node type '{default_node_type}' not found in graph '{graph_name}'"  # noqa: E501
+                raise InvalidDefaultNodeType(m)
+
+            node_types_to_edge_type_map: dict[tuple[str, str], str] = {}
+            for e_d in edge_definitions:
+                for f in e_d["from_vertex_collections"]:
+                    for t in e_d["to_vertex_collections"]:
+                        if (f, t) in node_types_to_edge_type_map:
+                            # TODO: Should we log a warning at least?
+                            continue
+
+                        node_types_to_edge_type_map[(f, t)] = e_d["edge_collection"]
+
+            def edge_type_func(u: str, v: str) -> str:
+                try:
+                    return node_types_to_edge_type_map[(u, v)]
+                except KeyError:
+                    m = f"Edge type ambiguity between '{u}' and '{v}'"
+                    raise EdgeTypeAmbiguity(m)
+
+            self.edge_type_func = edge_type_func
+            self.default_node_type = default_node_type
+
             self._set_factory_methods()
             self._set_arangodb_backend_config()
 
         elif self._graph_name:
+
+            prefix = f"{graph_name}_" if graph_name else ""
+            if default_node_type is None:
+                default_node_type = f"{prefix}node"
+            if edge_type_func is None:
+                edge_type_func = lambda u, v: f"{u}_to_{v}"  # noqa: E731
+
+            self.edge_type_func = edge_type_func
+            self.default_node_type = default_node_type
+
             # TODO: Parameterize the edge definitions
             # How can we work with a heterogenous **incoming_graph_data**?
+            default_edge_type = edge_type_func(default_node_type, default_node_type)
             edge_definitions = [
                 {
-                    "edge_collection": self.default_edge_type,
-                    "from_vertex_collections": [self.default_node_type],
-                    "to_vertex_collections": [self.default_node_type],
+                    "edge_collection": default_edge_type,
+                    "from_vertex_collections": [default_node_type],
+                    "to_vertex_collections": [default_node_type],
                 }
             ]
 
@@ -129,6 +177,7 @@ class Graph(nx.Graph):
 
             self._set_factory_methods()
             self._set_arangodb_backend_config()
+            logger.info(f"Graph '{graph_name}' created.")
             self._graph_exists_in_db = True
 
         super().__init__(*args, **kwargs)
@@ -149,6 +198,7 @@ class Graph(nx.Graph):
         config.db_name = self._db_name
         config.read_parallelism = self.read_parallelism
         config.read_batch_size = self.read_batch_size
+        config.write_batch_size = self.write_batch_size
 
     def _set_factory_methods(self) -> None:
         """Set the factory methods for the graph, _node, and _adj dictionaries.
@@ -166,7 +216,12 @@ class Graph(nx.Graph):
 
         base_args = (self.db, self.adb_graph)
         node_args = (*base_args, self.default_node_type)
-        adj_args = (*node_args, self.edge_type_func, self.__class__.__name__)
+        adj_args = (
+            *node_args,
+            self.edge_type_key,
+            self.edge_type_func,
+            self.__class__.__name__,
+        )
 
         self.graph_attr_dict_factory = graph_dict_factory(*base_args)
 
@@ -178,17 +233,6 @@ class Graph(nx.Graph):
         self.adjlist_outer_dict_factory = adjlist_outer_dict_factory(
             *adj_args, self.symmetrize_edges
         )
-
-    def _create_default_collections(self) -> None:
-        if self.default_node_type not in self.adb_graph.vertex_collections():
-            self.adb_graph.create_vertex_collection(self.default_node_type)
-
-        if not self.adb_graph.has_edge_definition(self.default_edge_type):
-            self.adb_graph.create_edge_definition(
-                edge_collection=self.default_edge_type,
-                from_vertex_collections=[self.default_node_type],
-                to_vertex_collections=[self.default_node_type],
-            )
 
     ###########
     # Getters #
@@ -300,21 +344,43 @@ class Graph(nx.Graph):
     # nx.Graph Overides #
     #####################
 
+    def copy(self, *args, **kwargs):
+        raise NotImplementedError("Copying an ArangoDB Graph is not yet implemented")
+
+    def subgraph(self, nbunch):
+        raise NotImplementedError("Subgraphing is not yet implemented")
+
+    def clear(self):
+        logger.info("Note that clearing only erases the local cache")
+        super().clear()
+
+    def clear_edges(self):
+        logger.info("Note that clearing edges ony erases the edges in the local cache")
+        super().clear_edges()
+
     @cached_property
     def nodes(self):
         if self.graph_exists_in_db:
             logger.warning("nxadb.CustomNodeView is currently EXPERIMENTAL")
             return CustomNodeView(self)
 
-        return nx.classes.reportviews.NodeView(self)
+        return super().nodes
 
     @cached_property
     def edges(self):
         if self.graph_exists_in_db:
+            if self.is_directed():
+                logger.warning("CustomEdgeView for Directed Graphs not yet implemented")
+                return super().edges
+
+            if self.is_multigraph():
+                logger.warning("CustomEdgeView for MultiGraphs not yet implemented")
+                return super().edges
+
             logger.warning("nxadb.CustomEdgeView is currently EXPERIMENTAL")
             return CustomEdgeView(self)
 
-        return nx.classes.reportviews.EdgeView(self)
+        return super().edges
 
     def add_node(self, node_for_adding, **attr):
         if node_for_adding not in self._node:

@@ -81,6 +81,7 @@ def get_info():
         "db_name": None,
         "read_parallelism": None,
         "read_batch_size": None,
+        "write_batch_size": None,
     }
 
     return d

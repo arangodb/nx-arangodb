@@ -84,34 +84,34 @@ def get_arangodb_graph(
         metagraph["edgeCollections"] = {}
 
     config = nx.config.backends.arangodb
-
-    kwargs = {}
-    if parallelism := config.get("read_parallelism"):
-        kwargs["parallelism"] = parallelism
-    if batch_size := config.get("read_batch_size"):
-        kwargs["batch_size"] = batch_size
-
     assert config.db_name
     assert config.host
     assert config.username
     assert config.password
 
-    node_dict, adj_dict, src_indices, dst_indices, edge_indices, vertex_ids_to_index = (
-        NetworkXLoader.load_into_networkx(
-            config.db_name,
-            metagraph=metagraph,
-            hosts=[config.host],
-            username=config.username,
-            password=config.password,
-            load_adj_dict=load_adj_dict,
-            load_coo=load_coo,
-            load_all_vertex_attributes=load_all_vertex_attributes,
-            load_all_edge_attributes=load_all_edge_attributes,
-            is_directed=is_directed,
-            is_multigraph=is_multigraph,
-            symmetrize_edges_if_directed=symmetrize_edges_if_directed,
-            **kwargs,
-        )
+    (
+        node_dict,
+        adj_dict,
+        src_indices,
+        dst_indices,
+        edge_indices,
+        vertex_ids_to_index,
+        edge_values,
+    ) = NetworkXLoader.load_into_networkx(
+        config.db_name,
+        metagraph=metagraph,
+        hosts=[config.host],
+        username=config.username,
+        password=config.password,
+        load_adj_dict=load_adj_dict,
+        load_coo=load_coo,
+        load_all_vertex_attributes=load_all_vertex_attributes,
+        load_all_edge_attributes=load_all_edge_attributes,
+        is_directed=is_directed,
+        is_multigraph=is_multigraph,
+        symmetrize_edges_if_directed=symmetrize_edges_if_directed,
+        parallelism=config.read_parallelism,
+        batch_size=config.read_batch_size,
     )
 
     return (
@@ -127,8 +127,8 @@ def get_arangodb_graph(
 def json_serializable(cls):
     def to_dict(self):
         return {
-            key: (value.to_dict() if isinstance(value, cls) else value)
-            for key, value in self.items()
+            key: dict(value) if isinstance(value, cls) else value
+            for key, value in self.data.items()
         }
 
     cls.to_dict = to_dict
@@ -145,6 +145,40 @@ def key_is_string(func: Callable[..., Any]) -> Any:
                 raise TypeError(f"{key} cannot be casted to string.")
 
             key = str(key)
+
+        return func(self, key, *args, **kwargs)
+
+    return wrapper
+
+
+def key_is_int(func: Callable[..., Any]) -> Any:
+    """Decorator to check if the key is an integer."""
+
+    def wrapper(self: Any, key: Any, *args: Any, **kwargs: Any) -> Any:
+        """"""
+        if not isinstance(key, int):
+            raise TypeError(f"{key} must be an integer.")
+
+        return func(self, key, *args, **kwargs)
+
+    return wrapper
+
+
+def key_is_adb_id_or_int(func: Callable[..., Any]) -> Any:
+    """Decorator to check if the key is an ArangoDB ID."""
+
+    def wrapper(self: Any, key: Any, *args: Any, **kwargs: Any) -> Any:
+        """"""
+        if isinstance(key, str):
+            if key != "-1" and "/" not in key:
+                raise ValueError(f"{key} is not an ArangoDB ID.")
+
+        elif isinstance(key, int):
+            m = "Edge order is not guaranteed when using int as an edge key. It may raise a KeyError. Use at your own risk."  # noqa
+            logger.warning(m)
+
+        else:
+            raise TypeError(f"{key} is not an ArangoDB Edge _id or integer.")
 
         return func(self, key, *args, **kwargs)
 
@@ -333,6 +367,8 @@ def aql_edge_exists(
         graph_name,
         direction,
         return_clause="true",
+        limit_one=True,
+        can_return_multiple=False,
     )
 
 
@@ -342,6 +378,7 @@ def aql_edge_get(
     dst_node_id: str,
     graph_name: str,
     direction: str,
+    can_return_multiple: bool = False,
 ) -> Any | None:
     return_clause = "DISTINCT e" if direction == "ANY" else "e"
     return aql_edge(
@@ -351,6 +388,8 @@ def aql_edge_get(
         graph_name,
         direction,
         return_clause=return_clause,
+        limit_one=False,
+        can_return_multiple=can_return_multiple,
     )
 
 
@@ -360,18 +399,82 @@ def aql_edge_id(
     dst_node_id: str,
     graph_name: str,
     direction: str,
-) -> str | None:
+    can_return_multiple: bool = False,
+) -> Any | None:
     return_clause = "DISTINCT e._id" if direction == "ANY" else "e._id"
-    result = aql_edge(
+    return aql_edge(
         db,
         src_node_id,
         dst_node_id,
         graph_name,
         direction,
         return_clause=return_clause,
+        limit_one=False,
+        can_return_multiple=can_return_multiple,
     )
 
-    return str(result) if result is not None else None
+
+def aql_edge_count_src(
+    db: StandardDatabase,
+    src_node_id: str,
+    graph_name: str,
+    direction: str,
+) -> int:
+    query = f"""
+        RETURN LENGTH(
+            FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
+                RETURN DISTINCT e._id
+        )
+    """
+
+    bind_vars = {
+        "src_node_id": src_node_id,
+        "graph_name": graph_name,
+    }
+
+    result = aql_single(db, query, bind_vars)
+
+    return int(result) if result is not None else 0
+
+
+def aql_edge_count_src_dst(
+    db: StandardDatabase,
+    src_node_id: str,
+    dst_node_id: str,
+    graph_name: str,
+    direction: str,
+) -> int:
+    filter_clause = aql_edge_direction_filter(direction)
+
+    query = f"""
+        FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
+            FILTER {filter_clause}
+            COLLECT WITH COUNT INTO length
+            RETURN length
+    """
+
+    bind_vars = {
+        "src_node_id": src_node_id,
+        "dst_node_id": dst_node_id,
+        "graph_name": graph_name,
+    }
+
+    result = aql_single(db, query, bind_vars)
+
+    return int(result) if result is not None else 0
+
+
+def aql_edge_direction_filter(direction: str) -> str:
+    if direction == "INBOUND":
+        return "e._from == @dst_node_id"
+    if direction == "OUTBOUND":
+        return "e._to == @dst_node_id"
+    if direction == "ANY":
+        return """
+            (e._from == @dst_node_id AND e._to == @src_node_id)
+            OR (e._to == @dst_node_id AND e._from == @src_node_id)
+        """
+    raise InvalidTraversalDirection(f"Invalid direction: {direction}")
 
 
 def aql_edge(
@@ -381,22 +484,19 @@ def aql_edge(
     graph_name: str,
     direction: str,
     return_clause: str,
+    limit_one: bool,
+    can_return_multiple: bool,
 ) -> Any | None:
-    if direction == "INBOUND":
-        filter_clause = "e._from == @dst_node_id"
-    elif direction == "OUTBOUND":
-        filter_clause = "e._to == @dst_node_id"
-    elif direction == "ANY":
-        filter_clause = """
-            (e._from == @dst_node_id AND e._to == @src_node_id)
-            OR (e._to == @dst_node_id AND e._from == @src_node_id)
-        """
-    else:
-        raise InvalidTraversalDirection(f"Invalid direction: {direction}")
+    if limit_one and can_return_multiple:
+        raise ValueError("Cannot return multiple results limit_one=True.")
 
+    filter_clause = aql_edge_direction_filter(direction)
+    limit_one_clause = "LIMIT 1" if limit_one else ""
+    # sort_by_id_clause = "SORT e._id" if can_return_multiple else ""
     query = f"""
         FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
             FILTER {filter_clause}
+            {limit_one_clause}
             RETURN {return_clause}
     """
 
@@ -406,7 +506,11 @@ def aql_edge(
         "graph_name": graph_name,
     }
 
-    return aql_single(db, query, bind_vars)
+    return (
+        aql_as_list(db, query, bind_vars)
+        if can_return_multiple
+        else aql_single(db, query, bind_vars)
+    )
 
 
 def aql_fetch_data(
@@ -507,3 +611,13 @@ def get_node_type_and_id(key: str, default_node_type: str) -> tuple[str, str]:
         return key.split("/")[0], key
 
     return default_node_type, f"{default_node_type}/{key}"
+
+
+def get_update_dict(
+    parent_keys: list[str], update_dict: dict[str, Any]
+) -> dict[str, Any]:
+    if parent_keys:
+        for key in reversed(parent_keys):
+            update_dict = {key: update_dict}
+
+    return update_dict

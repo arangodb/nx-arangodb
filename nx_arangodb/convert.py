@@ -177,7 +177,9 @@ if GPU_ENABLED:
                     load_coo=True,
                     edge_collections_attributes=G.get_edge_attributes,
                     load_all_vertex_attributes=False,  # not used
-                    load_all_edge_attributes=do_load_all_edge_attributes(G.get_edge_attributes),
+                    load_all_edge_attributes=do_load_all_edge_attributes(
+                        G.get_edge_attributes
+                    ),
                     is_directed=G.is_directed(),
                     is_multigraph=G.is_multigraph(),
                     symmetrize_edges_if_directed=(

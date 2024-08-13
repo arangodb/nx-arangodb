@@ -140,7 +140,9 @@ def get_arangodb_graph(
         load_adj_dict=load_adj_dict,
         load_coo=load_coo,
         load_all_vertex_attributes=load_all_vertex_attributes,
-        load_all_edge_attributes=do_load_all_edge_attributes(edge_collections_attributes),
+        load_all_edge_attributes=do_load_all_edge_attributes(
+            edge_collections_attributes
+        ),
         is_directed=is_directed,
         is_multigraph=is_multigraph,
         symmetrize_edges_if_directed=symmetrize_edges_if_directed,

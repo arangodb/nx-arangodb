@@ -41,7 +41,7 @@ from .function import (
     key_is_string,
     keys_are_not_reserved,
     keys_are_strings,
-    logger_debug,
+    logger_debug, do_load_all_edge_attributes,
 )
 
 #############
@@ -1475,10 +1475,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             )
         )
 
-        do_load_all_edge_attributes = True
-        if len(self.edge_collection_attributes) > 0:
-            do_load_all_edge_attributes = False
-
         (
             _,
             adj_dict,
@@ -1490,7 +1486,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             load_coo=False,
             edge_collections_attributes=self.edge_collection_attributes,
             load_all_vertex_attributes=False,  # not used
-            load_all_edge_attributes=do_load_all_edge_attributes,
+            load_all_edge_attributes=do_load_all_edge_attributes(self.edge_collection_attributes),
             is_directed=self.is_directed,
             is_multigraph=self.is_multigraph,
             symmetrize_edges_if_directed=self.symmetrize_edges_if_directed,

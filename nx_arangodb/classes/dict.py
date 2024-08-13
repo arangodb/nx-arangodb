@@ -29,6 +29,7 @@ from .function import (
     aql_fetch_data_edge,
     aql_single,
     create_collection,
+    do_load_all_edge_attributes,
     doc_delete,
     doc_get_or_insert,
     doc_insert,
@@ -42,7 +43,6 @@ from .function import (
     keys_are_not_reserved,
     keys_are_strings,
     logger_debug,
-    do_load_all_edge_attributes,
 )
 
 #############

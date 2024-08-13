@@ -136,7 +136,7 @@ def test_load_graph_from_nxadb_w_not_available_edge_attribute():
     db.delete_graph(graph_name, drop_collections=True)
 
 
-def test_load_graph_with_non_custom_weight_attribute():
+def test_load_graph_with_non_default_weight_attribute():
     graph_name = "LineGraph"
 
     db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)

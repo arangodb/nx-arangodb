@@ -3,7 +3,6 @@ from typing import Any, Callable
 import networkx as nx
 import pytest
 from arango import DocumentDeleteError
-from phenolrs import PhenolError
 
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict import EdgeAttrDict, NodeAttrDict
@@ -11,6 +10,23 @@ from nx_arangodb.classes.dict import EdgeAttrDict, NodeAttrDict
 from .conftest import db
 
 G_NX = nx.karate_club_graph()
+
+
+def create_line_graph(load_attributes: set[str]) -> nxadb.Graph:
+    G = nx.Graph()
+    G.add_edge(1, 2, my_custom_weight=1)
+    G.add_edge(2, 3, my_custom_weight=1)
+    G.add_edge(3, 4, my_custom_weight=1000)
+    G.add_edge(4, 5, my_custom_weight=1000)
+
+    if load_attributes:
+        return nxadb.Graph(
+            incoming_graph_data=G,
+            graph_name="LineGraph",
+            edge_collections_attributes=load_attributes,
+        )
+
+    return nxadb.Graph(incoming_graph_data=G, graph_name="LineGraph")
 
 
 def assert_same_dict_values(
@@ -84,14 +100,54 @@ def test_load_graph_from_nxadb_w_specific_edge_attribute():
         default_node_type="person",
         edge_collections_attributes={"weight"},
     )
-    graph._adj._fetch_all()
+    # TODO: re-enable this line as soon as CPU based data caching is implemented
+    # graph._adj._fetch_all()
 
-    print(graph._adj.items())
-    # iterate through all graph._adj.items()
     for _from, adj in graph._adj.items():
         for _to, edge in adj.items():
             assert "weight" in edge
             assert isinstance(edge["weight"], (int, float))
+
+    # call without specifying weight, fallback to weight: 1 for each
+    nx.pagerank(graph)
+
+    # call with specifying weight
+    nx.pagerank(graph, weight="weight")
+
+    db.delete_graph(graph_name, drop_collections=True)
+
+
+def test_load_graph_from_nxadb_w_not_available_edge_attribute():
+    graph_name = "KarateGraph"
+
+    db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
+
+    graph = nxadb.Graph(
+        graph_name=graph_name,
+        incoming_graph_data=G_NX,
+        default_node_type="person",
+        # This will lead to weight not being loaded into the edge data
+        edge_collections_attributes={"_id"},
+    )
+
+    # Should just succeed without any errors (fallback to weight: 1 as above)
+    nx.pagerank(graph, weight="weight_does_not_exist")
+
+    db.delete_graph(graph_name, drop_collections=True)
+
+
+def test_load_graph_with_non_custom_weight_attribute():
+    graph_name = "LineGraph"
+
+    db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
+
+    graph = create_line_graph(load_attributes={"my_custom_weight"})
+    res_custom = nx.pagerank(graph, weight="my_custom_weight")
+    res_default = nx.pagerank(graph)
+
+    assert res_custom != res_default
+
+    db.delete_graph(graph_name, drop_collections=True)
 
 
 @pytest.mark.parametrize(

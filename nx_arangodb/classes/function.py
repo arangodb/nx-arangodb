@@ -114,6 +114,10 @@ def get_arangodb_graph(
     assert config.username
     assert config.password
 
+    do_load_all_edge_attributes = load_all_edge_attributes
+    if len(edge_collections_attributes) > 0:
+        do_load_all_edge_attributes = False
+
     (
         node_dict,
         adj_dict,
@@ -131,7 +135,7 @@ def get_arangodb_graph(
         load_adj_dict=load_adj_dict,
         load_coo=load_coo,
         load_all_vertex_attributes=load_all_vertex_attributes,
-        load_all_edge_attributes=load_all_edge_attributes,
+        load_all_edge_attributes=do_load_all_edge_attributes,
         is_directed=is_directed,
         is_multigraph=is_multigraph,
         symmetrize_edges_if_directed=symmetrize_edges_if_directed,

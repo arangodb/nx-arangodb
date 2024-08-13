@@ -40,3 +40,7 @@ class MultipleEdgesFound(NetworkXArangoDBException):
 
 class EdgeTypeAmbiguity(NetworkXArangoDBException):
     pass
+
+
+class InvalidDefaultNodeType(NetworkXArangoDBException):
+    pass

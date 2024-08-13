@@ -52,6 +52,7 @@ class Graph(nx.Graph):
         read_parallelism: int = 10,
         read_batch_size: int = 100000,
         write_batch_size: int = 50000,
+        symmetrize_edges: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
@@ -80,7 +81,8 @@ class Graph(nx.Graph):
         self.edge_indices: npt.NDArray[np.int64] | None = None
         self.vertex_ids_to_index: dict[str, int] | None = None
 
-        self.symmetrize_edges = False  # Does not apply to undirected graphs
+        # Does not apply to undirected graphs
+        self.symmetrize_edges = symmetrize_edges
 
         self.edge_type_key = edge_type_key
 

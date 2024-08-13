@@ -127,8 +127,8 @@ def get_arangodb_graph(
         ):
             raise ValueError(
                 "You have specified to load at least one specific edge attribute"
-                "and at the same time the parameter `load_all_vertex_attributes` to true."
-                " This combination is not allowed."
+                " and at the same time set the parameter `load_all_vertex_attributes`"
+                " to true. This combination is not allowed."
             )
         else:
             # We need this case as the user wants by purpose to not load any edge data

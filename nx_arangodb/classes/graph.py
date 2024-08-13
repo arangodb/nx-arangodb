@@ -63,8 +63,7 @@ class Graph(nx.Graph):
         self.read_batch_size = read_batch_size
         self.write_batch_size = write_batch_size
 
-        if edge_collections_attributes is not None:
-            self._set_edge_collections_attributes_to_fetch(edge_collections_attributes)
+        self._set_edge_collections_attributes_to_fetch(edge_collections_attributes)
 
         # NOTE: Need to revisit these...
         # self.maintain_node_dict_cache = False
@@ -199,7 +198,12 @@ class Graph(nx.Graph):
                 to_vertex_collections=[self.default_node_type],
             )
 
-    def _set_edge_collections_attributes_to_fetch(self, attributes: set[str]) -> None:
+    def _set_edge_collections_attributes_to_fetch(
+        self, attributes: set[str] | None
+    ) -> None:
+        if attributes is None:
+            self._edge_collections_attributes = set()
+            return
         if len(attributes) > 0:
             self._edge_collections_attributes = attributes
             if "_id" not in attributes:

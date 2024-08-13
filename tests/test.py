@@ -145,6 +145,8 @@ def test_load_graph_with_non_custom_weight_attribute():
     res_custom = nx.pagerank(graph, weight="my_custom_weight")
     res_default = nx.pagerank(graph)
 
+    # to check that the results are different in case of different weights
+    # custom specified weights vs. fallback default weight to 1
     assert res_custom != res_default
 
     db.delete_graph(graph_name, drop_collections=True)

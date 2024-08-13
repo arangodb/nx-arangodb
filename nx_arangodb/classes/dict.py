@@ -2258,7 +2258,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             load_all_edge_attributes=True,
             is_directed=self.is_directed,
             is_multigraph=self.is_multigraph,
-            symmetrize_edges_if_directed=self.symmetrize_edges_if_directed,
+            symmetrize_edges_if_directed=self.is_directed
+            and self.symmetrize_edges_if_directed,
         )
 
         if self.is_directed:

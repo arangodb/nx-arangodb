@@ -45,11 +45,11 @@ class DiGraph(Graph, nx.DiGraph):
             read_parallelism,
             read_batch_size,
             write_batch_size,
+            symmetrize_edges,
             *args,
             **kwargs,
         )
 
-        self.symmetrize_edges = symmetrize_edges
         if self.graph_exists_in_db:
             assert isinstance(self._succ, AdjListOuterDict)
             assert isinstance(self._pred, AdjListOuterDict)

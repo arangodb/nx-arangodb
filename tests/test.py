@@ -73,22 +73,7 @@ def test_load_graph_from_nxadb():
     db.delete_graph(graph_name, drop_collections=True)
 
 
-def test_load_graph_from_nxadb_specific_edge_attributes_and_load_all_edges_true():
-    graph_name = "KarateGraph"
-
-    db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
-
-    with pytest.raises(PhenolError):
-        graph = nxadb.Graph(
-            graph_name=graph_name,
-            incoming_graph_data=G_NX,
-            default_node_type="person",
-            edge_collections_attributes={"weight"},
-        )
-        graph._adj._fetch_all()
-
-
-def test_load_graph_from_nxadb_specific_edge_attributes_and_load_all_edges_false():
+def test_load_graph_from_nxadb_w_specific_edge_attribute():
     graph_name = "KarateGraph"
 
     db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)

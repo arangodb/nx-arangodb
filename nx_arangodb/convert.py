@@ -15,10 +15,10 @@ try:
     import nx_cugraph as nxcg
 
     GPU_ENABLED = True
-    logger.info("NXCG is enabled.")
-except ModuleNotFoundError as e:
+    logger.info("NetworkX-cuGraph is enabled.")
+except Exception as e:
     GPU_ENABLED = False
-    logger.info(f"NXCG is disabled. {e}.")
+    logger.info(f"NetworkX-cuGraph is disabled: {e}.")
 
 __all__ = [
     "_to_nx_graph",
@@ -153,9 +153,6 @@ def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
 if GPU_ENABLED:
 
     def nxadb_to_nxcg(G: nxadb.Graph, as_directed: bool = False) -> nxcg.Graph:
-        if G.is_multigraph():
-            raise NotImplementedError("Multigraphs not yet supported")
-
         if (
             G.use_coo_cache
             and G.src_indices is not None
@@ -215,7 +212,7 @@ if GPU_ENABLED:
                 # edge_masks,
                 # node_values,
                 # node_masks,
-                key_to_id=vertex_ids_to_index,
+                key_to_id=G.vertex_ids_to_index,
                 # edge_keys=edge_keys,
             )
 
@@ -233,5 +230,5 @@ if GPU_ENABLED:
                 # edge_masks,
                 # node_values,
                 # node_masks,
-                key_to_id=vertex_ids_to_index,
+                key_to_id=G.vertex_ids_to_index,
             )

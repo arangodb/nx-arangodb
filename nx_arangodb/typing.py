@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Hashable
 from typing import TypeVar
 
-import cupy as cp
 import numpy as np
 import numpy.typing as npt
 
@@ -17,8 +16,3 @@ EdgeValue = TypeVar("EdgeValue")
 NodeValue = TypeVar("NodeValue")
 IndexValue = TypeVar("IndexValue")
 Dtype = TypeVar("Dtype")
-
-
-class any_ndarray:
-    def __class_getitem__(cls, item):
-        return cp.ndarray[item] | npt.NDArray[item]

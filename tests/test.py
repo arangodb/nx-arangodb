@@ -220,34 +220,35 @@ def test_nodes_crud(load_graph: Any, graph_cls: type[nxadb.Graph]) -> None:
     G_1.clear()
     assert G_1.nodes["person/35"]["foo"] == {"bar": "baz"}
 
-    G_1.add_nodes_from(["1", "2", "3"], foo="bar")
+    col_count = db.collection(G_1.default_node_type).count()
+    G_1.add_nodes_from(["a", "b", "c"], foo="bar")
     G_1.clear()
-    assert G_1.nodes["1"]["foo"] == "bar"
-    assert G_1.nodes["2"]["foo"] == "bar"
-    assert G_1.nodes["3"]["foo"] == "bar"
+    assert G_1.nodes["a"]["foo"] == "bar"
+    assert G_1.nodes["b"]["foo"] == "bar"
+    assert G_1.nodes["c"]["foo"] == "bar"
 
-    assert db.collection(G_1.default_node_type).count() == 3
-    assert db.collection(G_1.default_node_type).has("1")
-    assert db.collection(G_1.default_node_type).has("2")
-    assert db.collection(G_1.default_node_type).has("3")
+    assert db.collection(G_1.default_node_type).count() == col_count + 3
+    assert db.collection(G_1.default_node_type).has("a")
+    assert db.collection(G_1.default_node_type).has("b")
+    assert db.collection(G_1.default_node_type).has("c")
 
-    G_1.remove_node("1")
-    assert not db.collection(G_1.default_node_type).has("1")
+    G_1.remove_node("a")
+    assert not db.collection(G_1.default_node_type).has("a")
     with pytest.raises(KeyError):
-        G_1.nodes["1"]
-
-    with pytest.raises(KeyError):
-        G_1.adj["1"]
-
-    G_1.remove_nodes_from(["2", "3"])
-    assert not db.collection(G_1.default_node_type).has("2")
-    assert not db.collection(G_1.default_node_type).has("3")
+        G_1.nodes["a"]
 
     with pytest.raises(KeyError):
-        G_1.nodes["2"]
+        G_1.adj["a"]
+
+    G_1.remove_nodes_from(["b", "c"])
+    assert not db.collection(G_1.default_node_type).has("a")
+    assert not db.collection(G_1.default_node_type).has("c")
 
     with pytest.raises(KeyError):
-        G_1.adj["2"]
+        G_1.nodes["b"]
+
+    with pytest.raises(KeyError):
+        G_1.adj["b"]
 
     assert len(G_1.adj["person/1"]) > 0
     assert G_1.adj["person/1"]["person/2"]
@@ -322,8 +323,8 @@ def test_graph_edges_crud(load_graph: Any) -> None:
     assert not db.has_document(edge_id)
     assert "person/1" in G_1
 
-    assert not db.has_document(f"{G_1.default_node_type}/new_node_1")
-    col_count = db.collection(G_1.default_edge_type).count()
+    assert not db.has_document("person/new_node_1")
+    col_count = db.collection("knows").count()
 
     G_1.add_edge("new_node_1", "new_node_2", foo="bar")
     assert db.document(G_1["new_node_1"]["new_node_2"]["_id"])["foo"] == "bar"
@@ -339,7 +340,7 @@ def test_graph_edges_crud(load_graph: Any) -> None:
 
     result = list(
         db.aql.execute(
-            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @src AND e._to == @dst RETURN e",  # noqa
+            f"FOR e IN knows FILTER e._from == @src AND e._to == @dst RETURN e",  # noqa
             bind_vars=bind_vars,
         )
     )
@@ -348,14 +349,14 @@ def test_graph_edges_crud(load_graph: Any) -> None:
 
     result = list(
         db.aql.execute(
-            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @dst AND e._to == @src RETURN e",  # noqa
+            f"FOR e IN knows FILTER e._from == @dst AND e._to == @src RETURN e",  # noqa
             bind_vars=bind_vars,
         )
     )
 
     assert len(result) == 0
 
-    assert db.collection(G_1.default_edge_type).count() == col_count + 1
+    assert db.collection("knows").count() == col_count + 1
     assert G_1.adj["new_node_1"]["new_node_2"]
     assert G_1.adj["new_node_1"]["new_node_2"]["foo"] == "bar"
     assert G_1.adj["new_node_2"]["new_node_1"]
@@ -469,8 +470,8 @@ def test_digraph_edges_crud(load_graph: Any) -> None:
     assert not db.has_document(edge_id)
     assert "person/1" in G_1
 
-    assert not db.has_document(f"{G_1.default_node_type}/new_node_1")
-    col_count = db.collection(G_1.default_edge_type).count()
+    assert not db.has_document("person/new_node_1")
+    col_count = db.collection("knows").count()
 
     G_1.add_edge("new_node_1", "new_node_2", foo="bar")
     assert db.document(G_1["new_node_1"]["new_node_2"]["_id"])["foo"] == "bar"
@@ -486,7 +487,7 @@ def test_digraph_edges_crud(load_graph: Any) -> None:
 
     result = list(
         db.aql.execute(
-            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @src AND e._to == @dst RETURN e",  # noqa
+            f"FOR e IN knows FILTER e._from == @src AND e._to == @dst RETURN e",  # noqa
             bind_vars=bind_vars,
         )
     )
@@ -495,14 +496,14 @@ def test_digraph_edges_crud(load_graph: Any) -> None:
 
     result = list(
         db.aql.execute(
-            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @dst AND e._to == @src RETURN e",  # noqa
+            f"FOR e IN knows FILTER e._from == @dst AND e._to == @src RETURN e",  # noqa
             bind_vars=bind_vars,
         )
     )
 
     assert len(result) == 0
 
-    assert db.collection(G_1.default_edge_type).count() == col_count + 1
+    assert db.collection("knows").count() == col_count + 1
     assert G_1.adj["new_node_1"]["new_node_2"]
     assert G_1.adj["new_node_1"]["new_node_2"]["foo"] == "bar"
     assert G_1.pred["new_node_2"]["new_node_1"]
@@ -618,8 +619,8 @@ def test_multigraph_edges_crud(load_graph: Any) -> None:
     assert not db.has_document(edge_id)
     assert "person/1" in G_1
 
-    assert not db.has_document(f"{G_1.default_node_type}/new_node_1")
-    col_count = db.collection(G_1.default_edge_type).count()
+    assert not db.has_document("person/new_node_1")
+    col_count = db.collection("knows").count()
 
     G_1.add_edge("new_node_1", "new_node_2", foo="bar")
     assert db.document(G_1["new_node_1"]["new_node_2"][0]["_id"])["foo"] == "bar"
@@ -635,7 +636,7 @@ def test_multigraph_edges_crud(load_graph: Any) -> None:
 
     result = list(
         db.aql.execute(
-            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @src AND e._to == @dst RETURN e",  # noqa
+            f"FOR e IN knows FILTER e._from == @src AND e._to == @dst RETURN e",  # noqa
             bind_vars=bind_vars,
         )
     )
@@ -644,14 +645,14 @@ def test_multigraph_edges_crud(load_graph: Any) -> None:
 
     result = list(
         db.aql.execute(
-            f"FOR e IN {G_1.default_edge_type} FILTER e._from == @dst AND e._to == @src RETURN e",  # noqa
+            f"FOR e IN knows FILTER e._from == @dst AND e._to == @src RETURN e",  # noqa
             bind_vars=bind_vars,
         )
     )
 
     assert len(result) == 0
 
-    assert db.collection(G_1.default_edge_type).count() == col_count + 2
+    assert db.collection("knows").count() == col_count + 2
     assert G_1.adj["new_node_1"]["new_node_2"][0]
     assert G_1.adj["new_node_1"]["new_node_2"][0]["foo"] == "bar"
     assert G_1.adj["new_node_2"]["new_node_1"][0]
@@ -747,7 +748,6 @@ def test_graph_dict_init(load_graph: Any) -> None:
     assert graph_document["_key"] == "KarateGraph"
     assert graph_document["edgeDefinitions"] == [
         {"collection": "knows", "from": ["person"], "to": ["person"]},
-        {"collection": "person_to_person", "from": ["person"], "to": ["person"]},
     ]
     assert graph_document["orphanCollections"] == []
 
@@ -1020,10 +1020,11 @@ def test_incoming_graph_data_not_nx_graph(
         == db.collection(G.default_node_type).count()
         == G.number_of_nodes()
     )
+    edge_col = G.edge_type_func(G.default_node_type, G.default_node_type)
     assert (
         len(G.edges)
         == len(G_NX.edges)
-        == db.collection(G.default_edge_type).count()
+        == db.collection(edge_col).count()
         == G.number_of_edges()
     )
     assert has_club == ("club" in G.nodes["0"])

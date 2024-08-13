@@ -6,7 +6,7 @@ from arango.database import StandardDatabase
 import nx_arangodb as nxadb
 from nx_arangodb.classes.graph import Graph
 
-from .dict import AdjListOuterDict
+from .dict.adj import AdjListOuterDict
 from .enum import TraversalDirection
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.DiGraph)  # type: ignore

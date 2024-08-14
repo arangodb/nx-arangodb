@@ -38,27 +38,7 @@ from ..exceptions import (
 )
 
 
-def _build_meta_graph(
-    v_cols: list[str], e_cols: set[str], edge_collections_attributes: set[str]
-) -> dict[str, dict[str, Any]]:
-    if len(edge_collections_attributes) == 0:
-        return {
-            "vertexCollections": {col: set() for col in v_cols},
-            "edgeCollections": {col: set() for col in e_cols},
-        }
-    else:
-        return {
-            "vertexCollections": {col: set() for col in v_cols},
-            "edgeCollections": {
-                col: {attr: set() for attr in edge_collections_attributes}
-                for col in e_cols
-            },
-        }
-
-
-def do_load_all_edge_attributes(attributes: set[str] | None) -> bool:
-    if attributes is None:
-        return True
+def do_load_all_edge_attributes(attributes: set[str]) -> bool:
     if len(attributes) == 0:
         return True
 
@@ -97,9 +77,10 @@ def get_arangodb_graph(
     edge_definitions = adb_graph.edge_definitions()
     e_cols = {c["edge_collection"] for c in edge_definitions}
 
-    metagraph: dict[str, dict[str, Any]] = _build_meta_graph(
-        v_cols, e_cols, edge_collections_attributes
-    )
+    metagraph: dict[str, dict[str, Any]] = {
+        "vertexCollections": {col: set() for col in v_cols},
+        "edgeCollections": {col: edge_collections_attributes for col in e_cols},
+    }
 
     if not any((load_node_dict, load_adj_dict, load_coo)):
         raise ValueError("At least one of the load flags must be True.")
@@ -121,10 +102,7 @@ def get_arangodb_graph(
     )
 
     if res_do_load_all_edge_attributes is not load_all_edge_attributes:
-        if (
-            edge_collections_attributes is not None
-            and len(edge_collections_attributes) > 0
-        ):
+        if len(edge_collections_attributes) > 0:
             raise ValueError(
                 "You have specified to load at least one specific edge attribute"
                 " and at the same time set the parameter `load_all_vertex_attributes`"

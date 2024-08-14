@@ -35,7 +35,6 @@ from .function import (
     aql_fetch_data_edge,
     aql_single,
     create_collection,
-    do_load_all_edge_attributes,
     doc_delete,
     doc_get_or_insert,
     doc_insert,
@@ -106,7 +105,6 @@ def adjlist_inner_dict_factory(
     default_node_type: str,
     edge_type_key: str,
     edge_type_func: Callable[[str, str], str],
-    edge_collection_attributes: set[str],
     graph_type: str,
     adjlist_outer_dict: AdjListOuterDict | None = None,
 ) -> Callable[..., AdjListInnerDict]:
@@ -116,7 +114,6 @@ def adjlist_inner_dict_factory(
         default_node_type,
         edge_type_key,
         edge_type_func,
-        edge_collection_attributes,
         graph_type,
         adjlist_outer_dict,
     )
@@ -128,7 +125,6 @@ def adjlist_outer_dict_factory(
     default_node_type: str,
     edge_type_key: str,
     edge_type_func: Callable[[str, str], str],
-    edge_collection_attributes: set[str],
     graph_type: str,
     symmetrize_edges_if_directed: bool,
 ) -> Callable[..., AdjListOuterDict]:
@@ -138,7 +134,6 @@ def adjlist_outer_dict_factory(
         default_node_type,
         edge_type_key,
         edge_type_func,
-        edge_collection_attributes,
         graph_type,
         symmetrize_edges_if_directed,
     )
@@ -1382,7 +1377,6 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         default_node_type: str,
         edge_type_key: str,
         edge_type_func: Callable[[str, str], str],
-        edge_collection_attributes: set[str],
         graph_type: str,
         adjlist_outer_dict: AdjListOuterDict | None,
         *args: Any,
@@ -1402,7 +1396,6 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         self.graph = graph
         self.edge_type_key = edge_type_key
         self.edge_type_func = edge_type_func
-        self.edge_collection_attributes = edge_collection_attributes
         self.default_node_type = default_node_type
         self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
         self.edge_key_dict_factory = edge_key_dict_factory(
@@ -1942,7 +1935,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         default_node_type: str,
         edge_type_key: str,
         edge_type_func: Callable[[str, str], str],
-        edge_collection_attributes: set[str],
         graph_type: str,
         symmetrize_edges_if_directed: bool,
         *args: Any,
@@ -1962,7 +1954,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         self.graph = graph
         self.edge_type_key = edge_type_key
         self.edge_type_func = edge_type_func
-        self.edge_collection_attributes = edge_collection_attributes
         self.default_node_type = default_node_type
         self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(
             db,
@@ -1970,7 +1961,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             default_node_type,
             edge_type_key,
             edge_type_func,
-            self.edge_collection_attributes,
             graph_type,
             self,
         )

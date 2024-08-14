@@ -167,23 +167,29 @@ if GPU_ENABLED:
         else:
             start_time = time.time()
 
-            _, _, src_indices, dst_indices, edge_indices, vertex_ids_to_index, edge_values = (
-                nxadb.classes.function.get_arangodb_graph(
-                    adb_graph=G.adb_graph,
-                    load_node_dict=False,
-                    load_adj_dict=False,
-                    load_coo=True,
-                    edge_collections_attributes=G.get_edge_attributes,
-                    load_all_vertex_attributes=False,  # not used
-                    load_all_edge_attributes=do_load_all_edge_attributes(
-                        G.get_edge_attributes
-                    ),
-                    is_directed=G.is_directed(),
-                    is_multigraph=G.is_multigraph(),
-                    symmetrize_edges_if_directed=(
-                        G.symmetrize_edges if G.is_directed() else False
-                    ),
-                )
+            (
+                _,
+                _,
+                src_indices,
+                dst_indices,
+                edge_indices,
+                vertex_ids_to_index,
+                edge_values,
+            ) = nxadb.classes.function.get_arangodb_graph(
+                adb_graph=G.adb_graph,
+                load_node_dict=False,
+                load_adj_dict=False,
+                load_coo=True,
+                edge_collections_attributes=G.get_edge_attributes,
+                load_all_vertex_attributes=False,  # not used
+                load_all_edge_attributes=do_load_all_edge_attributes(
+                    G.get_edge_attributes
+                ),
+                is_directed=G.is_directed(),
+                is_multigraph=G.is_multigraph(),
+                symmetrize_edges_if_directed=(
+                    G.symmetrize_edges if G.is_directed() else False
+                ),
             )
 
             print(f"ADB -> COO load took {time.time() - start_time}s")

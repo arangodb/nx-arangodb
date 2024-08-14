@@ -21,12 +21,12 @@ from phenolrs.networkx.typings import (
     DiGraphAdjDict,
     DstIndices,
     EdgeIndices,
+    EdgeValuesDict,
     GraphAdjDict,
     MultiDiGraphAdjDict,
     MultiGraphAdjDict,
     NodeDict,
     SrcIndices,
-    EdgeValuesDict,
 )
 
 import nx_arangodb as nxadb

@@ -83,6 +83,7 @@ class Graph(nx.Graph):
         self.dst_indices: npt.NDArray[np.int64] | None = None
         self.edge_indices: npt.NDArray[np.int64] | None = None
         self.vertex_ids_to_index: dict[str, int] | None = None
+        self.edge_values: dict[str, list[int | float]] | None = None
 
         # Does not apply to undirected graphs
         self.symmetrize_edges = symmetrize_edges

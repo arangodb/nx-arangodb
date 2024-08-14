@@ -2265,11 +2265,9 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             load_node_dict=False,
             load_adj_dict=True,
             load_coo=False,
-            edge_collections_attributes=self.edge_collection_attributes,
+            edge_collections_attributes=set(),
             load_all_vertex_attributes=False,  # not used
-            load_all_edge_attributes=do_load_all_edge_attributes(
-                self.edge_collection_attributes
-            ),
+            load_all_edge_attributes=True,
             is_directed=self.is_directed,
             is_multigraph=self.is_multigraph,
             symmetrize_edges_if_directed=self.is_directed

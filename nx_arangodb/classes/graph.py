@@ -226,7 +226,6 @@ class Graph(nx.Graph):
             *node_args,
             self.edge_type_key,
             self.edge_type_func,
-            self.get_edge_attributes,
             self.__class__.__name__,
         )
 

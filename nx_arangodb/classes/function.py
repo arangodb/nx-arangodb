@@ -26,6 +26,7 @@ from phenolrs.networkx.typings import (
     MultiGraphAdjDict,
     NodeDict,
     SrcIndices,
+    EdgeValuesDict,
 )
 
 import nx_arangodb as nxadb
@@ -63,6 +64,7 @@ def get_arangodb_graph(
     DstIndices,
     EdgeIndices,
     ArangoIDtoIndex,
+    EdgeValuesDict,
 ]:
     """Pulls the graph from the database, assuming the graph exists.
 
@@ -144,6 +146,7 @@ def get_arangodb_graph(
         dst_indices,
         edge_indices,
         vertex_ids_to_index,
+        edge_values,
     )
 
 

@@ -159,6 +159,7 @@ if GPU_ENABLED:
             and G.dst_indices is not None
             and G.edge_indices is not None
             and G.vertex_ids_to_index is not None
+            and G.edge_values is not None
         ):
             m = "**use_coo_cache** is enabled. using cached COO data. no pull required."
             logger.debug(m)
@@ -166,7 +167,7 @@ if GPU_ENABLED:
         else:
             start_time = time.time()
 
-            _, _, src_indices, dst_indices, edge_indices, vertex_ids_to_index = (
+            _, _, src_indices, dst_indices, edge_indices, vertex_ids_to_index, edge_values = (
                 nxadb.classes.function.get_arangodb_graph(
                     adb_graph=G.adb_graph,
                     load_node_dict=False,
@@ -191,6 +192,7 @@ if GPU_ENABLED:
             G.dst_indices = dst_indices
             G.edge_indices = edge_indices
             G.vertex_ids_to_index = vertex_ids_to_index
+            G.edge_values = edge_values
 
         N = len(G.vertex_ids_to_index)  # type: ignore
         src_indices_cp = cp.array(G.src_indices)
@@ -208,7 +210,7 @@ if GPU_ENABLED:
                 src_indices=src_indices_cp,
                 dst_indices=dst_indices_cp,
                 edge_indices=edge_indices_cp,
-                # edge_values,
+                edge_values=G.edge_values,
                 # edge_masks,
                 # node_values,
                 # node_masks,
@@ -226,7 +228,7 @@ if GPU_ENABLED:
                 N=N,
                 src_indices=src_indices_cp,
                 dst_indices=dst_indices_cp,
-                # edge_values,
+                edge_values=G.edge_values,
                 # edge_masks,
                 # node_values,
                 # node_masks,

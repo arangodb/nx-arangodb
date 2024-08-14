@@ -69,10 +69,6 @@ jobs:
           command: pip install .[dev]
 
       - run:
-          name: Install Phenolrs (temporary solution)
-          command: pip install phenolrs 
-
-      - run:
           name: Run local tests
           command: pytest tests/test.py
 

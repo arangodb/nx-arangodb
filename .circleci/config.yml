@@ -70,7 +70,7 @@ jobs:
 
       - run:
           name: Install Phenolrs (temporary solution)
-          command: pip install --index-url https://test.pypi.org/simple/ phenolrs 
+          command: pip install phenolrs 
 
       - run:
           name: Run local tests

@@ -21,10 +21,7 @@ from nx_arangodb.logger import logger
 from .enum import DIRECTED_GRAPH_TYPES, MULTIGRAPH_TYPES, GraphType, TraversalDirection
 from .function import (
     aql,
-    aql_as_list,
     aql_doc_get_key,
-    aql_doc_get_keys,
-    aql_doc_get_length,
     aql_doc_has_key,
     aql_edge_count_src,
     aql_edge_count_src_dst,
@@ -33,7 +30,6 @@ from .function import (
     aql_edge_id,
     aql_fetch_data,
     aql_fetch_data_edge,
-    aql_single,
     create_collection,
     doc_delete,
     doc_get_or_insert,
@@ -45,7 +41,6 @@ from .function import (
     get_update_dict,
     json_serializable,
     key_is_adb_id_or_int,
-    key_is_int,
     key_is_not_reserved,
     key_is_string,
     keys_are_not_reserved,
@@ -752,6 +747,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             load_node_dict=True,
             load_adj_dict=False,
             load_coo=False,
+            edge_collections_attributes=set(),
             load_all_vertex_attributes=True,
             load_all_edge_attributes=False,  # not used
             is_directed=False,  # not used
@@ -2254,6 +2250,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             load_node_dict=False,
             load_adj_dict=True,
             load_coo=False,
+            edge_collections_attributes=set(),
             load_all_vertex_attributes=False,  # not used
             load_all_edge_attributes=True,
             is_directed=self.is_directed,

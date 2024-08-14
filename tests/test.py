@@ -12,6 +12,23 @@ from .conftest import db
 G_NX = nx.karate_club_graph()
 
 
+def create_line_graph(load_attributes: set[str]) -> nxadb.Graph:
+    G = nx.Graph()
+    G.add_edge(1, 2, my_custom_weight=1)
+    G.add_edge(2, 3, my_custom_weight=1)
+    G.add_edge(3, 4, my_custom_weight=1000)
+    G.add_edge(4, 5, my_custom_weight=1000)
+
+    if load_attributes:
+        return nxadb.Graph(
+            incoming_graph_data=G,
+            graph_name="LineGraph",
+            edge_collections_attributes=load_attributes,
+        )
+
+    return nxadb.Graph(incoming_graph_data=G, graph_name="LineGraph")
+
+
 def assert_same_dict_values(
     d1: dict[str | int, float], d2: dict[str | int, float], digit: int
 ) -> None:
@@ -76,6 +93,69 @@ def test_load_graph_from_nxadb():
     assert db.has_collection("person_to_person")
     assert db.collection("person").count() == len(G_NX.nodes)
     assert db.collection("person_to_person").count() == len(G_NX.edges)
+
+    db.delete_graph(graph_name, drop_collections=True)
+
+
+def test_load_graph_from_nxadb_w_specific_edge_attribute():
+    graph_name = "KarateGraph"
+
+    db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
+
+    graph = nxadb.Graph(
+        graph_name=graph_name,
+        incoming_graph_data=G_NX,
+        default_node_type="person",
+        edge_collections_attributes={"weight"},
+    )
+    # TODO: re-enable this line as soon as CPU based data caching is implemented
+    # graph._adj._fetch_all()
+
+    for _from, adj in graph._adj.items():
+        for _to, edge in adj.items():
+            assert "weight" in edge
+            assert isinstance(edge["weight"], (int, float))
+
+    # call without specifying weight, fallback to weight: 1 for each
+    nx.pagerank(graph)
+
+    # call with specifying weight
+    nx.pagerank(graph, weight="weight")
+
+    db.delete_graph(graph_name, drop_collections=True)
+
+
+def test_load_graph_from_nxadb_w_not_available_edge_attribute():
+    graph_name = "KarateGraph"
+
+    db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
+
+    graph = nxadb.Graph(
+        graph_name=graph_name,
+        incoming_graph_data=G_NX,
+        default_node_type="person",
+        # This will lead to weight not being loaded into the edge data
+        edge_collections_attributes={"_id"},
+    )
+
+    # Should just succeed without any errors (fallback to weight: 1 as above)
+    nx.pagerank(graph, weight="weight_does_not_exist")
+
+    db.delete_graph(graph_name, drop_collections=True)
+
+
+def test_load_graph_with_non_default_weight_attribute():
+    graph_name = "LineGraph"
+
+    db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
+
+    graph = create_line_graph(load_attributes={"my_custom_weight"})
+    res_custom = nx.pagerank(graph, weight="my_custom_weight")
+    res_default = nx.pagerank(graph)
+
+    # to check that the results are different in case of different weights
+    # custom specified weights vs. fallback default weight to 1
+    assert res_custom != res_default
 
     db.delete_graph(graph_name, drop_collections=True)
 

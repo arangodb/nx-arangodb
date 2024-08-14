@@ -21,6 +21,7 @@ from phenolrs.networkx.typings import (
     DiGraphAdjDict,
     DstIndices,
     EdgeIndices,
+    EdgeValuesDict,
     GraphAdjDict,
     MultiDiGraphAdjDict,
     MultiGraphAdjDict,
@@ -38,11 +39,19 @@ from ..exceptions import (
 )
 
 
+def do_load_all_edge_attributes(attributes: set[str]) -> bool:
+    if len(attributes) == 0:
+        return True
+
+    return False
+
+
 def get_arangodb_graph(
     adb_graph: Graph,
     load_node_dict: bool,
     load_adj_dict: bool,
     load_coo: bool,
+    edge_collections_attributes: set[str],
     load_all_vertex_attributes: bool,
     load_all_edge_attributes: bool,
     is_directed: bool,
@@ -55,6 +64,7 @@ def get_arangodb_graph(
     DstIndices,
     EdgeIndices,
     ArangoIDtoIndex,
+    EdgeValuesDict,
 ]:
     """Pulls the graph from the database, assuming the graph exists.
 
@@ -71,7 +81,7 @@ def get_arangodb_graph(
 
     metagraph: dict[str, dict[str, Any]] = {
         "vertexCollections": {col: set() for col in v_cols},
-        "edgeCollections": {col: set() for col in e_cols},
+        "edgeCollections": {col: edge_collections_attributes for col in e_cols},
     }
 
     if not any((load_node_dict, load_adj_dict, load_coo)):
@@ -88,6 +98,21 @@ def get_arangodb_graph(
     assert config.host
     assert config.username
     assert config.password
+
+    res_do_load_all_edge_attributes = do_load_all_edge_attributes(
+        edge_collections_attributes
+    )
+
+    if res_do_load_all_edge_attributes is not load_all_edge_attributes:
+        if len(edge_collections_attributes) > 0:
+            raise ValueError(
+                "You have specified to load at least one specific edge attribute"
+                " and at the same time set the parameter `load_all_vertex_attributes`"
+                " to true. This combination is not allowed."
+            )
+        else:
+            # We need this case as the user wants by purpose to not load any edge data
+            res_do_load_all_edge_attributes = load_all_edge_attributes
 
     (
         node_dict,
@@ -106,7 +131,7 @@ def get_arangodb_graph(
         load_adj_dict=load_adj_dict,
         load_coo=load_coo,
         load_all_vertex_attributes=load_all_vertex_attributes,
-        load_all_edge_attributes=load_all_edge_attributes,
+        load_all_edge_attributes=res_do_load_all_edge_attributes,
         is_directed=is_directed,
         is_multigraph=is_multigraph,
         symmetrize_edges_if_directed=symmetrize_edges_if_directed,
@@ -121,6 +146,7 @@ def get_arangodb_graph(
         dst_indices,
         edge_indices,
         vertex_ids_to_index,
+        edge_values,
     )
 
 

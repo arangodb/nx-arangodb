@@ -407,6 +407,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             load_node_dict=True,
             load_adj_dict=False,
             load_coo=False,
+            edge_collections_attributes=set(),  # not used
             load_all_vertex_attributes=True,
             load_all_edge_attributes=False,  # not used
             is_directed=False,  # not used

@@ -23,9 +23,6 @@ from ..function import (
     aql_edge_get,
     aql_edge_id,
     aql_fetch_data_edge,
-    create_collection,
-    doc_delete,
-    doc_get_or_insert,
     doc_insert,
     doc_update,
     get_arangodb_graph,
@@ -1592,7 +1589,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             load_node_dict=False,
             load_adj_dict=True,
             load_coo=False,
-            edge_collections_attributes=set(),
+            edge_collections_attributes=set(),  # not used
             load_all_vertex_attributes=False,  # not used
             load_all_edge_attributes=True,
             is_directed=self.is_directed,

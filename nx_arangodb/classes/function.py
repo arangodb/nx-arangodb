@@ -5,12 +5,10 @@ Used by the nx_arangodb Graph, DiGraph, MultiGraph, and MultiDiGraph classes.
 
 from __future__ import annotations
 
-from collections import UserDict
 from typing import Any, Callable, Tuple
 
+from arango import ArangoError, DocumentInsertError
 import networkx as nx
-import numpy as np
-import numpy.typing as npt
 from arango.collection import StandardCollection
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
@@ -29,12 +27,10 @@ from phenolrs.networkx.typings import (
     SrcIndices,
 )
 
-import nx_arangodb as nxadb
 from nx_arangodb.logger import logger
 
 from ..exceptions import (
     AQLMultipleResultsFound,
-    GraphDoesNotExist,
     InvalidTraversalDirection,
 )
 
@@ -68,7 +64,7 @@ def get_arangodb_graph(
 ]:
     """Pulls the graph from the database, assuming the graph exists.
 
-    Returns the folowing representations:
+    Returns the following representations:
     - Node dictionary (nx.Graph)
     - Adjacency dictionary (nx.Graph)
     - Source Indices (COO)

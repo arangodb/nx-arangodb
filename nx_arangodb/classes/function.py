@@ -242,7 +242,7 @@ def keys_are_strings(func: Callable[..., Any]) -> Any:
     return wrapper
 
 
-RESERVED_KEYS = {"_id", "_key", "_rev"}
+RESERVED_KEYS = {"_id", "_key", "_rev", "_from", "_to"}
 
 
 def key_is_not_reserved(func: Callable[..., Any]) -> Any:
@@ -750,6 +750,61 @@ def upsert_collection_documents(db: StandardDatabase, separated: Any) -> Any:
         results.append(
             collection.insert_many(
                 transformed_documents, silent=False, overwrite_mode="update"
+            )
+        )
+
+    return results
+
+
+def separate_edges_by_collections(edges: Any) -> Any:
+    """
+    Separate the dictionary into collections based on whether keys contain '/'.
+    :param edges:
+        The input dictionary with keys that must contain the real doc id.
+    :return: A dictionary where the keys are collection names and the
+        values are dictionaries of key-value pairs belonging to those
+        collections.
+    """
+    separated: Any = {}
+
+    for from_doc_id, target_dict in edges.items():
+        for to_doc_id, edge_doc in target_dict.items():
+            assert edge_doc is not None
+            assert "_id" in edge_doc
+            edge_collection_name = extract_arangodb_collection_name(edge_doc["_id"])
+
+            if separated.get(edge_collection_name) is None:
+                separated[edge_collection_name] = []
+
+            edge_doc["_from"] = from_doc_id
+            edge_doc["_to"] = to_doc_id
+
+            separated[edge_collection_name].append(edge_doc)
+
+    return separated
+
+
+def upsert_collection_edges(db: StandardDatabase, separated: Any) -> Any:
+    """
+    Process each collection in the separated dictionary.
+    :param db: The ArangoDB database object.
+    :param separated: A dictionary where the keys are collection names and the
+                      values are dictionaries
+                      of key-value pairs belonging to those collections.
+    :return: A list of results from the insert_many operation.
+     If inserting a document fails, the exception is not raised but
+     returned as an object in the result list.
+    """
+
+    results = []
+
+    for collection_name, documents_list in separated.items():
+        collection = db.collection(collection_name)
+        results.append(
+            collection.insert_many(
+                documents_list,
+                silent=False,
+                overwrite_mode="update",
             )
         )
 

@@ -26,7 +26,6 @@ from phenolrs.networkx.typings import (
     NodeDict,
     SrcIndices,
 )
-from torch.cuda import graph
 
 from nx_arangodb.logger import logger
 

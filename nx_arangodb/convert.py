@@ -6,6 +6,8 @@ from typing import Any
 import networkx as nx
 
 import nx_arangodb as nxadb
+from nx_arangodb.classes.dict.adj import AdjListOuterDict
+from nx_arangodb.classes.dict.node import NodeDict
 from nx_arangodb.classes.function import do_load_all_edge_attributes
 from nx_arangodb.logger import logger
 
@@ -109,16 +111,14 @@ def nx_to_nxadb(
 
 def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
     if not G.graph_exists_in_db:
-        logger.debug("graph does not exist, nothing to pull")
-        # TODO: Consider just returning G here?
-        # Avoids the need to re-create the graph from scratch
-        return G.to_networkx_class()(incoming_graph_data=G)
+        # Since nxadb.Graph is a subclass of nx.Graph, we can return it as is.
+        # This only applies if the graph does not exist in the database.
+        return G
 
-    # TODO: Re-enable this
-    # if G.use_nx_cache and G._node and G._adj:
-    #     m = "**use_nx_cache** is enabled. using cached data. no pull required."
-    #     logger.debug(m)
-    #     return G
+    assert isinstance(G._node, NodeDict)
+    assert isinstance(G._adj, AdjListOuterDict)
+    if G._node.FETCHED_ALL_DATA and G._adj.FETCHED_ALL_DATA:
+        return G
 
     start_time = time.time()
 
@@ -136,6 +136,17 @@ def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
     )
 
     print(f"ADB -> Dictionaries load took {time.time() - start_time}s")
+
+    # NOTE: At this point, we _could_ choose to implement something similar to
+    # NodeDict._fetch_all() and AdjListOuterDict._fetch_all() to iterate through
+    # **node_dict** and **adj_dict**, and establish the "custom" Dictionary classes
+    # that we've implemented in nx_arangodb.classes.dict.
+    # However, this would involve adding additional for-loops and would likely be
+    # slower than the current implementation.
+    # Perhaps we should consider adding a feature flag to allow users to choose
+    # between the two methods? e.g `build_remote_dicts=True/False`
+    # If True, then we would return the (updated) nxadb.Graph that was passed in.
+    # If False, then we would return the nx.Graph that is built below:
 
     G_NX: nx.Graph | nx.DiGraph = G.to_networkx_class()()
     G_NX._node = node_dict

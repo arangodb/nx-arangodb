@@ -154,7 +154,7 @@ if GPU_ENABLED:
 
     def nxadb_to_nxcg(G: nxadb.Graph, as_directed: bool = False) -> nxcg.Graph:
         if G.use_nxcg_cache and G.nxcg_graph is not None:
-            m = "**use_nxcg_cache** is enabled. using cached NXCG Graph. no pull required."
+            m = "**use_nxcg_cache** is enabled. using cached NXCG Graph. no pull required."  # noqa
             logger.debug(m)
 
             return G.nxcg_graph

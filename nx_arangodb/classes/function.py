@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Tuple
 
-from arango import ArangoError, DocumentInsertError
 import networkx as nx
+from arango import ArangoError, DocumentInsertError
 from arango.collection import StandardCollection
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
@@ -29,10 +29,7 @@ from phenolrs.networkx.typings import (
 
 from nx_arangodb.logger import logger
 
-from ..exceptions import (
-    AQLMultipleResultsFound,
-    InvalidTraversalDirection,
-)
+from ..exceptions import AQLMultipleResultsFound, InvalidTraversalDirection
 
 
 def do_load_all_edge_attributes(attributes: set[str]) -> bool:

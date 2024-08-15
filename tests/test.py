@@ -173,7 +173,7 @@ def test_load_graph_with_non_default_weight_attribute():
 def test_algorithm(
     algorithm_func: Callable[..., Any],
     assert_func: Callable[..., Any],
-        load_karate_graph: Any,
+    load_karate_graph: Any,
 ) -> None:
     G_1 = G_NX
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
@@ -265,7 +265,9 @@ def test_shortest_path_remote_algorithm(load_karate_graph: Any) -> None:
         (nxadb.MultiDiGraph),
     ],
 )
-def test_node_dict_update_existing_single_collection(load_karate_graph: Any, graph_cls: type[nxadb.Graph]) -> None:
+def test_node_dict_update_existing_single_collection(
+    load_karate_graph: Any, graph_cls: type[nxadb.Graph]
+) -> None:
     # This tests uses the existing nodes and updates each
     # of them using the update method using a single collection
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
@@ -301,7 +303,9 @@ def test_node_dict_update_existing_single_collection(load_karate_graph: Any, gra
         (nxadb.MultiDiGraph),
     ],
 )
-def test_node_dict_update_multiple_collections(load_two_relation_graph: Any, graph_cls: type[nxadb.Graph]) -> None:
+def test_node_dict_update_multiple_collections(
+    load_two_relation_graph: Any, graph_cls: type[nxadb.Graph]
+) -> None:
     # This tests uses the existing nodes and updates each
     # of them using the update method using two collections
     graph_name = "IntegrationTestTwoRelationGraph"

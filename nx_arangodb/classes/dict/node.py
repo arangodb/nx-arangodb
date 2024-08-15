@@ -11,10 +11,12 @@ from arango.graph import Graph
 from nx_arangodb.logger import logger
 
 from ..function import (
+    ArangoDBBatchError,
     aql,
     aql_doc_get_key,
     aql_doc_has_key,
     aql_fetch_data,
+    check_list_for_errors,
     doc_delete,
     doc_insert,
     doc_update,
@@ -27,7 +29,9 @@ from ..function import (
     key_is_string,
     keys_are_not_reserved,
     keys_are_strings,
-    logger_debug, upsert_collection_documents, check_list_for_errors, separate_nodes_by_collections, ArangoDBBatchError,
+    logger_debug,
+    separate_nodes_by_collections,
+    upsert_collection_documents,
 )
 
 #############

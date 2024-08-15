@@ -26,10 +26,12 @@ from phenolrs.networkx.typings import (
     NodeDict,
     SrcIndices,
 )
+from torch.cuda import graph
 
 from nx_arangodb.logger import logger
 
 from ..exceptions import AQLMultipleResultsFound, InvalidTraversalDirection
+from .enum import GraphType
 
 
 def do_load_all_edge_attributes(attributes: set[str]) -> bool:
@@ -756,7 +758,7 @@ def upsert_collection_documents(db: StandardDatabase, separated: Any) -> Any:
     return results
 
 
-def separate_edges_by_collections(edges: Any) -> Any:
+def separate_edges_by_collections(edges: Any, graph_type: str) -> Any:
     """
     Separate the dictionary into collections based on whether keys contain '/'.
     :param edges:
@@ -770,16 +772,43 @@ def separate_edges_by_collections(edges: Any) -> Any:
     for from_doc_id, target_dict in edges.items():
         for to_doc_id, edge_doc in target_dict.items():
             assert edge_doc is not None
-            assert "_id" in edge_doc
-            edge_collection_name = extract_arangodb_collection_name(edge_doc["_id"])
 
-            if separated.get(edge_collection_name) is None:
-                separated[edge_collection_name] = []
+            if (
+                graph_type == GraphType.Graph.name
+                or graph_type == GraphType.DiGraph.name
+            ):
+                assert "_id" in edge_doc
+                edge_collection_name = extract_arangodb_collection_name(edge_doc["_id"])
 
-            edge_doc["_from"] = from_doc_id
-            edge_doc["_to"] = to_doc_id
+                if separated.get(edge_collection_name) is None:
+                    separated[edge_collection_name] = []
 
-            separated[edge_collection_name].append(edge_doc)
+                edge_doc["_from"] = from_doc_id
+                edge_doc["_to"] = to_doc_id
+
+                separated[edge_collection_name].append(edge_doc)
+            else:
+                assert (
+                    graph_type == GraphType.MultiGraph.name
+                    or graph_type == GraphType.MultiDiGraph.name
+                )
+                # In case of a Multi(Di)Graph, edge_doc is a list of edges and not a single edge
+                for m_edge_id, m_edge_doc in edge_doc.items():
+                    assert "_id" in m_edge_doc
+                    edge_collection_name = extract_arangodb_collection_name(
+                        m_edge_doc["_id"]
+                    )
+
+                    if separated.get(edge_collection_name) is None:
+                        separated[edge_collection_name] = []
+
+                    m_edge_doc["_from"] = from_doc_id
+                    m_edge_doc["_to"] = to_doc_id
+
+                    separated[edge_collection_name].append(m_edge_doc)
+
+                    print("Edge doc is: ", m_edge_doc)
+                    print("class of edge doc is ", type(m_edge_doc))
 
     return separated
 

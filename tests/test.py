@@ -1,9 +1,14 @@
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Union
 
 import networkx as nx
 import pytest
 from arango import DocumentDeleteError
-from phenolrs.networkx.typings import GraphAdjDict
+from phenolrs.networkx.typings import (
+    DiGraphAdjDict,
+    GraphAdjDict,
+    MultiDiGraphAdjDict,
+    MultiGraphAdjDict,
+)
 
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict.adj import EdgeAttrDict
@@ -351,14 +356,24 @@ def test_node_dict_update_multiple_collections(
         assert f"{v_2_name}/{i}" in G_1.nodes
 
 
-# TODO: Embed this test as a generic test instead
-def test_edge_adj_dict_update_existing_single_collection(
-    load_karate_graph: Any,
+@pytest.mark.parametrize(
+    "graph_cls",
+    [
+        (nxadb.Graph),
+        (nxadb.DiGraph),
+    ],
+)
+def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
+    load_karate_graph: Any, graph_cls: type[nxadb.Graph]
 ) -> None:
-    G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
+    G_1 = graph_cls(graph_name="KarateGraph", foo="bar")
 
     local_adj = G_1.adj
-    local_edges_dict: GraphAdjDict = {}
+    local_edges_dict: Union[GraphAdjDict | DiGraphAdjDict] = {}
+    if graph_cls == nxadb.Graph:
+        local_edges_dict = GraphAdjDict()
+    elif graph_cls == nxadb.DiGraph:
+        local_edges_dict = DiGraphAdjDict()
 
     for from_doc_id, target_dict in local_adj.items():
         for to_doc_id, edge_doc in target_dict.items():
@@ -388,6 +403,59 @@ def test_edge_adj_dict_update_existing_single_collection(
             assert G_1.adj[from_doc_id][to_doc_id][
                 "extraValue"
             ] == extract_arangodb_key(edge_doc["_id"])
+
+
+@pytest.mark.parametrize(
+    "graph_cls",
+    [
+        (nxadb.MultiGraph),
+        (nxadb.MultiDiGraph),
+    ],
+)
+def test_edge_adj_dict_update_existing_single_collection_MultiGraph_and_MultiDiGraph(
+    load_karate_graph: Any, graph_cls: type[nxadb.Graph]
+) -> None:
+    G_1 = graph_cls(graph_name="KarateGraph", foo="bar")
+
+    local_adj = G_1.adj
+    local_edges_dict: Union[MultiGraphAdjDict | MultiDiGraphAdjDict] = {}
+    if graph_cls == nxadb.MultiGraph:
+        local_edges_dict = MultiGraphAdjDict()
+    elif graph_cls == nxadb.MultiDiGraph:
+        local_edges_dict = MultiDiGraphAdjDict()
+
+    for from_doc_id, target_dict in local_adj.items():
+        for to_doc_id, edge_dict in target_dict.items():
+            for edge_id, edge_doc in edge_dict.items():
+                if from_doc_id not in local_edges_dict:
+                    local_edges_dict[from_doc_id] = {}
+
+                if to_doc_id not in local_edges_dict[from_doc_id]:
+                    local_edges_dict[from_doc_id][to_doc_id] = {}
+
+                local_edges_dict[from_doc_id][to_doc_id][edge_id] = {
+                    "_id": edge_doc["_id"],
+                    "extraValue": edge_doc["_key"],
+                }
+
+    G_1._adj.update(local_edges_dict)
+
+    edge_col = db.collection("knows")
+    edge_col_docs = edge_col.all()
+
+    # Check if the extraValue attribute was added to each document in the database
+    for doc in edge_col_docs:
+        assert "extraValue" in doc
+        assert doc["extraValue"] == doc["_key"]
+
+    # Check if the extraValue attribute was added to each document in the local cache
+    for from_doc_id, target_dict in local_edges_dict.items():
+        for to_doc_id, edge_dict in target_dict.items():
+            for edge_id, edge_doc in edge_dict.items():
+                assert "extraValue" in G_1._adj[from_doc_id][to_doc_id][edge_id]
+                assert G_1.adj[from_doc_id][to_doc_id][edge_id][
+                    "extraValue"
+                ] == extract_arangodb_key(edge_doc["_id"])
 
 
 def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> None:

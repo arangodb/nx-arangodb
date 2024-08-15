@@ -1481,7 +1481,9 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     @logger_debug
     def update(self, edges: Any) -> None:
         """g._adj.update({'node/1': {'node/2': {'_id': 'foo/bar', 'foo': "bar"}})"""
-        separated_by_edge_collection = separate_edges_by_collections(edges)
+        separated_by_edge_collection = separate_edges_by_collections(
+            edges, graph_type=self.graph_type
+        )
         result = upsert_collection_edges(self.db, separated_by_edge_collection)
 
         all_good = check_list_for_errors(result)

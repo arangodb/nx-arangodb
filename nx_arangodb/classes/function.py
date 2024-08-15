@@ -792,7 +792,8 @@ def separate_edges_by_collections(edges: Any, graph_type: str) -> Any:
                     graph_type == GraphType.MultiGraph.name
                     or graph_type == GraphType.MultiDiGraph.name
                 )
-                # In case of a Multi(Di)Graph, edge_doc is a list of edges and not a single edge
+                # In case of a Multi(Di)Graph, edge_doc is a list of edges
+                # and NOT a single edge
                 for m_edge_id, m_edge_doc in edge_doc.items():
                     assert "_id" in m_edge_doc
                     edge_collection_name = extract_arangodb_collection_name(

@@ -31,8 +31,9 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "networkx>=3.0",
+    "networkx>=3.0,<=3.3",
     "numpy>=1.23,<2.0a0",
+    "phenolrs",
     "python-arango",
     "adbnx-adapter"
 ]

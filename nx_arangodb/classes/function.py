@@ -683,7 +683,7 @@ def extract_arangodb_collection_name(arangodb_id: str) -> str:
 
 
 def read_collection_name_from_local_id(
-        local_id: Optional[str], default_collection: str
+    local_id: Optional[str], default_collection: str
 ) -> str:
     if local_id is None:
         print("local_id is None, cannot read collection name.")

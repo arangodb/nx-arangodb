@@ -45,7 +45,9 @@ from ..function import (
     keys_are_strings,
     logger_debug,
     separate_edges_by_collections,
-    upsert_collection_edges, read_collection_name_from_local_id, is_arangodb_id,
+    upsert_collection_edges,
+    read_collection_name_from_local_id,
+    is_arangodb_id,
 )
 
 #############
@@ -1286,11 +1288,11 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             # Copied from above, from __fetch_all
             edge_attr_dict: EdgeAttrDict = self._create_edge_attr_dict(edge)
 
-            #dst_node_id: str = (
+            # dst_node_id: str = (
             #    edge[self._fetch_all_dst_node_key]
             #    if self._fetch_all_dst_node_key
             #    else edge["_to"] if self.src_node_id == edge["_from"] else edge["_from"]
-            #)
+            # )
 
             self.__fetch_all_helper(edge_attr_dict, dst_node_id)
 

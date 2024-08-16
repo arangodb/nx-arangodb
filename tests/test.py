@@ -18,6 +18,8 @@ from .conftest import db
 
 G_NX = nx.karate_club_graph()
 
+def extract_arangodb_key(adb_id: str) -> str:
+    return adb_id.split("/")[1]
 
 def create_line_graph(load_attributes: set[str]) -> nxadb.Graph:
     G = nx.Graph()
@@ -277,9 +279,6 @@ def test_node_dict_update_existing_single_collection(
     # of them using the update method using a single collection
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
 
-    def extract_arangodb_key(adb_id: str) -> str:
-        return adb_id.split("/")[1]
-
     nodes_ids_list = G_1.nodes
     local_nodes_dict = {}
 
@@ -519,12 +518,12 @@ def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> 
 
 
 def test_edge_adj_inner_dict_update_existing_single_collection(
-        load_karate_graph: Any,
+    load_karate_graph: Any,
 ) -> None:
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
 
     local_adj = G_1.adj
-    local_inner_edges_dict: Dict[str, AdjDictEdge] = {}
+    local_inner_edges_dict: Dict[str, GraphAdjDict] = {}
     from_doc_id_to_use: str = "person/9"
 
     target_dict = local_adj[from_doc_id_to_use]
@@ -551,8 +550,8 @@ def test_edge_adj_inner_dict_update_existing_single_collection(
     for to_doc_id in local_inner_edges_dict.keys():
         assert "extraValue" in G_1._adj[from_doc_id_to_use][to_doc_id]
         assert G_1.adj[from_doc_id_to_use][to_doc_id][
-                   "extraValue"
-               ] == extract_arangodb_key(local_inner_edges_dict[to_doc_id]["_id"])
+            "extraValue"
+        ] == extract_arangodb_key(local_inner_edges_dict[to_doc_id]["_id"])
     return
 
 

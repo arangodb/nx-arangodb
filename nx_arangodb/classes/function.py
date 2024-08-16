@@ -680,9 +680,9 @@ def is_arangodb_id(key):
 
 
 def get_arangodb_collection_key_tuple(key):
-    assert is_arangodb_id(key)
     if is_arangodb_id(key):
-        return key.split("/", 1)
+        raise ValueError(f"Invalid ArangoDB key: {key}")
+    return key.split("/", 1)
 
 
 def separate_nodes_by_collections(nodes: Any, default_collection: str) -> Any:

@@ -37,6 +37,7 @@ from ..function import (
     get_node_id,
     get_node_type_and_id,
     get_update_dict,
+    is_arangodb_id,
     json_serializable,
     key_is_adb_id_or_int,
     key_is_not_reserved,
@@ -44,10 +45,9 @@ from ..function import (
     keys_are_not_reserved,
     keys_are_strings,
     logger_debug,
+    read_collection_name_from_local_id,
     separate_edges_by_collections,
     upsert_collection_edges,
-    read_collection_name_from_local_id,
-    is_arangodb_id,
 )
 
 #############

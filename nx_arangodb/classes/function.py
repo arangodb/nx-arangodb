@@ -5,7 +5,7 @@ Used by the nx_arangodb Graph, DiGraph, MultiGraph, and MultiDiGraph classes.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Tuple, Optional
+from typing import Any, Callable, Optional, Tuple
 
 import networkx as nx
 from arango import ArangoError, DocumentInsertError

@@ -32,7 +32,7 @@ __all__ = [
 def _to_nx_graph(G: Any, *args: Any, **kwargs: Any) -> nx.Graph:
     logger.debug(f"_to_nx_graph for {G.__class__.__name__}")
 
-    if isinstance(G, nxadb.Graph | nxadb.DiGraph):
+    if isinstance(G, nxadb.Graph):
         return nxadb_to_nx(G)
 
     if isinstance(G, nx.Graph):
@@ -148,7 +148,7 @@ def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
     # If True, then we would return the (updated) nxadb.Graph that was passed in.
     # If False, then we would return the nx.Graph that is built below:
 
-    G_NX: nx.Graph | nx.DiGraph = G.to_networkx_class()()
+    G_NX: nx.Graph = G.to_networkx_class()()
     G_NX._node = node_dict
 
     if isinstance(G_NX, nx.DiGraph):

@@ -152,7 +152,7 @@ def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
     G_NX._node = node_dict
 
     if isinstance(G_NX, nx.DiGraph):
-        G_NX._succ = G._adj = adj_dict["succ"]
+        G_NX._succ = G_NX._adj = adj_dict["succ"]
         G_NX._pred = adj_dict["pred"]
 
     else:

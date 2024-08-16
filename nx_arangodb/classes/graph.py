@@ -432,27 +432,28 @@ class Graph(nx.Graph):
         nx._clear_cache(self)
 
     def number_of_edges(self, u=None, v=None):
-        if u is None:
-            ######################
-            # NOTE: monkey patch #
-            ######################
+        if not self.graph_exists_in_db:
+            return super().number_of_edges(u, v)
 
-            # Old:
-            # return int(self.size())
+        if u is not None:
+            return super().number_of_edges(u, v)
 
-            # New:
-            edge_collections = {
-                e_d["edge_collection"] for e_d in self.adb_graph.edge_definitions()
-            }
-            num = sum(
-                self.adb_graph.edge_collection(e).count() for e in edge_collections
-            )
-            num *= 2 if self.is_directed() and self.symmetrize_edges else 1
+        ######################
+        # NOTE: monkey patch #
+        ######################
 
-            return num
+        # Old:
+        # return int(self.size())
 
-            # Reason:
-            # It is more efficient to count the number of edges in the edge collections
-            # compared to relying on the DegreeView.
+        # New:
+        edge_collections = {
+            e_d["edge_collection"] for e_d in self.adb_graph.edge_definitions()
+        }
+        num = sum(self.adb_graph.edge_collection(e).count() for e in edge_collections)
+        num *= 2 if self.is_directed() and self.symmetrize_edges else 1
 
-        super().number_of_edges(u, v)
+        return num
+
+        # Reason:
+        # It is more efficient to count the number of edges in the edge collections
+        # compared to relying on the DegreeView.

@@ -7,7 +7,6 @@ from arango import DocumentDeleteError
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict.adj import EdgeAttrDict
 from nx_arangodb.classes.dict.node import NodeAttrDict
-from nx_arangodb.classes.function import extract_arangodb_key
 
 from .conftest import db
 

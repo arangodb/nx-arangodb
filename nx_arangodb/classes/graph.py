@@ -44,6 +44,7 @@ class Graph(nx.Graph):
 
     def __init__(
         self,
+        incoming_graph_data: Any = None,
         graph_name: str | None = None,
         default_node_type: str | None = None,
         edge_type_key: str = "_edge_type",
@@ -89,8 +90,6 @@ class Graph(nx.Graph):
         self.symmetrize_edges = symmetrize_edges
 
         self.edge_type_key = edge_type_key
-
-        incoming_graph_data = kwargs.get("incoming_graph_data")
 
         # TODO: Consider this
         # if not self.__graph_name:
@@ -172,14 +171,15 @@ class Graph(nx.Graph):
                     use_async=True,
                 )
 
-                # No longer need this (we've already populated the graph)
-                del kwargs["incoming_graph_data"]
-
             else:
                 self.adb_graph = self.db.create_graph(
                     self._graph_name,
                     edge_definitions=edge_definitions,
                 )
+
+                # Let the parent class handle the incoming graph data
+                # if it is not a networkx.Graph object
+                kwargs["incoming_graph_data"] = incoming_graph_data
 
             self._set_factory_methods()
             self._set_arangodb_backend_config()
@@ -366,7 +366,8 @@ class Graph(nx.Graph):
     #####################
 
     def copy(self, *args, **kwargs):
-        raise NotImplementedError("Copying an ArangoDB Graph is not yet implemented")
+        logger.warning("Note that copying a graph loses the connection to the database")
+        return super().copy(*args, **kwargs)
 
     def subgraph(self, nbunch):
         raise NotImplementedError("Subgraphing is not yet implemented")

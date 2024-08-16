@@ -151,18 +151,35 @@ def test_load_graph_with_non_default_weight_attribute():
 
 
 @pytest.mark.parametrize(
-    "algorithm_func, assert_func",
+    "algorithm_func, assert_func, affected_by_symmetry",
     [
-        (nx.betweenness_centrality, assert_bc),
-        (nx.pagerank, assert_pagerank),
-        (nx.community.louvain_communities, assert_louvain),
+        (nx.betweenness_centrality, assert_bc, True),
+        (nx.pagerank, assert_pagerank, False),
     ],
 )
 def test_algorithm(
     algorithm_func: Callable[..., Any],
     assert_func: Callable[..., Any],
+    affected_by_symmetry: bool,
     load_karate_graph: Any,
 ) -> None:
+    def assert_func_should_fail(
+        r1: dict[str | int, float], r2: dict[str | int, float]
+    ) -> None:
+        assert r1 != r2
+        assert len(r1) == len(r2)
+        with pytest.raises(AssertionError):
+            assert_func(r1, r2)
+
+    def assert_symmetry_differences(
+        r1: dict[str | int, float], r2: dict[str | int, float], should_be_equal: bool
+    ) -> None:
+        if should_be_equal:
+            assert_func(r1, r2)
+            return
+
+        assert_func_should_fail(r1, r2)
+
     G_1 = G_NX
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
     G_3 = nxadb.Graph(graph_name="KarateGraph")
@@ -218,25 +235,41 @@ def test_algorithm(
     assert_remote_dict(G_8)
 
     assert_func(r_7, r_7_orig)
-    # assert_func(r_8, r_8_orig)
-    assert_func(r_9, r_9_orig)
     assert_func(r_7, r_1)
     assert_func(r_7, r_8)
-    assert r_8 != r_9
-    # assert r_8_orig != r_9_orig
+
+    assert_symmetry_differences(r_8, r_8_orig, should_be_equal=not affected_by_symmetry)
+    assert_func_should_fail(r_8, r_9)
+
+    assert_func(r_9, r_9_orig)
+    assert_symmetry_differences(
+        r_8_orig, r_9_orig, should_be_equal=affected_by_symmetry
+    )
+
     assert_func(r_8, r_10)
-    # assert_func(r_8_orig, r_10)
-    assert_func(r_7, r_11)
-    assert_func(r_8, r_11)
+    assert_symmetry_differences(
+        r_8_orig, r_10, should_be_equal=not affected_by_symmetry
+    )
+
+    assert_func(r_11, r_7)
+    assert_func(r_11, r_7)
     assert_func(r_11, r_11_orig)
-    # assert_func(r_12, r_12_orig)
+
+    assert_symmetry_differences(
+        r_12, r_12_orig, should_be_equal=not affected_by_symmetry
+    )
+    assert_func_should_fail(r_12, r_13)
+
     assert_func(r_13, r_13_orig)
-    assert r_12 != r_13
-    # assert r_12_orig != r_13_orig
-    assert_func(r_8, r_12)
-    assert_func(r_8_orig, r_12_orig)
-    assert_func(r_9, r_13)
-    assert_func(r_9_orig, r_13_orig)
+    assert_symmetry_differences(
+        r_12_orig, r_13_orig, should_be_equal=affected_by_symmetry
+    )
+
+    assert_func(r_12, r_8)
+    assert_func(r_12_orig, r_8_orig)
+
+    assert_func(r_13, r_9)
+    assert_func(r_13_orig, r_9_orig)
 
 
 def test_shortest_path_remote_algorithm(load_karate_graph: Any) -> None:

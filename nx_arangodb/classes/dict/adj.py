@@ -180,6 +180,9 @@ class EdgeAttrDict(UserDict[str, Any]):
     def clear(self) -> None:
         raise NotImplementedError("Cannot clear EdgeAttrDict")
 
+    def copy(self) -> dict[str, Any]:
+        return self.data.copy()
+
     @key_is_string
     @logger_debug
     def __contains__(self, key: str) -> bool:
@@ -1220,6 +1223,10 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
     def __fetch_all_graph(self, edge_attr_dict: EdgeAttrDict, dst_node_id: str) -> None:
         """Helper function for _fetch_all() in Graphs."""
         if dst_node_id in self.data:
+            # Don't raise an error if it's a self-loop
+            if self.data[dst_node_id] == edge_attr_dict:
+                return
+
             m = "Multiple edges between the same nodes are not supported in Graphs."
             m += f" Found 2 edges between {self.src_node_id} & {dst_node_id}."
             m += " Consider using a MultiGraph."
@@ -1486,7 +1493,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         if data is None:
             if not self.FETCHED_ALL_DATA:
                 self._fetch_all()
-
             yield from self.data.items()
 
         else:

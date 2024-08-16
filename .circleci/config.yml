@@ -3,7 +3,7 @@ version: 2.1
 executors:
   python-executor:
     docker:
-      - image: cimg/python:3.12.5
+      - image: cimg/python:3.12.2
     environment:
       PACKAGE_DIR: nx_arangodb
       TESTS_DIR: tests
@@ -57,8 +57,8 @@ jobs:
           name: Setup Python
           command: |
             pyenv --version
-            pyenv install -f 3.12.5
-            pyenv global 3.12.5
+            pyenv install -f 3.12.2
+            pyenv global 3.12.2
 
       - run:
           name: Setup pip

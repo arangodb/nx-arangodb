@@ -665,16 +665,6 @@ def check_list_for_errors(lst):
     return True
 
 
-def extract_arangodb_key(arangodb_id):
-    assert "/" in arangodb_id
-    return arangodb_id.split("/")[1]
-
-
-def extract_arangodb_collection_name(arangodb_id):
-    assert "/" in arangodb_id
-    return arangodb_id.split("/")[0]
-
-
 def is_arangodb_id(key):
     return "/" in key
 

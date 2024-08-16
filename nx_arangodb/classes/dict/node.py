@@ -128,7 +128,8 @@ class NodeAttrDict(UserDict[str, Any]):
             return True
 
         assert self.node_id
-        return aql_doc_has_key(self.db, self.node_id, key, self.parent_keys)
+        result: bool = aql_doc_has_key(self.db, self.node_id, key, self.parent_keys)
+        return result
 
     @key_is_string
     @logger_debug

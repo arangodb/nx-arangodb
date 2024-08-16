@@ -525,7 +525,7 @@ def test_edge_adj_inner_dict_update_existing_single_collection(
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
 
     local_adj = G_1.adj
-    local_inner_edges_dict: Dict[str, GraphAdjDict] = {}
+    local_inner_edges_dict: GraphAdjDict = {}
     from_doc_id_to_use: str = "person/9"
 
     target_dict = local_adj[from_doc_id_to_use]

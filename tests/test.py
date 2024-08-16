@@ -13,7 +13,6 @@ from phenolrs.networkx.typings import (
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict.adj import EdgeAttrDict
 from nx_arangodb.classes.dict.node import NodeAttrDict
-from nx_arangodb.classes.function import extract_arangodb_key
 
 from .conftest import db
 
@@ -277,6 +276,9 @@ def test_node_dict_update_existing_single_collection(
     # This tests uses the existing nodes and updates each
     # of them using the update method using a single collection
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
+
+    def extract_arangodb_key(adb_id: str) -> str:
+        return adb_id.split("/")[1]
 
     nodes_ids_list = G_1.nodes
     local_nodes_dict = {}

@@ -135,7 +135,7 @@ def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
         symmetrize_edges_if_directed=G.symmetrize_edges if G.is_directed() else False,
     )
 
-    print(f"ADB -> NX took {time.time() - start_time}s")
+    print(f"Graph '{G.adb_graph.name}' load took {time.time() - start_time}s")
 
     G_NX: nx.Graph | nx.DiGraph = G.to_networkx_class()()
     G_NX._node = node_dict
@@ -184,7 +184,7 @@ if GPU_ENABLED:
             ),
         )
 
-        print(f"ADB -> COO took {time.time() - start_time}s")
+        print(f"ADB Graph '{G.adb_graph.name}' load took {time.time() - start_time}s")
 
         start_time = time.time()
 
@@ -229,6 +229,6 @@ if GPU_ENABLED:
                 key_to_id=vertex_ids_to_index,
             )
 
-        print(f"COO -> NXCG Graph took {time.time() - start_time}s")
+        print(f"NXCG Graph construction took {time.time() - start_time}s")
 
         return G.nxcg_graph

@@ -375,7 +375,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
     @keys_are_strings
     @logger_debug
-    def update_local_nodes(self, nodes: Any) -> None:
+    def __update_local_nodes(self, nodes: Any) -> None:
         for node_id, node_data in nodes.items():
             node_attr_dict = self.node_attr_dict_factory()
             node_attr_dict.node_id = node_id
@@ -396,7 +396,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         all_good = check_list_for_errors(result)
         if all_good:
             # Means no single operation failed, in this case we update the local cache
-            self.update_local_nodes(nodes)
+            self.__update_local_nodes(nodes)
         else:
             # In this case some or all documents failed. Right now we will not
             # update the local cache, but raise an error instead.

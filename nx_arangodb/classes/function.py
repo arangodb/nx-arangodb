@@ -775,7 +775,7 @@ def separate_edges_by_collections(
                 assert "_id" in edge_doc
                 edge_collection_name = get_node_type_and_id(
                     edge_doc["_id"], default_node_type
-                )
+                )[0]
 
                 if separated.get(edge_collection_name) is None:
                     separated[edge_collection_name] = []
@@ -795,7 +795,7 @@ def separate_edges_by_collections(
                     assert "_id" in m_edge_doc
                     edge_collection_name = get_node_type_and_id(
                         m_edge_doc["_id"], default_node_type
-                    )
+                    )[0]
 
                     if separated.get(edge_collection_name) is None:
                         separated[edge_collection_name] = []
@@ -804,9 +804,6 @@ def separate_edges_by_collections(
                     m_edge_doc["_to"] = to_doc_id
 
                     separated[edge_collection_name].append(m_edge_doc)
-
-                    print("Edge doc is: ", m_edge_doc)
-                    print("class of edge doc is ", type(m_edge_doc))
 
     return separated
 

@@ -18,8 +18,6 @@ from .conftest import db
 
 G_NX = nx.karate_club_graph()
 
-def extract_arangodb_key(adb_id: str) -> str:
-    return adb_id.split("/")[1]
 
 def extract_arangodb_key(adb_id: str) -> str:
     return adb_id.split("/")[1]

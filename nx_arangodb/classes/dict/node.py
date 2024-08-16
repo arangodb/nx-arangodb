@@ -117,6 +117,10 @@ class NodeAttrDict(UserDict[str, Any]):
     def clear(self) -> None:
         raise NotImplementedError("Cannot clear NodeAttrDict")
 
+    def copy(self) -> Any:
+        # TODO: REVISIT THIS
+        return self.data.copy()
+
     @key_is_string
     @logger_debug
     def __contains__(self, key: str) -> bool:
@@ -125,7 +129,8 @@ class NodeAttrDict(UserDict[str, Any]):
             return True
 
         assert self.node_id
-        return aql_doc_has_key(self.db, self.node_id, key, self.parent_keys)
+        result: bool = aql_doc_has_key(self.db, self.node_id, key, self.parent_keys)
+        return result
 
     @key_is_string
     @logger_debug

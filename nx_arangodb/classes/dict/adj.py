@@ -180,7 +180,8 @@ class EdgeAttrDict(UserDict[str, Any]):
     def clear(self) -> None:
         raise NotImplementedError("Cannot clear EdgeAttrDict")
 
-    def copy(self) -> dict[str, Any]:
+    def copy(self) -> Any:
+        # TODO: REVISIT THIS
         return self.data.copy()
 
     @key_is_string

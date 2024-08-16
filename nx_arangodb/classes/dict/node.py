@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from collections import UserDict
 from collections.abc import Iterator
 from typing import Any, Callable
@@ -408,9 +407,8 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             for collections_results in result:
                 for collection_result in collections_results:
                     errors.append(collection_result)
-            warnings.warn(
-                "Failed to insert at least one node. Will not update local cache."
-            )
+            m = "Failed to insert at least one node. Will not update local cache."
+            logger.warning(m)
             raise ArangoDBBatchError(errors)
 
     @logger_debug

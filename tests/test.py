@@ -154,8 +154,8 @@ def test_load_graph_with_non_default_weight_attribute():
     "algorithm_func, assert_func",
     [
         (nx.betweenness_centrality, assert_bc),
-        # (nx.pagerank, assert_pagerank),
-        # (nx.community.louvain_communities, assert_louvain),
+        (nx.pagerank, assert_pagerank),
+        (nx.community.louvain_communities, assert_louvain),
     ],
 )
 def test_algorithm(

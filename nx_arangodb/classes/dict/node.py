@@ -117,6 +117,9 @@ class NodeAttrDict(UserDict[str, Any]):
     def clear(self) -> None:
         raise NotImplementedError("Cannot clear NodeAttrDict")
 
+    def copy(self) -> dict[str, Any]:
+        return self.data.copy()
+
     @key_is_string
     @logger_debug
     def __contains__(self, key: str) -> bool:

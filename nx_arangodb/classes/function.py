@@ -670,7 +670,7 @@ def is_arangodb_id(key):
 
 
 def get_arangodb_collection_key_tuple(key):
-    if is_arangodb_id(key):
+    if not is_arangodb_id(key):
         raise ValueError(f"Invalid ArangoDB key: {key}")
     return key.split("/", 1)
 

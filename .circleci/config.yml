@@ -3,7 +3,7 @@ version: 2.1
 executors:
   python-executor:
     docker:
-      - image: circleci/python:3.12.5
+      - image: cimg/python:3.12.5
     environment:
       PACKAGE_DIR: nx_arangodb
       TESTS_DIR: tests

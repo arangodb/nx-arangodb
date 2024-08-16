@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import warnings
 from collections import UserDict
 from collections.abc import Iterator
 from itertools import islice
-from typing import Any, Callable
+from typing import Any, Callable, Dict, List
 
 from arango.database import StandardDatabase
 from arango.exceptions import DocumentDeleteError
@@ -46,7 +45,7 @@ from ..function import (
     keys_are_strings,
     logger_debug,
     separate_edges_by_collections,
-    upsert_collection_edges,
+    upsert_collection_edges, read_collection_name_from_local_id, is_arangodb_id,
 )
 
 #############
@@ -1181,7 +1180,62 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
     @logger_debug
     def update(self, edges: Any) -> None:
         """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
-        raise NotImplementedError("AdjListInnerDict.update()")
+        from_col_name = read_collection_name_from_local_id(
+            self.src_node_id, self.default_node_type
+        )
+
+        to_upsert: Dict[str, List[Dict[str, Any]]] = {from_col_name: []}
+
+        for edge_id, edge_data in edges.items():
+            edge_doc = edge_data
+            edge_doc["_from"] = self.src_node_id
+            edge_doc["_to"] = edge_id
+
+            edge_doc_id = edge_data.get("_id")
+            # TODO: @Anthony please check if the implementation is correct
+            #  of the default for edge_type_func, which is right now:
+            # * edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
+            #
+            # How does that help to identify the edge's collection name?
+            # The below implementation I wanted to use but returns in my example:
+            # "person/9_to_person/34" which is not a valid or requested collection name.
+            #
+            # edge_type = edge_data.get("_edge_type")
+            # if edge_type is None:
+            #   edge_type = self.edge_type_func(self.src_node_id, edge_id)
+            #
+            # -> Therefore right now I need to assume that this is always a
+            #   valid ArangoDB document ID
+            assert is_arangodb_id(edge_doc_id)
+            edge_col_name = read_collection_name_from_local_id(edge_doc_id, "")
+
+            if to_upsert.get(edge_col_name) is None:
+                to_upsert[edge_col_name] = [edge_doc]
+            else:
+                to_upsert[edge_col_name].append(edge_doc)
+
+        # perform write to ArangoDB
+        result = upsert_collection_edges(self.db, to_upsert)
+
+        all_good = check_list_for_errors(result)
+        if all_good:
+            # Means no single operation failed, in this case we update the local cache
+            self.__set_adj_elements(edges)
+        else:
+            # In this case some or all documents failed. Right now we will not
+            # update the local cache, but raise an error instead.
+            # Reason: We cannot set silent to True, because we need as it does
+            # not report errors then. We need to update the driver to also pass
+            # the errors back to the user, then we can adjust the behavior here.
+            # This will also save network traffic and local computation time.
+            errors = []
+            for collections_results in result:
+                for collection_result in collections_results:
+                    errors.append(collection_result)
+            logger.warning(
+                "Failed to insert at least one node. Will not update local cache."
+            )
+            raise ArangoDBBatchError(errors)
 
     @logger_debug
     def values(self) -> Any:
@@ -1226,6 +1280,19 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
         self.FETCHED_ALL_DATA = True
         self.FETCHED_ALL_IDS = True
+
+    def __set_adj_elements(self, edges):
+        for dst_node_id, edge in edges.items():
+            # Copied from above, from __fetch_all
+            edge_attr_dict: EdgeAttrDict = self._create_edge_attr_dict(edge)
+
+            #dst_node_id: str = (
+            #    edge[self._fetch_all_dst_node_key]
+            #    if self._fetch_all_dst_node_key
+            #    else edge["_to"] if self.src_node_id == edge["_from"] else edge["_from"]
+            #)
+
+            self.__fetch_all_helper(edge_attr_dict, dst_node_id)
 
     @logger_debug
     def __fetch_all_graph(self, edge_attr_dict: EdgeAttrDict, dst_node_id: str) -> None:
@@ -1501,7 +1568,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             for collections_results in result:
                 for collection_result in collections_results:
                     errors.append(collection_result)
-            warnings.warn(
+            logger.warning(
                 "Failed to insert at least one node. Will not update local cache."
             )
             raise ArangoDBBatchError(errors)

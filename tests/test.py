@@ -518,6 +518,44 @@ def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> 
     assert f"{v_1_name}/{3}" in local_edge_cache[f"{v_2_name}/{1}"]
 
 
+def test_edge_adj_inner_dict_update_existing_single_collection(
+        load_karate_graph: Any,
+) -> None:
+    G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
+
+    local_adj = G_1.adj
+    local_inner_edges_dict: Dict[str, AdjDictEdge] = {}
+    from_doc_id_to_use: str = "person/9"
+
+    target_dict = local_adj[from_doc_id_to_use]
+    for to_doc_id, edge_doc in target_dict.items():
+        # will contain three items/documents
+        edge_doc_id = edge_doc["_id"]
+        local_inner_edges_dict[to_doc_id] = {
+            "_id": edge_doc_id,
+            "extraValue": edge_doc["_key"],
+        }
+
+    G_1._adj[from_doc_id_to_use].update(local_inner_edges_dict)
+
+    edge_col = db.collection("knows")
+    edge_col_docs = edge_col.all()
+
+    # Check if the extraValue attribute was added to requested docs in ADB
+    for doc in edge_col_docs:
+        if doc["_from"] == from_doc_id_to_use:
+            assert "extraValue" in doc
+            assert doc["extraValue"] == doc["_key"]
+
+    # Check if the extraValue attribute was added to each document in the local cache
+    for to_doc_id in local_inner_edges_dict.keys():
+        assert "extraValue" in G_1._adj[from_doc_id_to_use][to_doc_id]
+        assert G_1.adj[from_doc_id_to_use][to_doc_id][
+                   "extraValue"
+               ] == extract_arangodb_key(local_inner_edges_dict[to_doc_id]["_id"])
+    return
+
+
 @pytest.mark.parametrize(
     "graph_cls",
     [

@@ -3,7 +3,7 @@ version: 2.1
 executors:
   python-executor:
     docker:
-      - image: circleci/python:3.10
+      - image: circleci/python:3.12
     environment:
       PACKAGE_DIR: nx_arangodb
       TESTS_DIR: tests
@@ -57,8 +57,8 @@ jobs:
           name: Setup Python
           command: |
             pyenv --version
-            pyenv install -f 3.10
-            pyenv global 3.10
+            pyenv install -f 3.12
+            pyenv global 3.12
 
       - run:
           name: Setup pip

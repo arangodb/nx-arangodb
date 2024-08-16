@@ -10,10 +10,12 @@ from arango.graph import Graph
 from nx_arangodb.logger import logger
 
 from ..function import (
+    ArangoDBBatchError,
     aql,
     aql_doc_get_key,
     aql_doc_has_key,
     aql_fetch_data,
+    check_list_for_errors,
     doc_delete,
     doc_insert,
     doc_update,
@@ -27,6 +29,8 @@ from ..function import (
     keys_are_not_reserved,
     keys_are_strings,
     logger_debug,
+    separate_nodes_by_collections,
+    upsert_collection_documents,
 )
 
 #############
@@ -113,6 +117,10 @@ class NodeAttrDict(UserDict[str, Any]):
     def clear(self) -> None:
         raise NotImplementedError("Cannot clear NodeAttrDict")
 
+    def copy(self) -> Any:
+        # TODO: REVISIT THIS
+        return self.data.copy()
+
     @key_is_string
     @logger_debug
     def __contains__(self, key: str) -> bool:
@@ -121,7 +129,8 @@ class NodeAttrDict(UserDict[str, Any]):
             return True
 
         assert self.node_id
-        return aql_doc_has_key(self.db, self.node_id, key, self.parent_keys)
+        result: bool = aql_doc_has_key(self.db, self.node_id, key, self.parent_keys)
+        return result
 
     @key_is_string
     @logger_debug
@@ -370,9 +379,42 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
     @keys_are_strings
     @logger_debug
+    def __update_local_nodes(self, nodes: Any) -> None:
+        for node_id, node_data in nodes.items():
+            node_attr_dict = self.node_attr_dict_factory()
+            node_attr_dict.node_id = node_id
+            node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, node_data)
+
+            self.data[node_id] = node_attr_dict
+
+    @keys_are_strings
+    @logger_debug
     def update(self, nodes: Any) -> None:
         """g._node.update({'node/1': {'foo': 'bar'}, 'node/2': {'baz': 'qux'}})"""
-        raise NotImplementedError("NodeDict.update()")
+        separated_by_collection = separate_nodes_by_collections(
+            nodes, self.default_node_type
+        )
+
+        result = upsert_collection_documents(self.db, separated_by_collection)
+
+        all_good = check_list_for_errors(result)
+        if all_good:
+            # Means no single operation failed, in this case we update the local cache
+            self.__update_local_nodes(nodes)
+        else:
+            # In this case some or all documents failed. Right now we will not
+            # update the local cache, but raise an error instead.
+            # Reason: We cannot set silent to True, because we need as it does
+            # not report errors then. We need to update the driver to also pass
+            # the errors back to the user, then we can adjust the behavior here.
+            # This will also save network traffic and local computation time.
+            errors = []
+            for collections_results in result:
+                for collection_result in collections_results:
+                    errors.append(collection_result)
+            m = "Failed to insert at least one node. Will not update local cache."
+            logger.warning(m)
+            raise ArangoDBBatchError(errors)
 
     @logger_debug
     def values(self) -> Any:

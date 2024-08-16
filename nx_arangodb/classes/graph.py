@@ -76,14 +76,10 @@ class Graph(nx.Graph):
         # self.maintain_node_dict_cache = False
         # self.maintain_adj_dict_cache = False
         self.use_nx_cache = True
-        self.use_coo_cache = True
-        # self.__qa_chain = None
+        self.use_nxcg_cache = True
+        self.nxcg_graph = None
 
-        self.src_indices: npt.NDArray[np.int64] | None = None
-        self.dst_indices: npt.NDArray[np.int64] | None = None
-        self.edge_indices: npt.NDArray[np.int64] | None = None
-        self.vertex_ids_to_index: dict[str, int] | None = None
-        self.edge_values: dict[str, list[int | float]] | None = None
+        # self.__qa_chain = None
 
         # Does not apply to undirected graphs
         self.symmetrize_edges = symmetrize_edges
@@ -378,6 +374,9 @@ class Graph(nx.Graph):
     def clear_edges(self):
         logger.info("Note that clearing edges ony erases the edges in the local cache")
         super().clear_edges()
+
+    def clear_nxcg_cache(self):
+        self.nxcg_graph = None
 
     @cached_property
     def nodes(self):

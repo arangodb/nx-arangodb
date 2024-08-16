@@ -389,6 +389,14 @@ class Graph(nx.Graph):
         return super().nodes
 
     @cached_property
+    def adj(self):
+        if self.graph_exists_in_db:
+            logger.warning("nxadb.CustomAdjacencyView is currently EXPERIMENTAL")
+            return CustomAdjacencyView(self._adj)
+
+        return super().adj
+
+    @cached_property
     def edges(self):
         if self.graph_exists_in_db:
             if self.is_directed():
@@ -403,14 +411,6 @@ class Graph(nx.Graph):
             return CustomEdgeView(self)
 
         return super().edges
-
-    # @cached_property
-    # def adj(self):
-    #    if self.graph_exists_in_db:
-    #        logger.warning("CustomAdjacencyView is currently EXPERIMENTAL")
-    #        return CustomAdjacencyView(self)
-    #
-    #    return super().adj()
 
     def add_node(self, node_for_adding, **attr):
         if node_for_adding not in self._node:

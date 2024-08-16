@@ -747,11 +747,17 @@ def upsert_collection_documents(db: StandardDatabase, separated: Any) -> Any:
     return results
 
 
-def separate_edges_by_collections(edges: Any, graph_type: str) -> Any:
+def separate_edges_by_collections(
+    edges: Any, graph_type: str, default_node_type: str
+) -> Any:
     """
     Separate the dictionary into collections based on whether keys contain '/'.
     :param edges:
         The input dictionary with keys that must contain the real doc id.
+    :param graph_type:
+        The type of graph to create.
+    :param default_node_type:
+        The name of the default collection for keys without '/'.
     :return: A dictionary where the keys are collection names and the
         values are dictionaries of key-value pairs belonging to those
         collections.
@@ -767,7 +773,9 @@ def separate_edges_by_collections(edges: Any, graph_type: str) -> Any:
                 or graph_type == GraphType.DiGraph.name
             ):
                 assert "_id" in edge_doc
-                edge_collection_name = extract_arangodb_collection_name(edge_doc["_id"])
+                edge_collection_name = get_node_type_and_id(
+                    edge_doc["_id"], default_node_type
+                )
 
                 if separated.get(edge_collection_name) is None:
                     separated[edge_collection_name] = []
@@ -785,8 +793,8 @@ def separate_edges_by_collections(edges: Any, graph_type: str) -> Any:
                 # and NOT a single edge
                 for m_edge_id, m_edge_doc in edge_doc.items():
                     assert "_id" in m_edge_doc
-                    edge_collection_name = extract_arangodb_collection_name(
-                        m_edge_doc["_id"]
+                    edge_collection_name = get_node_type_and_id(
+                        m_edge_doc["_id"], default_node_type
                     )
 
                     if separated.get(edge_collection_name) is None:

@@ -19,6 +19,10 @@ from .conftest import db
 G_NX = nx.karate_club_graph()
 
 
+def extract_arangodb_key(adb_id: str) -> str:
+    return adb_id.split("/")[1]
+
+
 def create_line_graph(load_attributes: set[str]) -> nxadb.Graph:
     G = nx.Graph()
     G.add_edge(1, 2, my_custom_weight=1)
@@ -276,9 +280,6 @@ def test_node_dict_update_existing_single_collection(
     # This tests uses the existing nodes and updates each
     # of them using the update method using a single collection
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
-
-    def extract_arangodb_key(adb_id: str) -> str:
-        return adb_id.split("/")[1]
 
     nodes_ids_list = G_1.nodes
     local_nodes_dict = {}

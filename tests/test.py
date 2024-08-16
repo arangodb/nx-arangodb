@@ -21,6 +21,10 @@ G_NX = nx.karate_club_graph()
 def extract_arangodb_key(adb_id: str) -> str:
     return adb_id.split("/")[1]
 
+def extract_arangodb_key(adb_id: str) -> str:
+    return adb_id.split("/")[1]
+
+
 def create_line_graph(load_attributes: set[str]) -> nxadb.Graph:
     G = nx.Graph()
     G.add_edge(1, 2, my_custom_weight=1)

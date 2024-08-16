@@ -192,6 +192,10 @@ class EdgeAttrDict(UserDict[str, Any]):
     def clear(self) -> None:
         raise NotImplementedError("Cannot clear EdgeAttrDict")
 
+    def copy(self) -> Any:
+        # TODO: REVISIT THIS
+        return self.data.copy()
+
     @key_is_string
     @logger_debug
     def __contains__(self, key: str) -> bool:
@@ -1300,6 +1304,10 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
     def __fetch_all_graph(self, edge_attr_dict: EdgeAttrDict, dst_node_id: str) -> None:
         """Helper function for _fetch_all() in Graphs."""
         if dst_node_id in self.data:
+            # Don't raise an error if it's a self-loop
+            if self.data[dst_node_id] == edge_attr_dict:
+                return
+
             m = "Multiple edges between the same nodes are not supported in Graphs."
             m += f" Found 2 edges between {self.src_node_id} & {dst_node_id}."
             m += " Consider using a MultiGraph."
@@ -1551,7 +1559,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     def update(self, edges: Any) -> None:
         """g._adj.update({'node/1': {'node/2': {'_id': 'foo/bar', 'foo': "bar"}})"""
         separated_by_edge_collection = separate_edges_by_collections(
-            edges, graph_type=self.graph_type
+            edges, graph_type=self.graph_type, default_node_type=self.default_node_type
         )
         result = upsert_collection_edges(self.db, separated_by_edge_collection)
 
@@ -1589,7 +1597,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         if data is None:
             if not self.FETCHED_ALL_DATA:
                 self._fetch_all()
-
             yield from self.data.items()
 
         else:

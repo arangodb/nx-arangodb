@@ -18,6 +18,7 @@ from nx_arangodb.exceptions import (
     InvalidDefaultNodeType,
 )
 from nx_arangodb.logger import logger
+from .coreviews import CustomAdjacencyView
 
 from .dict import (
     adjlist_inner_dict_factory,
@@ -402,6 +403,14 @@ class Graph(nx.Graph):
             return CustomEdgeView(self)
 
         return super().edges
+
+    @cached_property
+    def adj(self):
+        if self.graph_exists_in_db:
+            logger.warning("CustomAdjacencyView is currently EXPERIMENTAL")
+            return CustomAdjacencyView(self)
+
+        return super().adj()
 
     def add_node(self, node_for_adding, **attr):
         if node_for_adding not in self._node:

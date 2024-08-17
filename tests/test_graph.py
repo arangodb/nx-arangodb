@@ -21,7 +21,7 @@ class BaseGraphTester:
     """Tests for data-structure independent graph class features."""
 
     def test_contains(self):
-        G = self.K3
+        G = self.Graph()
         assert 1 in G
         assert 4 not in G
         assert "b" not in G
@@ -29,13 +29,13 @@ class BaseGraphTester:
         assert {1: 1} not in G  # no exception for nonhashable
 
     def test_order(self):
-        G = self.K3
+        G = self.Graph()
         assert len(G) == 3
         assert G.order() == 3
         assert G.number_of_nodes() == 3
 
     def test_nodes(self):
-        G = self.K3
+        G = self.Graph()
         assert isinstance(G._node, NodeDict)
         assert isinstance(G._adj, AdjListOuterDict)
         assert all(isinstance(adj, AdjListInnerDict) for adj in G._adj.values())
@@ -56,19 +56,19 @@ class BaseGraphTester:
             G.add_edges_from([(0, None)])
 
     def test_has_node(self):
-        G = self.K3
+        G = self.Graph()
         assert G.has_node(1)
         assert not G.has_node(4)
         assert not G.has_node([])  # no exception for nonhashable
         assert not G.has_node({1: 1})  # no exception for nonhashable
 
     def test_has_edge(self):
-        G = self.K3
+        G = self.Graph()
         assert G.has_edge(0, 1)
         assert not G.has_edge(0, -1)
 
     def test_neighbors(self):
-        G = self.K3
+        G = self.Graph()
         assert sorted(G.neighbors(0)) == ["test_graph_node/1", "test_graph_node/2"]
         with pytest.raises(nx.NetworkXError):
             G.neighbors(-1)
@@ -114,7 +114,7 @@ class BaseGraphTester:
         assert before == after
 
     def test_edges(self):
-        G = self.K3
+        G = self.Graph()
         edges_all = [
             ("test_graph_node/0", "test_graph_node/1"),
             ("test_graph_node/0", "test_graph_node/2"),
@@ -135,7 +135,7 @@ class BaseGraphTester:
             G.edges(-1)
 
     def test_degree(self):
-        G = self.K3
+        G = self.Graph()
         assert sorted(G.degree()) == [
             ("test_graph_node/0", 2),
             ("test_graph_node/1", 2),
@@ -151,12 +151,12 @@ class BaseGraphTester:
             G.degree(-1)  # node not in graph
 
     def test_size(self):
-        G = self.K3
+        G = self.Graph()
         assert G.size() == 3
         assert G.number_of_edges() == 3
 
     def test_nbunch_iter(self):
-        G = self.K3
+        G = self.Graph()
         assert nodes_equal(list(G.nbunch_iter()), self.k3nodes)  # all nodes
         assert nodes_equal(G.nbunch_iter(0), [0])  # single node
         assert nodes_equal(G.nbunch_iter([0, 1]), [0, 1])  # sequence
@@ -191,7 +191,7 @@ class BaseGraphTester:
             list(G.nbunch_iter(nbunch))
 
     def test_selfloop_degree(self):
-        G = self.Graph()
+        G = self.EmptyGraph()
         G.add_edge(1, 1)
         assert sorted(G.degree()) == [("test_graph_node/1", 2)]
         assert dict(G.degree()) == {"test_graph_node/1": 2}
@@ -199,11 +199,14 @@ class BaseGraphTester:
         assert sorted(G.degree([1])) == [(1, 2)]
         assert G.degree(1, weight="weight") == 2
 
+    # TODO: REVISIT
     def test_selfloops(self):
-        G = self.K3.copy()
+        G = self.EmptyGraph()
         G.add_edge(0, 0)
-        assert nodes_equal(nx.nodes_with_selfloops(G), [0])
-        assert edges_equal(nx.selfloop_edges(G), [(0, 0)])
+        assert nodes_equal(list(nx.nodes_with_selfloops(G)), ["test_graph_node/0"])
+        assert edges_equal(
+            list(nx.selfloop_edges(G)), [("test_graph_node/0", "test_graph_node/0")]
+        )
         assert nx.number_of_selfloops(G) == 1
         G.remove_edge(0, 0)
         G.add_edge(0, 0)
@@ -215,7 +218,7 @@ class BaseGraphTester:
         G.remove_nodes_from([0, 1])
 
     def test_cache_reset(self):
-        G = self.K3.copy()
+        G = self.Graph()
         old_adj = G.adj
         assert id(G.adj) == id(old_adj)
         G._adj = {}
@@ -227,7 +230,7 @@ class BaseGraphTester:
         assert id(G.nodes) != id(old_nodes)
 
     def test_attributes_cached(self):
-        G = self.K3.copy()
+        G = self.Graph()
         assert id(G.nodes) == id(G.nodes)
         assert id(G.edges) == id(G.edges)
         assert id(G.degree) == id(G.degree)
@@ -539,7 +542,7 @@ class BaseAttrGraphTester(BaseGraphTester):
         assert edges_equal(G.edges(data=True), [(1, 2, dd)])
 
     def test_to_undirected(self):
-        G = self.K3
+        G = self.Graph()
         self.add_attributes(G)
         H = nx.Graph(G)
         self.is_shallow_copy(H, G)
@@ -595,7 +598,7 @@ class BaseAttrGraphTester(BaseGraphTester):
         assert isinstance(H, newGraph)
 
     def test_to_directed(self):
-        G = self.K3
+        G = self.Graph()
         self.add_attributes(G)
         H = nx.DiGraph(G)
         self.is_shallow_copy(H, G)
@@ -604,7 +607,7 @@ class BaseAttrGraphTester(BaseGraphTester):
         self.is_deepcopy(H, G)
 
     def test_subgraph(self):
-        G = self.K3
+        G = self.Graph()
         self.add_attributes(G)
         H = G.subgraph([0, 1, 2, 5])
         self.graphs_equal(H, G)
@@ -618,7 +621,7 @@ class BaseAttrGraphTester(BaseGraphTester):
         assert G.adj != {}
 
     def test_selfloops_attr(self):
-        G = self.K3.copy()
+        G = self.Graph()
         G.add_edge(0, 0)
         G.add_edge(1, 1, weight=2)
         assert edges_equal(
@@ -650,11 +653,11 @@ class TestGraph(BaseAttrGraphTester):
             db.delete_graph(GRAPH_NAME, drop_collections=True, ignore_missing=True)
             return nxadb.Graph(*args, **kwargs, graph_name=GRAPH_NAME)
 
-        self.Graph = nxadb_graph_constructor
-        self.K3 = self.Graph(incoming_graph_data=self.K3)
+        self.Graph = lambda: nxadb_graph_constructor(incoming_graph_data=self.K3)
+        self.EmptyGraph = nxadb_graph_constructor
 
     def test_pickle(self):
-        G = self.K3
+        G = self.Graph()
         pg = pickle.loads(pickle.dumps(G, -1))
         self.graphs_equal(pg, G)
         pg = pickle.loads(pickle.dumps(G))
@@ -666,7 +669,7 @@ class TestGraph(BaseAttrGraphTester):
         assert sorted(G.adj.items()) == [(1, {2: {}}), (2, {1: {}})]
 
     def test_adjacency(self):
-        G = self.K3
+        G = self.Graph()
         assert dict(G.adjacency()) == {
             0: {1: {}, 2: {}},
             1: {0: {}, 2: {}},
@@ -674,7 +677,7 @@ class TestGraph(BaseAttrGraphTester):
         }
 
     def test_getitem(self):
-        G = self.K3
+        G = self.Graph()
         assert G.adj[0] == {1: {}, 2: {}}
         assert G[0] == {1: {}, 2: {}}
         with pytest.raises(KeyError):
@@ -730,7 +733,7 @@ class TestGraph(BaseAttrGraphTester):
         assert H.nodes[3]["c"] == "cyan"
 
     def test_remove_node(self):
-        G = self.K3.copy()
+        G = self.Graph()
         G.remove_node(0)
         assert G.adj == {1: {2: {}}, 2: {1: {}}}
         with pytest.raises(nx.NetworkXError):
@@ -739,7 +742,7 @@ class TestGraph(BaseAttrGraphTester):
         # generator here to implement list,set,string...
 
     def test_remove_nodes_from(self):
-        G = self.K3.copy()
+        G = self.Graph()
         G.remove_nodes_from([0, 1])
         assert G.adj == {2: {}}
         G.remove_nodes_from([-1])  # silent fail
@@ -781,20 +784,20 @@ class TestGraph(BaseAttrGraphTester):
             G.add_edges_from([(None, 3), (3, 2)])  # None cannot be a node
 
     def test_remove_edge(self):
-        G = self.K3.copy()
+        G = self.Graph()
         G.remove_edge(0, 1)
         assert G.adj == {0: {2: {}}, 1: {2: {}}, 2: {0: {}, 1: {}}}
         with pytest.raises(nx.NetworkXError):
             G.remove_edge(-1, 0)
 
     def test_remove_edges_from(self):
-        G = self.K3.copy()
+        G = self.Graph()
         G.remove_edges_from([(0, 1)])
         assert G.adj == {0: {2: {}}, 1: {2: {}}, 2: {0: {}, 1: {}}}
         G.remove_edges_from([(0, 0)])  # silent fail
 
     def test_clear(self):
-        G = self.K3.copy()
+        G = self.Graph()
         G.graph["name"] = "K3"
         G.clear()
         assert list(G.nodes) == []
@@ -802,7 +805,7 @@ class TestGraph(BaseAttrGraphTester):
         assert G.graph == {}
 
     def test_clear_edges(self):
-        G = self.K3.copy()
+        G = self.Graph()
         G.graph["name"] = "K3"
         nodes = list(G.nodes)
         G.clear_edges()
@@ -812,25 +815,34 @@ class TestGraph(BaseAttrGraphTester):
         assert G.graph["name"] == "K3"
 
     def test_edges_data(self):
-        G = self.K3
-        all_edges = [(0, 1, {}), (0, 2, {}), (1, 2, {})]
+        G = self.Graph()
+        e_col = f"{G.default_node_type}_to_{G.default_node_type}"
+        all_edges = [
+            (edge["_from"], edge["_to"], edge) for edge in db.collection(e_col)
+        ]
+        all_edges_0 = [
+            (0, *edge[1:]) for edge in all_edges if edge[0] == "test_graph_node/0"
+        ]
         assert edges_equal(G.edges(data=True), all_edges)
-        assert edges_equal(G.edges(0, data=True), [(0, 1, {}), (0, 2, {})])
+        assert edges_equal(G.edges(0, data=True), all_edges_0)
+        # NOTE: This is failing
         assert edges_equal(G.edges([0, 1], data=True), all_edges)
         with pytest.raises(nx.NetworkXError):
             G.edges(-1, True)
 
     def test_get_edge_data(self):
-        G = self.K3.copy()
-        assert G.get_edge_data(0, 1) == {}
-        assert G[0][1] == {}
+        G = self.Graph()
+        assert G.get_edge_data(0, 1) == db.document(
+            "test_graph_node_to_test_graph_node/0"
+        )
+        assert G[0][1] == db.document("test_graph_node_to_test_graph_node/0")
         assert G.get_edge_data(10, 20) is None
         assert G.get_edge_data(-1, 0) is None
         assert G.get_edge_data(-1, 0, default=1) == 1
 
     def test_update(self):
         # specify both edges and nodes
-        G = self.K3.copy()
+        G = self.Graph()
         G.update(nodes=[3, (4, {"size": 2})], edges=[(4, 5), (6, 7, {"weight": 2})])
         nlist = [
             (0, {}),
@@ -866,7 +878,7 @@ class TestGraph(BaseAttrGraphTester):
         assert G.graph == {}
 
         # no keywords -- order is edges, nodes
-        G = self.K3.copy()
+        G = self.Graph()
         G.update([(4, 5), (6, 7, {"weight": 2})], [3, (4, {"size": 2})])
         assert sorted(G.nodes.data()) == nlist
         assert sorted(G.edges.data()) == elist

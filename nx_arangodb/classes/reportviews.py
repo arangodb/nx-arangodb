@@ -69,21 +69,17 @@ class CustomEdgeDataView(nx.classes.reportviews.EdgeDataView):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if self._data and not isinstance(self._data, bool):
-            self._report = lambda n, nbr, dd: self._adjdict.items(
+        if self._data is not None and not isinstance(self._data, bool):
+            self._report = lambda *args, **kwargs: self._adjdict.items(
                 data=self._data, default=self._default
             )
 
     def __iter__(self):
-        if self._data and not isinstance(self._data, bool):
-            # don't need to filter data in Python
-            return self._report("", "", "")
+        if self._data is not None and not isinstance(self._data, bool):
+            # Filter for self._data  server-side
+            yield from self._report()
 
-        return (
-            self._report(n, nbr, dd)
-            for n, nbrs in self._nodes_nbrs()
-            for nbr, dd in nbrs.items()
-        )
+        yield from super().__iter__()
 
 
 class CustomEdgeView(nx.classes.reportviews.EdgeView):

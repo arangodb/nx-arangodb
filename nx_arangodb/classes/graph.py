@@ -182,6 +182,9 @@ class Graph(nx.Graph):
             logger.info(f"Graph '{graph_name}' created.")
             self._graph_exists_in_db = True
 
+        else:
+            kwargs["incoming_graph_data"] = incoming_graph_data
+
         super().__init__(*args, **kwargs)
 
     #######################

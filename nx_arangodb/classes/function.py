@@ -5,7 +5,7 @@ Used by the nx_arangodb Graph, DiGraph, MultiGraph, and MultiDiGraph classes.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Generator, Tuple
 
 import networkx as nx
 from arango import ArangoError, DocumentInsertError
@@ -540,23 +540,16 @@ def aql_fetch_data(
     collections: list[str],
     data: str,
     default: Any,
-) -> dict[str, Any]:
-    items = {}
+) -> Generator[dict[str, Any], None, None]:
+    bind_vars = {"data": data, "default": default}
+    query = """
+        FOR doc IN @@collection
+            RETURN [doc._id, doc.@data or @default]
+    """
+
     for collection in collections:
-        query = """
-            LET result = (
-                FOR doc IN @@collection
-                    RETURN {[doc._id]: doc.@data or @default}
-            )
-
-            RETURN MERGE(result)
-        """
-
-        bind_vars = {"data": data, "default": default, "@collection": collection}
-        result = aql_single(db, query, bind_vars)
-        items.update(result if result is not None else {})
-
-    return items
+        bind_vars["@collection"] = collection
+        yield from aql(db, query, bind_vars)
 
 
 def aql_fetch_data_edge(
@@ -564,23 +557,17 @@ def aql_fetch_data_edge(
     collections: list[str],
     data: str,
     default: Any,
-) -> list[tuple[str, str, Any]]:
-    items: list[tuple[str, str, Any]] = []
+) -> Generator[tuple[str, str, Any], None, None]:
+    bind_vars = {"data": data, "default": default}
+    query = """
+        FOR doc IN @@collection
+            RETURN [doc._from, doc._to, doc.@data or @default]
+    """
+
     for collection in collections:
-        query = """
-            LET result = (
-                FOR doc IN @@collection
-                    RETURN [doc._from, doc._to, doc.@data or @default]
-            )
-
-            RETURN result
-        """
-
-        bind_vars = {"data": data, "default": default, "@collection": collection}
-        for item in aql_single(db, query, bind_vars):
-            items.append(tuple(item))
-
-    return items
+        bind_vars["@collection"] = collection
+        for item in aql(db, query, bind_vars):
+            yield tuple(item)
 
 
 def doc_update(

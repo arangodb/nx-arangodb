@@ -434,8 +434,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             yield from self.data.items()
         else:
             v_cols = list(self.graph.vertex_collections())
-            result = aql_fetch_data(self.db, v_cols, data, default)
-            yield from result.items()
+            yield from aql_fetch_data(self.db, v_cols, data, default)
 
     @logger_debug
     def _fetch_all(self):

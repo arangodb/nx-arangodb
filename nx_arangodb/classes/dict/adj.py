@@ -1498,8 +1498,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
         else:
             e_cols = [ed["edge_collection"] for ed in self.graph.edge_definitions()]
-            result = aql_fetch_data_edge(self.db, e_cols, data, default)
-            yield from result
+            yield from aql_fetch_data_edge(self.db, e_cols, data, default)
 
     @logger_debug
     def _fetch_all(self) -> None:

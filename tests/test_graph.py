@@ -791,8 +791,15 @@ class TestGraph(BaseAttrGraphTester):
 
     def test_getitem(self):
         G = self.Graph()
-        assert G.adj[0] == {1: {}, 2: {}}
-        assert G[0] == {1: {}, 2: {}}
+        assert isinstance(G._adj[0], AdjListInnerDict)
+        assert str(G.adj[0]) == "AdjListInnerDict('test_graph_node/0')"
+        assert str(G[0]) == "AdjListInnerDict('test_graph_node/0')"
+        assert dict(G[0]) == {
+            "test_graph_node/1": G[0][1],
+            "test_graph_node/2": G[0][2],
+        }
+        assert dict(G[0][1]) == db.document(G.adj[0][1]["_id"])
+        assert dict(G[0][2]) == db.document(G.adj[0][2]["_id"])
         with pytest.raises(KeyError):
             G.__getitem__("j")
         with pytest.raises(TypeError):

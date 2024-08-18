@@ -619,6 +619,14 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
     @logger_debug
     def __iter__(self) -> Iterator[str]:
         """for k in g._adj['node/1']['node/2']"""
+        if not (self.FETCHED_ALL_DATA or self.FETCHED_ALL_IDS):
+            self._fetch_all()
+
+        yield from self.data.keys()
+
+    @logger_debug
+    def keys(self) -> Any:
+        """g._adj['node/1']['node/2'].keys()"""
         if self.FETCHED_ALL_IDS:
             yield from self.data.keys()
 
@@ -642,11 +650,6 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
             for edge_id in edge_ids:
                 self.data[edge_id] = self.edge_attr_dict_factory()
                 yield edge_id
-
-    @logger_debug
-    def keys(self) -> Any:
-        """g._adj['node/1']['node/2'].keys()"""
-        return self.__iter__()
 
     @logger_debug
     def values(self) -> Any:
@@ -902,6 +905,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         if key not in self.data and self.FETCHED_ALL_IDS:
             raise KeyError(key)
 
+        print(key)
         return self.__getitem_helper_db(key, dst_node_id)  # type: ignore
 
     @logger_debug
@@ -1141,6 +1145,14 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
     @logger_debug
     def __iter__(self) -> Iterator[str]:
         """for k in g._adj['node/1']"""
+        if not (self.FETCHED_ALL_DATA or self.FETCHED_ALL_IDS):
+            self._fetch_all()
+
+        yield from self.data.keys()
+
+    @logger_debug
+    def keys(self) -> Any:
+        """g._adj['node/1'].keys()"""
         if self.FETCHED_ALL_IDS:
             yield from self.data.keys()
 
@@ -1157,11 +1169,6 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             for edge_id in aql(self.db, query, bind_vars):
                 self.__contains_helper(edge_id)
                 yield edge_id
-
-    @logger_debug
-    def keys(self) -> Any:
-        """g._adj['node/1'].keys()"""
-        return self.__iter__()
 
     @logger_debug
     def clear(self) -> None:
@@ -1450,6 +1457,14 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     @logger_debug
     def __iter__(self) -> Iterator[str]:
         """for k in g._adj"""
+        if not (self.FETCHED_ALL_DATA or self.FETCHED_ALL_IDS):
+            self._fetch_all()
+
+        yield from self.data.keys()
+
+    @logger_debug
+    def keys(self) -> Any:
+        """g._adj.keys()"""
         if self.FETCHED_ALL_IDS:
             yield from self.data.keys()
 
@@ -1461,11 +1476,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
                     lazy_adjlist_inner_dict.src_node_id = node_id
                     self.data[node_id] = lazy_adjlist_inner_dict
                     yield node_id
-
-    @logger_debug
-    def keys(self) -> Any:
-        """g._adj.keys()"""
-        return self.__iter__()
 
     @logger_debug
     def clear(self) -> None:

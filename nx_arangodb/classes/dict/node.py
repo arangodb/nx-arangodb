@@ -353,7 +353,15 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
     @logger_debug
     def __iter__(self) -> Iterator[str]:
-        """iter(g._node)"""
+        """for k in g._node"""
+        if not (self.FETCHED_ALL_IDS or self.FETCHED_ALL_DATA):
+            self._fetch_all()
+
+        yield from self.data.keys()
+
+    @logger_debug
+    def keys(self) -> Any:
+        """g._node.keys()"""
         if self.FETCHED_ALL_IDS:
             yield from self.data.keys()
         else:
@@ -364,11 +372,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
                     empty_node_attr_dict.node_id = node_id
                     self.data[node_id] = empty_node_attr_dict
                     yield node_id
-
-    @logger_debug
-    def keys(self) -> Any:
-        """g._node.keys()"""
-        return self.__iter__()
 
     @logger_debug
     def clear(self) -> None:

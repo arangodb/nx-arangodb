@@ -78,8 +78,8 @@ class CustomEdgeDataView(nx.classes.reportviews.EdgeDataView):
         if self._data is not None and not isinstance(self._data, bool):
             # Filter for self._data  server-side
             yield from self._report()
-
-        yield from super().__iter__()
+        else:
+            yield from super().__iter__()
 
 
 class CustomEdgeView(nx.classes.reportviews.EdgeView):

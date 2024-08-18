@@ -565,7 +565,7 @@ def aql_fetch_data_edge(
     data: str,
     default: Any,
 ) -> list[tuple[str, str, Any]]:
-    items = []
+    items: list[tuple[str, str, Any]] = []
     for collection in collections:
         query = """
             LET result = (
@@ -577,8 +577,8 @@ def aql_fetch_data_edge(
         """
 
         bind_vars = {"data": data, "default": default, "@collection": collection}
-        result = aql_single(db, query, bind_vars)
-        items.extend(result if result is not None else [])
+        for item in aql_single(db, query, bind_vars):
+            items.append(tuple(item))
 
     return items
 

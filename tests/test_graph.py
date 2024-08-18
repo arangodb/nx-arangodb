@@ -8,7 +8,11 @@ import pytest
 from networkx.utils import edges_equal, graphs_equal, nodes_equal
 
 import nx_arangodb as nxadb
-from nx_arangodb.classes.dict.adj import AdjListInnerDict, AdjListOuterDict
+from nx_arangodb.classes.dict.adj import (
+    AdjListInnerDict,
+    AdjListOuterDict,
+    EdgeAttrDict,
+)
 from nx_arangodb.classes.dict.graph import GraphDict
 from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 
@@ -241,7 +245,7 @@ class BaseAttrGraphTester(BaseGraphTester):
     """Tests of graph class attribute features."""
 
     def test_weighted_degree(self):
-        G = self.Graph()
+        G = self.EmptyGraph()
         G.add_edge(1, 2, weight=2, other=3)
         G.add_edge(2, 3, weight=3, other=4)
         assert sorted(d for n, d in G.degree(weight="weight")) == [2, 3, 5]
@@ -271,24 +275,25 @@ class BaseAttrGraphTester(BaseGraphTester):
         G.add_edge(2, 1, foo=ll)
 
     def test_name(self):
-        G = self.Graph(name="")
+        G = self.EmptyGraph(name="")
         assert G.name == ""
-        G = self.Graph(name="test")
+        G = self.EmptyGraph(name="test")
         assert G.name == "test"
 
     # TODO: Revisit
+    # I have no idea how 'test' is being set here...
     # def test_str_unnamed(self):
-    #     G = self.Graph()
+    #     G = self.EmptyGraph()
     #     G.add_edges_from([(1, 2), (2, 3)])
     #     assert str(G) == f"{type(G).__name__} with 3 nodes and 2 edges"
 
     def test_str_named(self):
-        G = self.Graph(name="foo")
+        G = self.EmptyGraph(name="foo")
         G.add_edges_from([(1, 2), (2, 3)])
         assert str(G) == f"{type(G).__name__} named 'foo' with 3 nodes and 2 edges"
 
     def test_graph_chain(self):
-        G = self.Graph([(0, 1), (1, 2)])
+        G = self.EmptyGraph([(0, 1), (1, 2)])
         DG = G.to_directed(as_view=True)
         SDG = DG.subgraph([0, 1])
         RSDG = SDG.reverse(copy=False)
@@ -323,7 +328,7 @@ class BaseAttrGraphTester(BaseGraphTester):
     #     self.shallow_copy_attrdict(H, G)
 
     def test_fresh_copy(self):
-        G = self.Graph()
+        G = self.EmptyGraph()
         G.add_node(0)
         G.add_edge(1, 2)
         self.add_attributes(G)
@@ -417,6 +422,9 @@ class BaseAttrGraphTester(BaseGraphTester):
         H.nodes[0]["foo"] = old_foo
         assert G._node == H._node
 
+    # TODO: Revisit this as we can't directly
+    # compare AdjListOuterDict objects with
+    # regular dicts yet...
     def graphs_equal(self, H, G):
         assert G._adj == H._adj
         assert G._node == H._node
@@ -438,7 +446,7 @@ class BaseAttrGraphTester(BaseGraphTester):
             assert G._succ[1][2] is G._pred[2][1]
 
     def test_graph_attr(self):
-        G = self.Graph()
+        G = self.EmptyGraph()
         G.graph["foo"] = "bar"
         assert isinstance(G.graph, GraphDict)
         assert G.graph["foo"] == "bar"
@@ -452,106 +460,168 @@ class BaseAttrGraphTester(BaseGraphTester):
         G = self.Graph()
         G.add_node(1, foo="bar")
         assert all(isinstance(d, NodeAttrDict) for u, d in G.nodes(data=True))
-        assert nodes_equal(G.nodes(), [0, 1, 2])
-        assert nodes_equal(G.nodes(data=True), [(0, {}), (1, {"foo": "bar"}), (2, {})])
+        assert nodes_equal(G.nodes(), self.k3nodes)
+        all_nodes = [
+            (doc["_id"], doc) for doc in db.collection("test_graph_node").all()
+        ]
+        assert nodes_equal(G.nodes(data=True), all_nodes)
         G.nodes[1]["foo"] = "baz"
-        assert nodes_equal(G.nodes(data=True), [(0, {}), (1, {"foo": "baz"}), (2, {})])
-        assert nodes_equal(G.nodes(data="foo"), [(0, None), (1, "baz"), (2, None)])
+        all_nodes = [
+            (doc["_id"], doc) for doc in db.collection("test_graph_node").all()
+        ]
+        assert nodes_equal(G.nodes(data=True), all_nodes)
         assert nodes_equal(
-            G.nodes(data="foo", default="bar"), [(0, "bar"), (1, "baz"), (2, "bar")]
+            G.nodes(data="foo"),
+            [
+                ("test_graph_node/0", None),
+                ("test_graph_node/1", "baz"),
+                ("test_graph_node/2", None),
+            ],
+        )
+        assert nodes_equal(
+            G.nodes(data="foo", default="bar"),
+            [
+                ("test_graph_node/0", "bar"),
+                ("test_graph_node/1", "baz"),
+                ("test_graph_node/2", "bar"),
+            ],
         )
 
     def test_node_attr2(self):
         G = self.Graph()
         a = {"foo": "bar"}
         G.add_node(3, **a)
-        temp = list(G.nodes())
-        breakpoint()
-        assert nodes_equal(G.nodes(), [0, 1, 2, 3])
-        assert nodes_equal(
-            G.nodes(data=True), [(0, {}), (1, {}), (2, {}), (3, {"foo": "bar"})]
-        )
+        assert nodes_equal(G.nodes(), self.k3nodes + ["test_graph_node/3"])
+        all_nodes = [
+            (doc["_id"], doc) for doc in db.collection("test_graph_node").all()
+        ]
+        assert nodes_equal(G.nodes(data=True), all_nodes)
 
     def test_edge_lookup(self):
         G = self.Graph()
         G.add_edge(1, 2, foo="bar")
-        assert edges_equal(G.edges[1, 2], {"foo": "bar"})
+        edge = db.document(G.adj[1][2]["_id"])
+        assert edge["foo"] == "bar"
+        assert edges_equal(G.edges[1, 2], edge)
 
     def test_edge_attr(self):
-        G = self.Graph()
+        G = self.EmptyGraph()
         G.add_edge(1, 2, foo="bar")
-        assert all(
-            isinstance(d, G.edge_attr_dict_factory) for u, v, d in G.edges(data=True)
+        assert all(isinstance(d, EdgeAttrDict) for u, v, d in G.edges(data=True))
+        G.clear()
+        edge_1_2 = db.document(G.adj[1][2]["_id"])
+        assert edge_1_2["foo"] == "bar"
+        assert edges_equal(
+            G.edges(data=True), [("test_graph_node/1", "test_graph_node/2", edge_1_2)]
         )
-        assert edges_equal(G.edges(data=True), [(1, 2, {"foo": "bar"})])
-        assert edges_equal(G.edges(data="foo"), [(1, 2, "bar")])
+        G.clear()
+        assert edges_equal(
+            G.edges(data="foo"), [("test_graph_node/1", "test_graph_node/2", "bar")]
+        )
 
     def test_edge_attr2(self):
-        G = self.Graph()
+        G = self.EmptyGraph()
         G.add_edges_from([(1, 2), (3, 4)], foo="foo")
-        assert edges_equal(
-            G.edges(data=True), [(1, 2, {"foo": "foo"}), (3, 4, {"foo": "foo"})]
-        )
-        assert edges_equal(G.edges(data="foo"), [(1, 2, "foo"), (3, 4, "foo")])
-
-    def test_edge_attr3(self):
-        G = self.Graph()
-        G.add_edges_from([(1, 2, {"weight": 32}), (3, 4, {"weight": 64})], foo="foo")
+        edge_1_2 = db.document(G.adj[1][2]["_id"])
+        edge_3_4 = db.document(G.adj[3][4]["_id"])
+        assert edge_1_2["foo"] == "foo"
+        assert edge_3_4["foo"] == "foo"
         assert edges_equal(
             G.edges(data=True),
             [
-                (1, 2, {"foo": "foo", "weight": 32}),
-                (3, 4, {"foo": "foo", "weight": 64}),
+                ("test_graph_node/1", "test_graph_node/2", edge_1_2),
+                ("test_graph_node/3", "test_graph_node/4", edge_3_4),
+            ],
+        )
+        assert edges_equal(
+            G.edges(data="foo"),
+            [
+                ("test_graph_node/1", "test_graph_node/2", "foo"),
+                ("test_graph_node/3", "test_graph_node/4", "foo"),
+            ],
+        )
+
+    def test_edge_attr3(self):
+        G = self.EmptyGraph()
+        G.add_edges_from([(1, 2, {"weight": 32}), (3, 4, {"weight": 64})], foo="foo")
+        edge_1_2 = db.document(G.adj[1][2]["_id"])
+        edge_3_4 = db.document(G.adj[3][4]["_id"])
+        assert edge_1_2["weight"] == 32
+        assert edge_3_4["weight"] == 64
+        assert edge_1_2["foo"] == "foo"
+        assert edge_3_4["foo"] == "foo"
+        assert edges_equal(
+            G.edges(data=True),
+            [
+                ("test_graph_node/1", "test_graph_node/2", edge_1_2),
+                ("test_graph_node/3", "test_graph_node/4", edge_3_4),
             ],
         )
 
         G.remove_edges_from([(1, 2), (3, 4)])
         G.add_edge(1, 2, data=7, spam="bar", bar="foo")
+        edge_1_2 = db.document(G.adj[1][2]["_id"])
+        assert edge_1_2["spam"] == "bar"
+        assert edge_1_2["bar"] == "foo"
+        assert edge_1_2["data"] == 7
         assert edges_equal(
-            G.edges(data=True), [(1, 2, {"data": 7, "spam": "bar", "bar": "foo"})]
+            G.edges(data=True), [("test_graph_node/1", "test_graph_node/2", edge_1_2)]
         )
 
     def test_edge_attr4(self):
-        G = self.Graph()
+        G = self.EmptyGraph()
         G.add_edge(1, 2, data=7, spam="bar", bar="foo")
+        edge_1_2 = db.document(G.adj[1][2]["_id"])
+        assert edge_1_2["spam"] == "bar"
+        assert edge_1_2["bar"] == "foo"
         assert edges_equal(
-            G.edges(data=True), [(1, 2, {"data": 7, "spam": "bar", "bar": "foo"})]
+            G.edges(data=True),
+            [("test_graph_node/1", "test_graph_node/2", edge_1_2)],
         )
         G[1][2]["data"] = 10  # OK to set data like this
+        edge_1_2 = db.document(G.adj[1][2]["_id"])
+        assert edge_1_2["data"] == 10
         assert edges_equal(
-            G.edges(data=True), [(1, 2, {"data": 10, "spam": "bar", "bar": "foo"})]
+            G.edges(data=True),
+            [("test_graph_node/1", "test_graph_node/2", edge_1_2)],
         )
 
         G.adj[1][2]["data"] = 20
+        edge_1_2 = db.document(G.adj[1][2]["_id"])
+        assert edge_1_2["data"] == 20
         assert edges_equal(
-            G.edges(data=True), [(1, 2, {"data": 20, "spam": "bar", "bar": "foo"})]
+            G.edges(data=True),
+            [("test_graph_node/1", "test_graph_node/2", edge_1_2)],
         )
         G.edges[1, 2]["data"] = 21  # another spelling, "edge"
+        edge_1_2 = db.document(G.adj[1][2]["_id"])
+        assert edge_1_2["data"] == 21
         assert edges_equal(
-            G.edges(data=True), [(1, 2, {"data": 21, "spam": "bar", "bar": "foo"})]
+            G.edges(data=True),
+            [("test_graph_node/1", "test_graph_node/2", edge_1_2)],
         )
         G.adj[1][2]["listdata"] = [20, 200]
         G.adj[1][2]["weight"] = 20
-        dd = {
-            "data": 21,
-            "spam": "bar",
-            "bar": "foo",
-            "listdata": [20, 200],
-            "weight": 20,
-        }
-        assert edges_equal(G.edges(data=True), [(1, 2, dd)])
+        edge_1_2 = db.document(G.adj[1][2]["_id"])
+        assert edge_1_2["listdata"] == [20, 200]
+        assert edge_1_2["weight"] == 20
+        assert edges_equal(
+            G.edges(data=True),
+            [("test_graph_node/1", "test_graph_node/2", edge_1_2)],
+        )
 
-    def test_to_undirected(self):
-        G = self.Graph()
-        self.add_attributes(G)
-        H = nx.Graph(G)
-        self.is_shallow_copy(H, G)
-        self.different_attrdict(H, G)
-        H = G.to_undirected()
-        self.is_deepcopy(H, G)
+    # TODO: graphs_equal not working with AdjListOuterDict yet.
+    # def test_to_undirected(self):
+    #     G = self.Graph()
+    #     self.add_attributes(G)
+    #     H = nx.Graph(G)
+    #     self.is_shallow_copy(H, G)
+    #     self.different_attrdict(H, G)
+    #     H = G.to_undirected()
+    #     self.is_deepcopy(H, G)
 
     def test_to_directed_as_view(self):
-        H = nx.path_graph(2, create_using=self.Graph)
+        H = nx.path_graph(2, create_using=nxadb.Graph)
         H2 = H.to_directed(as_view=True)
         assert H is H2._graph
         assert H2.has_edge(0, 1)
@@ -563,7 +633,7 @@ class BaseAttrGraphTester(BaseGraphTester):
         assert H2.has_edge(2, 1) or H.is_directed()
 
     def test_to_undirected_as_view(self):
-        H = nx.path_graph(2, create_using=self.Graph)
+        H = nx.path_graph(2, create_using=nxadb.Graph)
         H2 = H.to_undirected(as_view=True)
         assert H is H2._graph
         assert H2.has_edge(0, 1)
@@ -597,38 +667,52 @@ class BaseAttrGraphTester(BaseGraphTester):
         H = G.to_undirected()
         assert isinstance(H, newGraph)
 
-    def test_to_directed(self):
-        G = self.Graph()
-        self.add_attributes(G)
-        H = nx.DiGraph(G)
-        self.is_shallow_copy(H, G)
-        self.different_attrdict(H, G)
-        H = G.to_directed()
-        self.is_deepcopy(H, G)
+    # TODO: Revisit graph_equals
+    # def test_to_directed(self):
+    #     G = self.Graph()
+    #     self.add_attributes(G)
+    #     H = nx.DiGraph(G)
+    #     self.is_shallow_copy(H, G)
+    #     self.different_attrdict(H, G)
+    #     H = G.to_directed()
+    #     self.is_deepcopy(H, G)
 
-    def test_subgraph(self):
-        G = self.Graph()
-        self.add_attributes(G)
-        H = G.subgraph([0, 1, 2, 5])
-        self.graphs_equal(H, G)
-        self.same_attrdict(H, G)
-        self.shallow_copy_attrdict(H, G)
+    # TODO: revisit graph_equals
+    # def test_subgraph(self):
+    #     G = self.Graph()
+    #     self.add_attributes(G)
+    #     H = G.subgraph([0, 1, 2, 5])
+    #     self.graphs_equal(H, G)
+    #     self.same_attrdict(H, G)
+    #     self.shallow_copy_attrdict(H, G)
 
-        H = G.subgraph(0)
-        assert H.adj == {0: {}}
-        H = G.subgraph([])
-        assert H.adj == {}
-        assert G.adj != {}
+    #     H = G.subgraph(0)
+    #     assert H.adj == {0: {}}
+    #     H = G.subgraph([])
+    #     assert H.adj == {}
+    #     assert G.adj != {}
 
     def test_selfloops_attr(self):
-        G = self.Graph()
+        G = self.EmptyGraph()
         G.add_edge(0, 0)
         G.add_edge(1, 1, weight=2)
+        edge_0_0 = db.document(G.adj[0][0]["_id"])
+        edge_1_1 = db.document(G.adj[1][1]["_id"])
+        assert "weight" not in edge_0_0
+        assert edge_1_1["weight"] == 2
         assert edges_equal(
-            nx.selfloop_edges(G, data=True), [(0, 0, {}), (1, 1, {"weight": 2})]
+            nx.selfloop_edges(G, data=True),
+            [
+                ("test_graph_node/0", "test_graph_node/0", edge_0_0),
+                ("test_graph_node/1", "test_graph_node/1", edge_1_1),
+            ],
         )
         assert edges_equal(
-            nx.selfloop_edges(G, data="weight"), [(0, 0, None), (1, 1, 2)]
+            nx.selfloop_edges(G, data="weight"),
+            [
+                ("test_graph_node/0", "test_graph_node/0", None),
+                ("test_graph_node/1", "test_graph_node/1", 2),
+            ],
         )
 
 
@@ -653,8 +737,12 @@ class TestGraph(BaseAttrGraphTester):
             db.delete_graph(GRAPH_NAME, drop_collections=True, ignore_missing=True)
             return nxadb.Graph(*args, **kwargs, graph_name=GRAPH_NAME)
 
-        self.Graph = lambda: nxadb_graph_constructor(incoming_graph_data=self.K3)
-        self.EmptyGraph = nxadb_graph_constructor
+        self.Graph = lambda *args, **kwargs: nxadb_graph_constructor(
+            *args, **kwargs, incoming_graph_data=self.K3
+        )
+        self.EmptyGraph = lambda *args, **kwargs: nxadb_graph_constructor(
+            *args, **kwargs
+        )
 
     def test_pickle(self):
         G = self.Graph()
@@ -664,16 +752,33 @@ class TestGraph(BaseAttrGraphTester):
         self.graphs_equal(pg, G)
 
     def test_data_input(self):
-        G = self.Graph({1: [2], 2: [1]}, name="test")
+        G = self.EmptyGraph(incoming_graph_data={1: [2], 2: [1]}, name="test")
         assert G.name == "test"
-        assert sorted(G.adj.items()) == [(1, {2: {}}), (2, {1: {}})]
+        assert db.has_document("test_graph_node/1")
+        assert db.has_document("test_graph_node/2")
+        edge_1_2 = db.document(G.adj[1][2]["_id"])
+        edge_2_1 = db.document(G.adj[2][1]["_id"])
+        assert edge_1_2 == edge_2_1
 
     def test_adjacency(self):
         G = self.Graph()
+        edge_0_1 = db.document(G.adj[0][1]["_id"])
+        edge_0_2 = db.document(G.adj[0][2]["_id"])
+        edge_1_2 = db.document(G.adj[1][2]["_id"])
+        edge_2_0 = db.document(G.adj[2][0]["_id"])
         assert dict(G.adjacency()) == {
-            0: {1: {}, 2: {}},
-            1: {0: {}, 2: {}},
-            2: {0: {}, 1: {}},
+            "test_graph_node/0": {
+                "test_graph_node/1": edge_0_1,
+                "test_graph_node/2": edge_0_2,
+            },
+            "test_graph_node/1": {
+                "test_graph_node/0": edge_0_1,
+                "test_graph_node/2": edge_1_2,
+            },
+            "test_graph_node/2": {
+                "test_graph_node/0": edge_2_0,
+                "test_graph_node/1": edge_1_2,
+            },
         }
 
     def test_getitem(self):

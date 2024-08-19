@@ -1009,6 +1009,8 @@ class TestGraph(BaseAttrGraphTester):
         assert edges_equal(G.edges(data=True), all_edges)
         assert edges_equal(G.edges(0, data=True), all_edges_0)
         # NOTE: This is failing
+        # it's returning an extra edge for 0-1 (so 4 results instead of 3)
+        # need to figure out how G.edges([x], data=True) works exactly...
         assert edges_equal(G.edges([0, 1], data=True), all_edges)
         with pytest.raises(nx.NetworkXError):
             G.edges(-1, True)

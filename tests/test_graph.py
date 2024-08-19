@@ -3,8 +3,8 @@
 import gc
 import pickle
 import platform
-import weakref
 import time
+import weakref
 
 import networkx as nx
 import pytest
@@ -748,7 +748,6 @@ class TestGraph(BaseAttrGraphTester):
             # Experimenting with a delay to see if it helps with CircleCI...
             time.sleep(1)
             return G
-            
 
         self.Graph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs, incoming_graph_data=self.K3

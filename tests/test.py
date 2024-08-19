@@ -389,7 +389,7 @@ def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
                 "extraValue": edge_doc["_key"],
             }
 
-    G_1._adj.update(local_edges_dict)
+    G_1.adj.update(local_edges_dict)
 
     edge_col = db.collection("knows")
     edge_col_docs = edge_col.all()

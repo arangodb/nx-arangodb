@@ -58,28 +58,32 @@ class CustomEdgeDataView(nx.classes.reportviews.EdgeDataView):
     # NOTE: Monkey Patch #
     ######################
 
-    # Reason: We can utilize AQL to filter the data we
-    # want to return, instead of filtering it in Python
-    # This is hacky for now, but it's meant to show that
-    # the data can be filtered server-side.
-    # We solve this by relying on self._adjdict, which
-    # is the AdjListOuterDict object that has a custom
-    # items() method that can filter data with AQL.
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        if self._data is not None and not isinstance(self._data, bool):
-            self._report = lambda *args, **kwargs: self._adjdict.items(
-                data=self._data, default=self._default
-            )
-
     def __iter__(self):
-        if self._data is not None and not isinstance(self._data, bool):
+        if self._nbunch is None and self._data not in [None, True, False]:
+            # Reason: We can utilize AQL to filter the data we
+            # want to return, instead of filtering it in Python
+            # This is hacky for now, but it's meant to show that
+            # the data can be filtered server-side.
+            # We solve this by relying on self._adjdict, which
+            # is the AdjListOuterDict object that has a custom
+            # items() method that can filter data with AQL.
+
             # Filter for self._data  server-side
-            yield from self._report()
+            yield from self._adjdict.items(data=self._data, default=self._default)
         else:
-            yield from super().__iter__()
+            # Reason: *n* may be an integer, whereas **nbr** is always
+            # an ArangoDB Vertex ID. Therefore, we can't use the original
+            # *seen* logic in EdgeDataView.__iter__. Instead, we can rely
+            # on the ArangoDB Edge ID returned in *dd* to ensure that we
+            # don't return duplicate edges.
+
+            seen = {}
+            for n, nbrs in self._nodes_nbrs():
+                for nbr, dd in nbrs.items():
+                    if dd["_id"] not in seen:
+                        seen[dd["_id"]] = 1
+                        yield self._report(n, nbr, dd)
+            del seen
 
 
 class CustomEdgeView(nx.classes.reportviews.EdgeView):

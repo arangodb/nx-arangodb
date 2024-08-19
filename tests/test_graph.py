@@ -4,6 +4,7 @@ import gc
 import pickle
 import platform
 import weakref
+import time
 
 import networkx as nx
 import pytest
@@ -743,7 +744,11 @@ class TestGraph(BaseAttrGraphTester):
 
         def nxadb_graph_constructor(*args, **kwargs) -> nxadb.Graph:
             db.delete_graph(GRAPH_NAME, drop_collections=True, ignore_missing=True)
-            return nxadb.Graph(*args, **kwargs, graph_name=GRAPH_NAME)
+            G = nxadb.Graph(*args, **kwargs, graph_name=GRAPH_NAME)
+            # Experimenting with a delay to see if it helps with CircleCI...
+            time.sleep(1)
+            return G
+            
 
         self.Graph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs, incoming_graph_data=self.K3

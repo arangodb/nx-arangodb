@@ -280,7 +280,7 @@ def test_node_dict_update_existing_single_collection(
     for node_id in nodes_ids_list:
         local_nodes_dict[node_id] = {"extraValue": extract_arangodb_key(node_id)}
 
-    G_1._node.update(local_nodes_dict)
+    G_1.nodes.update(local_nodes_dict)
 
     col = db.collection("person")
     col_docs = col.all()
@@ -335,8 +335,8 @@ def test_node_dict_update_multiple_collections(
         f"{v_2_name}/6": {},
     }
 
-    G_1._node.update(new_nodes_v1)
-    G_1._node.update(new_nodes_v2)
+    G_1.nodes.update(new_nodes_v1)
+    G_1.nodes.update(new_nodes_v2)
 
     assert db.collection(v_1_name).count() == 3
     assert db.collection(v_2_name).count() == 3

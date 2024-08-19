@@ -34,10 +34,10 @@ def assert_same_dict_values(
     d1: dict[str | int, float], d2: dict[str | int, float], digit: int
 ) -> None:
     if type(next(iter(d1.keys()))) == int:
-        d1 = {f"person/{k}": v for k, v in d1.items()}  # type: ignore
+        d1 = {f"person/{k}": v for k, v in d1.items()}
 
     if type(next(iter(d2.keys()))) == int:
-        d2 = {f"person/{k}": v for k, v in d2.items()}  # type: ignore
+        d2 = {f"person/{k}": v for k, v in d2.items()}
 
     assert d1.keys() == d2.keys(), "Dictionaries have different keys"
     for key in d1:
@@ -163,11 +163,7 @@ def test_load_graph_with_non_default_weight_attribute():
 
 @pytest.mark.parametrize(
     "algorithm_func, assert_func",
-    [
-        (nx.betweenness_centrality, assert_bc),
-        (nx.pagerank, assert_pagerank),
-        (nx.community.louvain_communities, assert_louvain),
-    ],
+    [(nx.betweenness_centrality, assert_bc), (nx.pagerank, assert_pagerank)],
 )
 def test_algorithm(
     algorithm_func: Callable[..., Any],

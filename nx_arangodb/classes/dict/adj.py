@@ -905,7 +905,6 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         if key not in self.data and self.FETCHED_ALL_IDS:
             raise KeyError(key)
 
-        print(key)
         return self.__getitem_helper_db(key, dst_node_id)  # type: ignore
 
     @logger_debug
@@ -1597,16 +1596,16 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         set_edge_func = set_edge_multigraph if self.is_multigraph else set_edge_graph
 
         (
-            _,
+            node_dict,
             adj_dict,
             *_,
         ) = get_arangodb_graph(
             self.graph,
-            load_node_dict=False,
+            load_node_dict=True,
             load_adj_dict=True,
             load_coo=False,
             edge_collections_attributes=set(),  # not used
-            load_all_vertex_attributes=False,  # not used
+            load_all_vertex_attributes=False,
             load_all_edge_attributes=True,
             is_directed=self.is_directed,
             is_multigraph=self.is_multigraph,
@@ -1617,6 +1616,9 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         if self.is_directed:
             adj_dict = adj_dict["succ"]
 
+        for node_id in node_dict.keys():
+            set_adj_inner_dict(self, node_id)
+
         for src_node_id, inner_dict in adj_dict.items():
             for dst_node_id, edge_or_edges in inner_dict.items():
 
@@ -1625,8 +1627,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
                         if dst_node_id in self.data[src_node_id].data:
                             continue  # can skip due not directed
 
-                set_adj_inner_dict(self, src_node_id)
-                set_adj_inner_dict(self, dst_node_id)
                 edge_attr_or_key_dict = set_edge_func(  # type: ignore[operator]
                     src_node_id, dst_node_id, edge_or_edges
                 )

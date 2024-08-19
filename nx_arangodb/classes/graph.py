@@ -410,6 +410,7 @@ class Graph(nx.Graph):
         if node_for_adding not in self._node:
             if node_for_adding is None:
                 raise ValueError("None cannot be a node")
+
             self._adj[node_for_adding] = self.adjlist_inner_dict_factory()
 
             ######################

@@ -443,6 +443,11 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         'edge/1' in G._adj['node/1']['node/2']
         0 in G._adj['node/1']['node/2']
         """
+        # HACK: This is a workaround for the fact that
+        # nxadb.MultiGraph does not yet support custom edge keys
+        if key == "-1":
+            return False
+
         if isinstance(key, int):
             key = self.__process_int_edge_key(key)
 
@@ -475,7 +480,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
     def __getitem__(self, key: str | int) -> EdgeAttrDict:
         """G._adj['node/1']['node/2']['edge/1']"""
         # HACK: This is a workaround for the fact that
-        # nxadb.MultiGraph does not yet support edge keys
+        # nxadb.MultiGraph does not yet support custom edge keys
         if key == "-1":
             raise KeyError(key)
 

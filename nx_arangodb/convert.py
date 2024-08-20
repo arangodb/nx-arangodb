@@ -135,7 +135,7 @@ def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
         symmetrize_edges_if_directed=G.symmetrize_edges if G.is_directed() else False,
     )
 
-    print(f"ADB -> Dictionaries load took {time.time() - start_time}s")
+    print(f"Graph '{G.adb_graph.name}' load took {time.time() - start_time}s")
 
     G_NX: nx.Graph | nx.DiGraph = G.to_networkx_class()()
     G_NX._node = node_dict
@@ -153,57 +153,45 @@ def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
 if GPU_ENABLED:
 
     def nxadb_to_nxcg(G: nxadb.Graph, as_directed: bool = False) -> nxcg.Graph:
-        if (
-            G.use_coo_cache
-            and G.src_indices is not None
-            and G.dst_indices is not None
-            and G.edge_indices is not None
-            and G.vertex_ids_to_index is not None
-            and G.edge_values is not None
-        ):
-            m = "**use_coo_cache** is enabled. using cached COO data. no pull required."
+        if G.use_nxcg_cache and G.nxcg_graph is not None:
+            m = "**use_nxcg_cache** is enabled. using cached NXCG Graph. no pull required."  # noqa
             logger.debug(m)
 
-        else:
-            start_time = time.time()
+            return G.nxcg_graph
 
-            (
-                _,
-                _,
-                src_indices,
-                dst_indices,
-                edge_indices,
-                vertex_ids_to_index,
-                edge_values,
-            ) = nxadb.classes.function.get_arangodb_graph(
-                adb_graph=G.adb_graph,
-                load_node_dict=False,
-                load_adj_dict=False,
-                load_coo=True,
-                edge_collections_attributes=G.get_edge_attributes,
-                load_all_vertex_attributes=False,  # not used
-                load_all_edge_attributes=do_load_all_edge_attributes(
-                    G.get_edge_attributes
-                ),
-                is_directed=G.is_directed(),
-                is_multigraph=G.is_multigraph(),
-                symmetrize_edges_if_directed=(
-                    G.symmetrize_edges if G.is_directed() else False
-                ),
-            )
+        start_time = time.time()
 
-            print(f"ADB -> COO load took {time.time() - start_time}s")
+        (
+            _,
+            _,
+            src_indices,
+            dst_indices,
+            edge_indices,
+            vertex_ids_to_index,
+            edge_values,
+        ) = nxadb.classes.function.get_arangodb_graph(
+            adb_graph=G.adb_graph,
+            load_node_dict=False,
+            load_adj_dict=False,
+            load_coo=True,
+            edge_collections_attributes=G.get_edge_attributes,
+            load_all_vertex_attributes=False,  # not used
+            load_all_edge_attributes=do_load_all_edge_attributes(G.get_edge_attributes),
+            is_directed=G.is_directed(),
+            is_multigraph=G.is_multigraph(),
+            symmetrize_edges_if_directed=(
+                G.symmetrize_edges if G.is_directed() else False
+            ),
+        )
 
-            G.src_indices = src_indices
-            G.dst_indices = dst_indices
-            G.edge_indices = edge_indices
-            G.vertex_ids_to_index = vertex_ids_to_index
-            G.edge_values = edge_values
+        print(f"ADB Graph '{G.adb_graph.name}' load took {time.time() - start_time}s")
 
-        N = len(G.vertex_ids_to_index)  # type: ignore
-        src_indices_cp = cp.array(G.src_indices)
-        dst_indices_cp = cp.array(G.dst_indices)
-        edge_indices_cp = cp.array(G.edge_indices)
+        start_time = time.time()
+
+        N = len(vertex_ids_to_index)
+        src_indices_cp = cp.array(src_indices)
+        dst_indices_cp = cp.array(dst_indices)
+        edge_indices_cp = cp.array(edge_indices)
 
         if G.is_multigraph():
             if G.is_directed() or as_directed:
@@ -211,16 +199,16 @@ if GPU_ENABLED:
             else:
                 klass = nxcg.MultiGraph
 
-            return klass.from_coo(
+            G.nxcg_graph = klass.from_coo(
                 N=N,
                 src_indices=src_indices_cp,
                 dst_indices=dst_indices_cp,
                 edge_indices=edge_indices_cp,
-                edge_values=G.edge_values,
+                edge_values=edge_values,
                 # edge_masks,
                 # node_values,
                 # node_masks,
-                key_to_id=G.vertex_ids_to_index,
+                key_to_id=vertex_ids_to_index,
                 # edge_keys=edge_keys,
             )
 
@@ -230,13 +218,17 @@ if GPU_ENABLED:
             else:
                 klass = nxcg.Graph
 
-            return klass.from_coo(
+            G.nxcg_graph = klass.from_coo(
                 N=N,
                 src_indices=src_indices_cp,
                 dst_indices=dst_indices_cp,
-                edge_values=G.edge_values,
+                edge_values=edge_values,
                 # edge_masks,
                 # node_values,
                 # node_masks,
-                key_to_id=G.vertex_ids_to_index,
+                key_to_id=vertex_ids_to_index,
             )
+
+        print(f"NXCG Graph construction took {time.time() - start_time}s")
+
+        return G.nxcg_graph

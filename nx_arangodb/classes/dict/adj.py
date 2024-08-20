@@ -46,8 +46,6 @@ from ..function import (
     keys_are_not_reserved,
     keys_are_strings,
     logger_debug,
-    separate_edges_by_collections,
-    upsert_collection_edges,
     read_collection_name_from_local_id,
     separate_edges_by_collections,
     upsert_collection_edges,

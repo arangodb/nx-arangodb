@@ -1625,8 +1625,9 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             )
         )
 
-        for node_id in node_dict.keys():
-            self.__set_adj_inner_dict(self, node_id)
+        if node_dict is not None:
+            for node_id in node_dict.keys():
+                self.__set_adj_inner_dict(self, node_id)
 
         for src_node_id, inner_dict in adj_dict.items():
             for dst_node_id, edge_or_edges in inner_dict.items():

@@ -1205,7 +1205,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
             edge_doc_id = edge_data.get("_id")
             assert is_arangodb_id(edge_doc_id)
-            edge_col_name = read_collection_name_from_local_id(edge_doc_id, "")
+            edge_col_name = read_collection_name_from_local_id(edge_doc_id, self.default_node_type)
 
             if to_upsert.get(edge_col_name) is None:
                 to_upsert[edge_col_name] = [edge_doc]

@@ -1283,8 +1283,6 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
     def __set_adj_elements(self, edges):
         for dst_node_id, edge in edges.items():
-            # Copied from above, from __fetch_all
-            # TODO: Check if dst_node_id can be just used like this
             edge_attr_dict: EdgeAttrDict = self._create_edge_attr_dict(edge)
 
             self.__fetch_all_helper(edge_attr_dict, dst_node_id)

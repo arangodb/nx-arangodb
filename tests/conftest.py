@@ -8,6 +8,7 @@ from adbnx_adapter import ADBNX_Adapter
 from arango import ArangoClient
 from arango.database import StandardDatabase
 
+import nx_arangodb as nxadb
 from nx_arangodb.logger import logger
 
 logger.setLevel(logging.INFO)
@@ -84,4 +85,18 @@ def load_two_relation_graph() -> None:
     )
     g.create_edge_definition(
         e2, from_vertex_collections=[v2], to_vertex_collections=[v1]
+    )
+
+
+def create_line_graph(load_attributes: set[str]) -> nxadb.Graph:
+    G = nx.Graph()
+    G.add_edge(1, 2, my_custom_weight=1)
+    G.add_edge(2, 3, my_custom_weight=1)
+    G.add_edge(3, 4, my_custom_weight=1000)
+    G.add_edge(4, 5, my_custom_weight=1000)
+
+    return nxadb.Graph(
+        incoming_graph_data=G,
+        graph_name="LineGraph",
+        edge_collections_attributes=load_attributes,
     )

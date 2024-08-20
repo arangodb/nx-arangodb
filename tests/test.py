@@ -1,6 +1,7 @@
 from typing import Any, Callable, Dict, Union
 
 import networkx as nx
+import phenolrs
 import pytest
 from arango import DocumentDeleteError
 from phenolrs.networkx.typings import (
@@ -11,33 +12,21 @@ from phenolrs.networkx.typings import (
 )
 
 import nx_arangodb as nxadb
-from nx_arangodb.classes.dict.adj import EdgeAttrDict
-from nx_arangodb.classes.dict.node import NodeAttrDict
+from nx_arangodb.classes.dict.adj import AdjListOuterDict, EdgeAttrDict
+from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 
-from .conftest import db
+from .conftest import create_line_graph, db
 
 G_NX = nx.karate_club_graph()
 
 
+def assert_remote_dict(G: nxadb.Graph) -> None:
+    assert isinstance(G._node, NodeDict)
+    assert isinstance(G._adj, AdjListOuterDict)
+
+
 def extract_arangodb_key(adb_id: str) -> str:
     return adb_id.split("/")[1]
-
-
-def create_line_graph(load_attributes: set[str]) -> nxadb.Graph:
-    G = nx.Graph()
-    G.add_edge(1, 2, my_custom_weight=1)
-    G.add_edge(2, 3, my_custom_weight=1)
-    G.add_edge(3, 4, my_custom_weight=1000)
-    G.add_edge(4, 5, my_custom_weight=1000)
-
-    if load_attributes:
-        return nxadb.Graph(
-            incoming_graph_data=G,
-            graph_name="LineGraph",
-            edge_collections_attributes=load_attributes,
-        )
-
-    return nxadb.Graph(incoming_graph_data=G, graph_name="LineGraph")
 
 
 def assert_same_dict_values(
@@ -172,18 +161,35 @@ def test_load_graph_with_non_default_weight_attribute():
 
 
 @pytest.mark.parametrize(
-    "algorithm_func, assert_func",
+    "algorithm_func, assert_func, affected_by_symmetry",
     [
-        (nx.betweenness_centrality, assert_bc),
-        (nx.pagerank, assert_pagerank),
-        (nx.community.louvain_communities, assert_louvain),
+        (nx.betweenness_centrality, assert_bc, True),
+        (nx.pagerank, assert_pagerank, False),
     ],
 )
 def test_algorithm(
     algorithm_func: Callable[..., Any],
     assert_func: Callable[..., Any],
+    affected_by_symmetry: bool,
     load_karate_graph: Any,
 ) -> None:
+    def assert_func_should_fail(
+        r1: dict[str | int, float], r2: dict[str | int, float]
+    ) -> None:
+        assert r1 != r2
+        assert len(r1) == len(r2)
+        with pytest.raises(AssertionError):
+            assert_func(r1, r2)
+
+    def assert_symmetry_differences(
+        r1: dict[str | int, float], r2: dict[str | int, float], should_be_equal: bool
+    ) -> None:
+        if should_be_equal:
+            assert_func(r1, r2)
+            return
+
+        assert_func_should_fail(r1, r2)
+
     G_1 = G_NX
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
     G_3 = nxadb.Graph(graph_name="KarateGraph")
@@ -192,6 +198,9 @@ def test_algorithm(
     G_6 = nxadb.MultiGraph(graph_name="KarateGraph")
     G_7 = nxadb.MultiDiGraph(graph_name="KarateGraph", symmetrize_edges=True)
     G_8 = nxadb.MultiDiGraph(graph_name="KarateGraph", symmetrize_edges=False)
+
+    for G in [G_3, G_4, G_5, G_6, G_7, G_8]:
+        assert_remote_dict(G)
 
     r_1 = algorithm_func(G_1)
     r_2 = algorithm_func(G_2)
@@ -203,51 +212,74 @@ def test_algorithm(
     assert_func(r_2, r_3)
     assert_func(r_3, r_4)
 
-    try:
-        import phenolrs  # noqa
-    except ModuleNotFoundError:
-        pytest.skip("phenolrs not installed")
-
     r_7 = algorithm_func(G_3)
+    assert_remote_dict(G_3)
     r_7_orig = algorithm_func.orig_func(G_3)  # type: ignore
+    assert_remote_dict(G_3)
 
     r_8 = algorithm_func(G_4)
+    assert_remote_dict(G_4)
     r_8_orig = algorithm_func.orig_func(G_4)  # type: ignore
+    assert_remote_dict(G_4)
 
     r_9 = algorithm_func(G_5)
+    assert_remote_dict(G_5)
     r_9_orig = algorithm_func.orig_func(G_5)  # type: ignore
+    assert_remote_dict(G_5)
 
     r_10 = algorithm_func(nx.DiGraph(incoming_graph_data=G_NX))
 
     r_11 = algorithm_func(G_6)
+    assert_remote_dict(G_6)
     r_11_orig = algorithm_func.orig_func(G_6)  # type: ignore
+    assert_remote_dict(G_6)
 
     r_12 = algorithm_func(G_7)
+    assert_remote_dict(G_7)
     r_12_orig = algorithm_func.orig_func(G_7)  # type: ignore
+    assert_remote_dict(G_7)
 
     r_13 = algorithm_func(G_8)
+    assert_remote_dict(G_8)
     r_13_orig = algorithm_func.orig_func(G_8)  # type: ignore
+    assert_remote_dict(G_8)
 
     assert_func(r_7, r_7_orig)
-    assert_func(r_8, r_8_orig)
-    assert_func(r_9, r_9_orig)
     assert_func(r_7, r_1)
     assert_func(r_7, r_8)
-    assert r_8 != r_9
-    assert r_8_orig != r_9_orig
+
+    assert_symmetry_differences(r_8, r_8_orig, should_be_equal=not affected_by_symmetry)
+    assert_func_should_fail(r_8, r_9)
+
+    assert_func(r_9, r_9_orig)
+    assert_symmetry_differences(
+        r_8_orig, r_9_orig, should_be_equal=affected_by_symmetry
+    )
+
     assert_func(r_8, r_10)
-    assert_func(r_8_orig, r_10)
-    assert_func(r_7, r_11)
-    assert_func(r_8, r_11)
+    assert_symmetry_differences(
+        r_8_orig, r_10, should_be_equal=not affected_by_symmetry
+    )
+
+    assert_func(r_11, r_7)
+    assert_func(r_11, r_7)
     assert_func(r_11, r_11_orig)
-    assert_func(r_12, r_12_orig)
+
+    assert_symmetry_differences(
+        r_12, r_12_orig, should_be_equal=not affected_by_symmetry
+    )
+    assert_func_should_fail(r_12, r_13)
+
     assert_func(r_13, r_13_orig)
-    assert r_12 != r_13
-    assert r_12_orig != r_13_orig
-    assert_func(r_8, r_12)
-    assert_func(r_8_orig, r_12_orig)
-    assert_func(r_9, r_13)
-    assert_func(r_9_orig, r_13_orig)
+    assert_symmetry_differences(
+        r_12_orig, r_13_orig, should_be_equal=affected_by_symmetry
+    )
+
+    assert_func(r_12, r_8)
+    assert_func(r_12_orig, r_8_orig)
+
+    assert_func(r_13, r_9)
+    assert_func(r_13_orig, r_9_orig)
 
 
 def test_shortest_path_remote_algorithm(load_karate_graph: Any) -> None:
@@ -287,7 +319,7 @@ def test_node_dict_update_existing_single_collection(
     for node_id in nodes_ids_list:
         local_nodes_dict[node_id] = {"extraValue": extract_arangodb_key(node_id)}
 
-    G_1._node.update(local_nodes_dict)
+    G_1.nodes.update(local_nodes_dict)
 
     col = db.collection("person")
     col_docs = col.all()
@@ -342,8 +374,8 @@ def test_node_dict_update_multiple_collections(
         f"{v_2_name}/6": {},
     }
 
-    G_1._node.update(new_nodes_v1)
-    G_1._node.update(new_nodes_v2)
+    G_1.nodes.update(new_nodes_v1)
+    G_1.nodes.update(new_nodes_v2)
 
     assert db.collection(v_1_name).count() == 3
     assert db.collection(v_2_name).count() == 3

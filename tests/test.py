@@ -387,6 +387,7 @@ def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
             local_edges_dict[from_doc_id][to_doc_id] = {
                 "_id": edge_doc_id,
                 "extraValue": edge_doc["_key"],
+                "newDict": {"foo": "bar"},
             }
 
     G_1.adj.update(local_edges_dict)
@@ -403,14 +404,36 @@ def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
     for from_doc_id, target_dict in local_edges_dict.items():
         for to_doc_id, edge_doc in target_dict.items():
             key = extract_arangodb_key(edge_doc["_id"])
-            assert "extraValue" in G_1._adj.data[from_doc_id].data[to_doc_id].data
-            assert G_1.adj[from_doc_id][to_doc_id]["extraValue"] == key
+
+            adj_edge = G_1._adj.data[from_doc_id].data[to_doc_id].data
+            assert adj_edge["extraValue"] == key
+            assert db.document(edge_doc["_id"])["extraValue"] == key
+
+            assert isinstance(adj_edge["newDict"], EdgeAttrDict)
+            G_1.adj[from_doc_id][to_doc_id]["newDict"]["foo"] = "foo"
+            assert db.document(edge_doc["_id"])["newDict"] == {"foo": "foo"}
+
             if G_1.is_directed():
-                assert "extraValue" in G_1._pred.data[to_doc_id].data[from_doc_id].data
-                assert G_1.pred[to_doc_id][from_doc_id]["extraValue"] == key
+                pred_edge = G_1._pred.data[to_doc_id].data[from_doc_id].data
+                assert pred_edge["extraValue"] == key
+                assert (
+                    pred_edge["_rev"]
+                    == adj_edge["_rev"]
+                    == db.document(edge_doc["_id"])["_rev"]
+                )
+
+                assert isinstance(pred_edge["newDict"], EdgeAttrDict)
+                assert pred_edge["newDict"]["foo"] == "foo"
             else:
-                assert "extraValue" in G_1._adj.data[to_doc_id].data[from_doc_id].data
-                assert G_1.adj[to_doc_id][from_doc_id]["extraValue"] == key
+                reverse_adj_edge = G_1._adj.data[to_doc_id].data[from_doc_id].data
+                assert reverse_adj_edge["extraValue"] == key
+                assert (
+                    reverse_adj_edge["_rev"]
+                    == adj_edge["_rev"]
+                    == db.document(edge_doc["_id"])["_rev"]
+                )
+                assert isinstance(reverse_adj_edge["newDict"], EdgeAttrDict)
+                assert reverse_adj_edge["newDict"]["foo"] == "foo"
 
 
 @pytest.mark.parametrize(
@@ -444,6 +467,7 @@ def test_edge_adj_dict_update_existing_single_collection_MultiGraph_and_MultiDiG
                 local_edges_dict[from_doc_id][to_doc_id][edge_id] = {
                     "_id": edge_doc["_id"],
                     "extraValue": edge_doc["_key"],
+                    "newDict": {"foo": "bar"},
                 }
 
     G_1.adj.update(local_edges_dict)
@@ -461,28 +485,40 @@ def test_edge_adj_dict_update_existing_single_collection_MultiGraph_and_MultiDiG
         for to_doc_id, edge_dict in target_dict.items():
             for edge_id, edge_doc in edge_dict.items():
                 key = extract_arangodb_key(edge_doc["_id"])
-                assert (
-                    "extraValue"
-                    in G_1._adj.data[from_doc_id].data[to_doc_id].data[edge_id].data
-                )
-                assert G_1.adj[from_doc_id][to_doc_id][edge_id]["extraValue"] == key
+
+                adj_edge = G_1._adj.data[from_doc_id].data[to_doc_id].data[edge_id].data
+                assert adj_edge["extraValue"] == key
+                assert db.document(edge_doc["_id"])["extraValue"] == key
+
+                assert isinstance(adj_edge["newDict"], EdgeAttrDict)
+                G_1.adj[from_doc_id][to_doc_id][edge_id]["newDict"]["foo"] = "foo"
+                assert db.document(edge_doc["_id"])["newDict"] == {"foo": "foo"}
+
                 if G_1.is_directed():
-                    assert (
-                        "extraValue"
-                        in G_1._pred.data[to_doc_id]
-                        .data[from_doc_id]
-                        .data[edge_id]
-                        .data
+                    pred_edge = (
+                        G_1._pred.data[to_doc_id].data[from_doc_id].data[edge_id].data
                     )
+                    assert pred_edge["extraValue"] == key
                     assert (
-                        G_1.pred[to_doc_id][from_doc_id][edge_id]["extraValue"] == key
+                        pred_edge["_rev"]
+                        == adj_edge["_rev"]
+                        == db.document(edge_doc["_id"])["_rev"]
                     )
+
+                    assert isinstance(pred_edge["newDict"], EdgeAttrDict)
+                    assert pred_edge["newDict"]["foo"] == "foo"
                 else:
-                    assert (
-                        "extraValue"
-                        in G_1._adj.data[to_doc_id].data[from_doc_id].data[edge_id].data
+                    reverse_adj_edge = (
+                        G_1._adj.data[to_doc_id].data[from_doc_id].data[edge_id].data
                     )
-                    assert G_1.adj[to_doc_id][from_doc_id][edge_id]["extraValue"] == key
+                    assert reverse_adj_edge["extraValue"] == key
+                    assert (
+                        reverse_adj_edge["_rev"]
+                        == adj_edge["_rev"]
+                        == db.document(edge_doc["_id"])["_rev"]
+                    )
+                    assert isinstance(reverse_adj_edge["newDict"], EdgeAttrDict)
+                    assert reverse_adj_edge["newDict"]["foo"] == "foo"
 
 
 def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> None:

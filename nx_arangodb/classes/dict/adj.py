@@ -1607,7 +1607,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
         propagate_edge_func = (
             propagate_edge_directed_symmetric
-            if self.is_directed and self.symmetrize_edges_if_directed
+            if self.symmetrize_edges_if_directed
             else (
                 propagate_edge_directed
                 if self.is_directed

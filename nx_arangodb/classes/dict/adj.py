@@ -1555,9 +1555,15 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             edge_attr_dict: EdgeAttrDict
             edge_attr_dict = adjlist_inner_dict._create_edge_attr_dict(edge)
 
-            adjlist_inner_dict.data[dst_node_id] = edge_attr_dict
+            if dst_node_id not in adjlist_inner_dict.data:
+                # new edge
+                adjlist_inner_dict.data[dst_node_id] = edge_attr_dict
+            else:
+                # update existing edge
+                existing_edge_attr_dict = adjlist_inner_dict.data[dst_node_id]
+                existing_edge_attr_dict.data.update(edge_attr_dict.data)
 
-            return edge_attr_dict
+            return adjlist_inner_dict.data[dst_node_id]  # type: ignore # false positive
 
         def set_edge_multigraph(
             src_node_id: str, dst_node_id: str, edges: dict[int, dict[str, Any]]
@@ -1571,8 +1577,14 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             edge_key_dict.FETCHED_ALL_IDS = True
 
             for edge in edges.values():
+                edge_attr_dict: EdgeAttrDict
                 edge_attr_dict = adjlist_inner_dict._create_edge_attr_dict(edge)
-                edge_key_dict.data[edge["_id"]] = edge_attr_dict
+
+                if edge["_id"] not in edge_key_dict.data:
+                    edge_key_dict.data[edge["_id"]] = edge_attr_dict
+                else:
+                    existing_edge_attr_dict = edge_key_dict.data[edge["_id"]]
+                    existing_edge_attr_dict.data.update(edge_attr_dict.data)
 
             adjlist_inner_dict.data[dst_node_id] = edge_key_dict
 
@@ -1585,7 +1597,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             dst_node_id: str,
             edge_key_or_attr_dict: EdgeKeyDict | EdgeAttrDict,
         ) -> None:
-            self.data[dst_node_id].data[src_node_id] = edge_key_or_attr_dict
+            return None
+            # self.data[dst_node_id].data[src_node_id] = edge_key_or_attr_dict
 
         def propagate_edge_directed(
             src_node_id: str,
@@ -1618,10 +1631,10 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         for src_node_id, inner_dict in edges_dict.items():
             for dst_node_id, edge_or_edges in inner_dict.items():
 
-                if not self.is_directed:
-                    if src_node_id in self.data:
-                        if dst_node_id in self.data[src_node_id].data:
-                            continue  # can skip due not directed
+                # if not self.is_directed:
+                #     if src_node_id in self.data:
+                #         if dst_node_id in self.data[src_node_id].data:
+                #             continue  # can skip due not directed
 
                 self.__set_adj_inner_dict(self, src_node_id)
                 self.__set_adj_inner_dict(self, dst_node_id)

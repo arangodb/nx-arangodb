@@ -402,7 +402,8 @@ def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
     # Check if the extraValue attribute was added to each document in the local cache
     for from_doc_id, target_dict in local_edges_dict.items():
         for to_doc_id, edge_doc in target_dict.items():
-            assert "extraValue" in G_1._adj[from_doc_id][to_doc_id]
+            # Note that the local cache was not updated after G_1.adj.update()
+            assert "extraValue" in G_1._adj.data[from_doc_id].data[to_doc_id].data
             assert G_1.adj[from_doc_id][to_doc_id][
                 "extraValue"
             ] == extract_arangodb_key(edge_doc["_id"])

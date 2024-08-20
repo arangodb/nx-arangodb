@@ -1204,20 +1204,6 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             edge_doc["_to"] = edge_id
 
             edge_doc_id = edge_data.get("_id")
-            # TODO: @Anthony please check if the implementation is correct
-            #  of the default for edge_type_func, which is right now:
-            # * edge_type_func: Callable[[str, str], str] = lambda u, v: f"{u}_to_{v}",
-            #
-            # How does that help to identify the edge's collection name?
-            # The below implementation I wanted to use but returns in my example:
-            # "person/9_to_person/34" which is not a valid or requested collection name.
-            #
-            # edge_type = edge_data.get("_edge_type")
-            # if edge_type is None:
-            #   edge_type = self.edge_type_func(self.src_node_id, edge_id)
-            #
-            # -> Therefore right now I need to assume that this is always a
-            #   valid ArangoDB document ID
             assert is_arangodb_id(edge_doc_id)
             edge_col_name = read_collection_name_from_local_id(edge_doc_id, "")
 

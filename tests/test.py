@@ -402,10 +402,15 @@ def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
     # Check if the extraValue attribute was added to each document in the local cache
     for from_doc_id, target_dict in local_edges_dict.items():
         for to_doc_id, edge_doc in target_dict.items():
+            key = extract_arangodb_key(edge_doc["_id"])
             assert "extraValue" in G_1._adj.data[from_doc_id].data[to_doc_id].data
-            assert G_1._adj.data[from_doc_id].data[to_doc_id].data[
-                "extraValue"
-            ] == extract_arangodb_key(edge_doc["_id"])
+            assert G_1.adj[from_doc_id][to_doc_id]["extraValue"] == key
+            if G_1.is_directed():
+                assert "extraValue" in G_1._pred.data[to_doc_id].data[from_doc_id].data
+                assert G_1.pred[to_doc_id][from_doc_id]["extraValue"] == key
+            else:
+                assert "extraValue" in G_1._adj.data[to_doc_id].data[from_doc_id].data
+                assert G_1.adj[to_doc_id][from_doc_id]["extraValue"] == key
 
 
 @pytest.mark.parametrize(
@@ -455,10 +460,29 @@ def test_edge_adj_dict_update_existing_single_collection_MultiGraph_and_MultiDiG
     for from_doc_id, target_dict in local_edges_dict.items():
         for to_doc_id, edge_dict in target_dict.items():
             for edge_id, edge_doc in edge_dict.items():
-                assert "extraValue" in G_1._adj[from_doc_id][to_doc_id][edge_id]
-                assert G_1.adj[from_doc_id][to_doc_id][edge_id][
+                key = extract_arangodb_key(edge_doc["_id"])
+                assert (
                     "extraValue"
-                ] == extract_arangodb_key(edge_doc["_id"])
+                    in G_1._adj.data[from_doc_id].data[to_doc_id].data[edge_id].data
+                )
+                assert G_1.adj[from_doc_id][to_doc_id][edge_id]["extraValue"] == key
+                if G_1.is_directed():
+                    assert (
+                        "extraValue"
+                        in G_1._pred.data[to_doc_id]
+                        .data[from_doc_id]
+                        .data[edge_id]
+                        .data
+                    )
+                    assert (
+                        G_1.pred[to_doc_id][from_doc_id][edge_id]["extraValue"] == key
+                    )
+                else:
+                    assert (
+                        "extraValue"
+                        in G_1._adj.data[to_doc_id].data[from_doc_id].data[edge_id].data
+                    )
+                    assert G_1.adj[to_doc_id][from_doc_id][edge_id]["extraValue"] == key
 
 
 def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> None:

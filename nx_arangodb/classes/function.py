@@ -30,6 +30,7 @@ from phenolrs.networkx.typings import (
 from nx_arangodb.logger import logger
 
 from ..exceptions import AQLMultipleResultsFound, InvalidTraversalDirection
+from .enum import GraphType
 
 
 def do_load_all_edge_attributes(attributes: set[str]) -> bool:
@@ -245,7 +246,7 @@ def keys_are_strings(func: Callable[..., Any]) -> Any:
     return wrapper
 
 
-RESERVED_KEYS = {"_id", "_key", "_rev"}
+RESERVED_KEYS = {"_id", "_key", "_rev", "_from", "_to"}
 
 
 def key_is_not_reserved(func: Callable[..., Any]) -> Any:
@@ -730,6 +731,110 @@ def upsert_collection_documents(db: StandardDatabase, separated: Any) -> Any:
         results.append(
             collection.insert_many(
                 transformed_documents, silent=False, overwrite_mode="update"
+            )
+        )
+
+    return results
+
+
+def separate_edges_by_collections_graph(edges: Any, default_node_type: str) -> Any:
+    """
+    Separate the dictionary into collections for Graph and DiGraph types.
+    :param edges: The input dictionary with keys that must contain the real doc id.
+    :param default_node_type: The name of the default collection for keys without '/'.
+    :return: A dictionary where the keys are collection names and the
+        values are dictionaries of key-value pairs belonging to those collections.
+    """
+    separated: Any = {}
+
+    for from_doc_id, target_dict in edges.items():
+        for to_doc_id, edge_doc in target_dict.items():
+            assert edge_doc is not None and "_id" in edge_doc
+            edge_collection_name = get_node_type_and_id(
+                edge_doc["_id"], default_node_type
+            )[0]
+
+            if edge_collection_name not in separated:
+                separated[edge_collection_name] = []
+
+            edge_doc["_from"] = from_doc_id
+            edge_doc["_to"] = to_doc_id
+
+            separated[edge_collection_name].append(edge_doc)
+
+    return separated
+
+
+def separate_edges_by_collections_multigraph(edges: Any, default_node_type: str) -> Any:
+    """
+    Separate the dictionary into collections for MultiGraph and MultiDiGraph types.
+    :param edges: The input dictionary with keys that must contain the real doc id.
+    :param default_node_type: The name of the default collection for keys without '/'.
+    :return: A dictionary where the keys are collection names and the
+        values are dictionaries of key-value pairs belonging to those collections.
+    """
+    separated: Any = {}
+
+    for from_doc_id, target_dict in edges.items():
+        for to_doc_id, edge_doc in target_dict.items():
+            # edge_doc is expected to be a list of edges in Multi(Di)Graph
+            for m_edge_id, m_edge_doc in edge_doc.items():
+                assert m_edge_doc is not None and "_id" in m_edge_doc
+                edge_collection_name = get_node_type_and_id(
+                    m_edge_doc["_id"], default_node_type
+                )[0]
+
+                if edge_collection_name not in separated:
+                    separated[edge_collection_name] = []
+
+                m_edge_doc["_from"] = from_doc_id
+                m_edge_doc["_to"] = to_doc_id
+
+                separated[edge_collection_name].append(m_edge_doc)
+
+    return separated
+
+
+def separate_edges_by_collections(
+    edges: Any, graph_type: str, default_node_type: str
+) -> Any:
+    """
+    Wrapper function to separate the dictionary into collections based on graph type.
+    :param edges: The input dictionary with keys that must contain the real doc id.
+    :param graph_type: The type of graph to create.
+    :param default_node_type: The name of the default collection for keys without '/'.
+    :return: A dictionary where the keys are collection names and the
+        values are dictionaries of key-value pairs belonging to those collections.
+    """
+    if graph_type in [GraphType.Graph.name, GraphType.DiGraph.name]:
+        return separate_edges_by_collections_graph(edges, default_node_type)
+    elif graph_type in [GraphType.MultiGraph.name, GraphType.MultiDiGraph.name]:
+        return separate_edges_by_collections_multigraph(edges, default_node_type)
+    else:
+        raise ValueError(f"Unsupported graph type: {graph_type}")
+
+
+def upsert_collection_edges(db: StandardDatabase, separated: Any) -> Any:
+    """
+    Process each collection in the separated dictionary.
+    :param db: The ArangoDB database object.
+    :param separated: A dictionary where the keys are collection names and the
+                      values are dictionaries
+                      of key-value pairs belonging to those collections.
+    :return: A list of results from the insert_many operation.
+     If inserting a document fails, the exception is not raised but
+     returned as an object in the result list.
+    """
+
+    results = []
+
+    for collection_name, documents_list in separated.items():
+        collection = db.collection(collection_name)
+        results.append(
+            collection.insert_many(
+                documents_list,
+                silent=False,
+                overwrite_mode="update",
             )
         )
 

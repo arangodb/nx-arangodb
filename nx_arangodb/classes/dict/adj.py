@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from collections import UserDict
 from collections.abc import Iterator
 from itertools import islice
@@ -8,12 +9,19 @@ from typing import Any, Callable
 from arango.database import StandardDatabase
 from arango.exceptions import DocumentDeleteError
 from arango.graph import Graph
+from phenolrs.networkx.typings import (
+    DiGraphAdjDict,
+    GraphAdjDict,
+    MultiDiGraphAdjDict,
+    MultiGraphAdjDict,
+)
 
 from nx_arangodb.exceptions import EdgeTypeAmbiguity, MultipleEdgesFound
 from nx_arangodb.logger import logger
 
 from ..enum import DIRECTED_GRAPH_TYPES, MULTIGRAPH_TYPES, GraphType, TraversalDirection
 from ..function import (
+    ArangoDBBatchError,
     aql,
     aql_doc_get_key,
     aql_doc_has_key,
@@ -23,6 +31,7 @@ from ..function import (
     aql_edge_get,
     aql_edge_id,
     aql_fetch_data_edge,
+    check_list_for_errors,
     doc_insert,
     doc_update,
     get_arangodb_graph,
@@ -36,6 +45,8 @@ from ..function import (
     keys_are_not_reserved,
     keys_are_strings,
     logger_debug,
+    separate_edges_by_collections,
+    upsert_collection_edges,
 )
 
 #############
@@ -169,7 +180,7 @@ class EdgeAttrDict(UserDict[str, Any]):
         self.graph = graph
         self.edge_id: str | None = None
 
-        # NodeAttrDict may be a child of another NodeAttrDict
+        # EdgeAttrDict may be a child of another EdgeAttrDict
         # e.g G._adj['node/1']['node/2']['object']['foo'] = 'bar'
         # In this case, **parent_keys** would be ['object']
         # and **root** would be G._adj['node/1']['node/2']
@@ -1482,8 +1493,31 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     @keys_are_strings
     @logger_debug
     def update(self, edges: Any) -> None:
-        """g._adj.update({'node/1': {'node/2': {'foo': 'bar'}})"""
-        raise NotImplementedError("AdjListOuterDict.update()")
+        """g._adj.update({'node/1': {'node/2': {'_id': 'foo/bar', 'foo': "bar"}})"""
+        separated_by_edge_collection = separate_edges_by_collections(
+            edges, graph_type=self.graph_type, default_node_type=self.default_node_type
+        )
+        result = upsert_collection_edges(self.db, separated_by_edge_collection)
+
+        all_good = check_list_for_errors(result)
+        if all_good:
+            # Means no single operation failed, in this case we update the local cache
+            self.__set_adj_elements(edges)
+        else:
+            # In this case some or all documents failed. Right now we will not
+            # update the local cache, but raise an error instead.
+            # Reason: We cannot set silent to True, because we need as it does
+            # not report errors then. We need to update the driver to also pass
+            # the errors back to the user, then we can adjust the behavior here.
+            # This will also save network traffic and local computation time.
+            errors = []
+            for collections_results in result:
+                for collection_result in collections_results:
+                    errors.append(collection_result)
+            warnings.warn(
+                "Failed to insert at least one node. Will not update local cache."
+            )
+            raise ArangoDBBatchError(errors)
 
     @logger_debug
     def values(self) -> Any:
@@ -1507,58 +1541,12 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             yield from result
 
     @logger_debug
-    def _fetch_all(self) -> None:
-        self.clear()
-
-        def set_adj_inner_dict(
-            adj_outer_dict: AdjListOuterDict, node_id: str
-        ) -> AdjListInnerDict:
-            if node_id in adj_outer_dict.data:
-                return adj_outer_dict.data[node_id]
-
-            adj_inner_dict = self.adjlist_inner_dict_factory()
-            adj_inner_dict.src_node_id = node_id
-            adj_inner_dict.FETCHED_ALL_DATA = True
-            adj_inner_dict.FETCHED_ALL_IDS = True
-            adj_outer_dict.data[node_id] = adj_inner_dict
-
-            return adj_inner_dict
-
-        def propagate_edge_undirected(
-            src_node_id: str,
-            dst_node_id: str,
-            edge_key_or_attr_dict: EdgeKeyDict | EdgeAttrDict,
-        ) -> None:
-            self.data[dst_node_id].data[src_node_id] = edge_key_or_attr_dict
-
-        def propagate_edge_directed(
-            src_node_id: str,
-            dst_node_id: str,
-            edge_key_or_attr_dict: EdgeKeyDict | EdgeAttrDict,
-        ) -> None:
-            set_adj_inner_dict(self.mirror, dst_node_id)
-            self.mirror.data[dst_node_id].data[src_node_id] = edge_key_or_attr_dict
-
-        def propagate_edge_directed_symmetric(
-            src_node_id: str,
-            dst_node_id: str,
-            edge_key_or_attr_dict: EdgeKeyDict | EdgeAttrDict,
-        ) -> None:
-            propagate_edge_directed(src_node_id, dst_node_id, edge_key_or_attr_dict)
-            propagate_edge_undirected(src_node_id, dst_node_id, edge_key_or_attr_dict)
-            set_adj_inner_dict(self.mirror, src_node_id)
-            self.mirror.data[src_node_id].data[dst_node_id] = edge_key_or_attr_dict
-
-        propagate_edge_func = (
-            propagate_edge_directed_symmetric
-            if self.symmetrize_edges_if_directed
-            else (
-                propagate_edge_directed
-                if self.is_directed
-                else propagate_edge_undirected
-            )
-        )
-
+    def __set_adj_elements(
+        self,
+        edges_dict: (
+            GraphAdjDict | DiGraphAdjDict | MultiGraphAdjDict | MultiDiGraphAdjDict
+        ),
+    ) -> None:
         def set_edge_graph(
             src_node_id: str, dst_node_id: str, edge: dict[str, Any]
         ) -> EdgeAttrDict:
@@ -1592,6 +1580,75 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
         set_edge_func = set_edge_multigraph if self.is_multigraph else set_edge_graph
 
+        def propagate_edge_undirected(
+            src_node_id: str,
+            dst_node_id: str,
+            edge_key_or_attr_dict: EdgeKeyDict | EdgeAttrDict,
+        ) -> None:
+            self.data[dst_node_id].data[src_node_id] = edge_key_or_attr_dict
+
+        def propagate_edge_directed(
+            src_node_id: str,
+            dst_node_id: str,
+            edge_key_or_attr_dict: EdgeKeyDict | EdgeAttrDict,
+        ) -> None:
+            self.__set_adj_inner_dict(self.mirror, dst_node_id)
+            self.mirror.data[dst_node_id].data[src_node_id] = edge_key_or_attr_dict
+
+        def propagate_edge_directed_symmetric(
+            src_node_id: str,
+            dst_node_id: str,
+            edge_key_or_attr_dict: EdgeKeyDict | EdgeAttrDict,
+        ) -> None:
+            propagate_edge_directed(src_node_id, dst_node_id, edge_key_or_attr_dict)
+            propagate_edge_undirected(src_node_id, dst_node_id, edge_key_or_attr_dict)
+            self.__set_adj_inner_dict(self.mirror, src_node_id)
+            self.mirror.data[src_node_id].data[dst_node_id] = edge_key_or_attr_dict
+
+        propagate_edge_func = (
+            propagate_edge_directed_symmetric
+            if self.is_directed and self.symmetrize_edges_if_directed
+            else (
+                propagate_edge_directed
+                if self.is_directed
+                else propagate_edge_undirected
+            )
+        )
+
+        for src_node_id, inner_dict in edges_dict.items():
+            for dst_node_id, edge_or_edges in inner_dict.items():
+
+                if not self.is_directed:
+                    if src_node_id in self.data:
+                        if dst_node_id in self.data[src_node_id].data:
+                            continue  # can skip due not directed
+
+                self.__set_adj_inner_dict(self, src_node_id)
+                self.__set_adj_inner_dict(self, dst_node_id)
+                edge_attr_or_key_dict = set_edge_func(  # type: ignore[operator]
+                    src_node_id, dst_node_id, edge_or_edges
+                )
+
+                propagate_edge_func(src_node_id, dst_node_id, edge_attr_or_key_dict)
+
+    def __set_adj_inner_dict(
+        self, adj_outer_dict: AdjListOuterDict, node_id: str
+    ) -> AdjListInnerDict:
+        if node_id in adj_outer_dict.data:
+            return adj_outer_dict.data[node_id]
+
+        adj_inner_dict = self.adjlist_inner_dict_factory()
+        adj_inner_dict.src_node_id = node_id
+        adj_inner_dict.FETCHED_ALL_DATA = True
+        adj_inner_dict.FETCHED_ALL_IDS = True
+        adj_outer_dict.data[node_id] = adj_inner_dict
+
+        return adj_inner_dict
+
+    @logger_debug
+    def _fetch_all(self) -> None:
+        self.clear()
+
         (
             _,
             adj_dict,
@@ -1606,27 +1663,14 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             load_all_edge_attributes=True,
             is_directed=self.is_directed,
             is_multigraph=self.is_multigraph,
-            symmetrize_edges_if_directed=self.symmetrize_edges_if_directed,
+            symmetrize_edges_if_directed=self.is_directed
+            and self.symmetrize_edges_if_directed,
         )
 
         if self.is_directed:
             adj_dict = adj_dict["succ"]
 
-        for src_node_id, inner_dict in adj_dict.items():
-            for dst_node_id, edge_or_edges in inner_dict.items():
-
-                if not self.is_directed:
-                    if src_node_id in self.data:
-                        if dst_node_id in self.data[src_node_id].data:
-                            continue  # can skip due not directed
-
-                set_adj_inner_dict(self, src_node_id)
-                set_adj_inner_dict(self, dst_node_id)
-                edge_attr_or_key_dict = set_edge_func(  # type: ignore[operator]
-                    src_node_id, dst_node_id, edge_or_edges
-                )
-
-                propagate_edge_func(src_node_id, dst_node_id, edge_attr_or_key_dict)
+        self.__set_adj_elements(adj_dict)
 
         self.FETCHED_ALL_DATA = True
         self.FETCHED_ALL_IDS = True

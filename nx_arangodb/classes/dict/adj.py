@@ -1311,6 +1311,10 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             if self.data[dst_node_id] == edge_attr_dict:
                 return
 
+            if edge_attr_dict.data.get("_to") and dst_node_id == edge_attr_dict.data.get("_to"):
+                # This will be an update, don't raise an error
+                return
+
             m = "Multiple edges between the same nodes are not supported in Graphs."
             m += f" Found 2 edges between {self.src_node_id} & {dst_node_id}."
             m += " Consider using a MultiGraph."

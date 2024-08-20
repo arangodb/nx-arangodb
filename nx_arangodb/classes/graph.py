@@ -366,7 +366,13 @@ class Graph(nx.Graph):
 
     def copy(self, *args, **kwargs):
         logger.warning("Note that copying a graph loses the connection to the database")
-        return super().copy(*args, **kwargs)
+        G = super().copy(*args, **kwargs)
+        G.node_dict_factory = nx.Graph.node_dict_factory
+        G.node_attr_dict_factory = nx.Graph.node_attr_dict_factory
+        G.edge_attr_dict_factory = nx.Graph.edge_attr_dict_factory
+        G.adjlist_inner_dict_factory = nx.Graph.adjlist_inner_dict_factory
+        G.adjlist_outer_dict_factory = nx.Graph.adjlist_outer_dict_factory
+        return G
 
     def subgraph(self, nbunch):
         raise NotImplementedError("Subgraphing is not yet implemented")

@@ -14,7 +14,7 @@ __all__ = ["shortest_path"]
     extra_params=_dtype_param, version_added="24.04", _plc={"bfs", "sssp"}
 )
 def shortest_path(
-    G: nxadb.Graph | nxadb.DiGraph,
+    G: nxadb.Graph,
     source=None,
     target=None,
     weight=None,

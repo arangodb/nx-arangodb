@@ -440,6 +440,7 @@ def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
             adj_edge = G_1._adj.data[from_doc_id].data[to_doc_id].data
             assert adj_edge["extraValue"] == key
             assert db.document(edge_doc["_id"])["extraValue"] == key
+            assert "_rev" not in adj_edge
 
             assert isinstance(adj_edge["newDict"], EdgeAttrDict)
             G_1.adj[from_doc_id][to_doc_id]["newDict"]["foo"] = "foo"
@@ -448,22 +449,15 @@ def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
             if G_1.is_directed():
                 pred_edge = G_1._pred.data[to_doc_id].data[from_doc_id].data
                 assert pred_edge["extraValue"] == key
-                assert (
-                    pred_edge["_rev"]
-                    == adj_edge["_rev"]
-                    == db.document(edge_doc["_id"])["_rev"]
-                )
+                assert "_rev" not in pred_edge
 
                 assert isinstance(pred_edge["newDict"], EdgeAttrDict)
                 assert pred_edge["newDict"]["foo"] == "foo"
             else:
                 reverse_adj_edge = G_1._adj.data[to_doc_id].data[from_doc_id].data
                 assert reverse_adj_edge["extraValue"] == key
-                assert (
-                    reverse_adj_edge["_rev"]
-                    == adj_edge["_rev"]
-                    == db.document(edge_doc["_id"])["_rev"]
-                )
+                assert "_rev" not in reverse_adj_edge
+
                 assert isinstance(reverse_adj_edge["newDict"], EdgeAttrDict)
                 assert reverse_adj_edge["newDict"]["foo"] == "foo"
 
@@ -531,11 +525,7 @@ def test_edge_adj_dict_update_existing_single_collection_MultiGraph_and_MultiDiG
                         G_1._pred.data[to_doc_id].data[from_doc_id].data[edge_id].data
                     )
                     assert pred_edge["extraValue"] == key
-                    assert (
-                        pred_edge["_rev"]
-                        == adj_edge["_rev"]
-                        == db.document(edge_doc["_id"])["_rev"]
-                    )
+                    assert "_rev" not in pred_edge
 
                     assert isinstance(pred_edge["newDict"], EdgeAttrDict)
                     assert pred_edge["newDict"]["foo"] == "foo"
@@ -544,11 +534,8 @@ def test_edge_adj_dict_update_existing_single_collection_MultiGraph_and_MultiDiG
                         G_1._adj.data[to_doc_id].data[from_doc_id].data[edge_id].data
                     )
                     assert reverse_adj_edge["extraValue"] == key
-                    assert (
-                        reverse_adj_edge["_rev"]
-                        == adj_edge["_rev"]
-                        == db.document(edge_doc["_id"])["_rev"]
-                    )
+                    assert "_rev" not in reverse_adj_edge
+
                     assert isinstance(reverse_adj_edge["newDict"], EdgeAttrDict)
                     assert reverse_adj_edge["newDict"]["foo"] == "foo"
 
@@ -630,7 +617,9 @@ def test_nodes_crud(load_karate_graph: Any, graph_cls: type[nxadb.Graph]) -> Non
     assert len(G_1.nodes) == len(G_2.nodes)
 
     for k, v in G_1.nodes(data=True):
-        assert db.document(k) == v
+        doc = db.document(k)
+        del doc["_rev"]
+        assert doc == v
 
     for k, v in G_1.nodes(data="club"):
         assert db.document(k)["club"] == v
@@ -656,7 +645,9 @@ def test_nodes_crud(load_karate_graph: Any, graph_cls: type[nxadb.Graph]) -> Non
     assert db.document("person/3")["club"] == "bar"
 
     for k in G_1:
-        assert G_1.nodes[k] == db.document(k)
+        doc = db.document(k)
+        del doc["_rev"]
+        assert G_1.nodes[k] == doc
 
     for v in G_1.nodes.values():
         assert v
@@ -775,6 +766,7 @@ def test_graph_edges_crud(load_karate_graph: Any) -> None:
 
     G_1.adj["person/1"]["person/1"].update({"bar": "foo"})
     doc = db.document(edge_id)
+    del doc["_rev"]
     assert doc["bar"] == "foo"
 
     assert len(G_1.adj["person/1"]["person/1"]) == len(doc)
@@ -922,6 +914,7 @@ def test_digraph_edges_crud(load_karate_graph: Any) -> None:
 
     G_1.adj["person/1"]["person/1"].update({"bar": "foo"})
     doc = db.document(edge_id)
+    del doc["_rev"]
     assert doc["bar"] == "foo"
 
     assert len(G_1.adj["person/1"]["person/1"]) == len(doc)
@@ -1071,6 +1064,7 @@ def test_multigraph_edges_crud(load_karate_graph: Any) -> None:
 
     G_1.adj["person/1"]["person/1"][0].update({"bar": "foo"})
     doc = db.document(edge_id)
+    del doc["_rev"]
     assert doc["bar"] == "foo"
 
     assert len(G_1.adj["person/1"]["person/1"][0]) == len(doc)
@@ -1233,6 +1227,7 @@ def test_multidigraph_edges_crud(load_karate_graph: Any) -> None:
 
     G_1.adj["person/1"]["person/1"][0].update({"bar": "foo"})
     doc = db.document(edge_id)
+    del doc["_rev"]
     assert doc["bar"] == "foo"
 
     assert len(G_1.adj["person/1"]["person/1"][0]) == len(doc)

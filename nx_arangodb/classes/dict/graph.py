@@ -149,7 +149,7 @@ class GraphDict(UserDict[str, Any]):
 
         graph_dict_value = self.__process_graph_dict_value(key, value)
         self.data[key] = graph_dict_value
-        self.data["_rev"] = doc_update(self.db, self.graph_id, {key: value})
+        doc_update(self.db, self.graph_id, {key: value})
 
     @key_is_string
     @key_is_not_reserved
@@ -157,7 +157,7 @@ class GraphDict(UserDict[str, Any]):
     def __delitem__(self, key: str) -> None:
         """del G.graph['foo']"""
         self.data.pop(key, None)
-        self.data["_rev"] = doc_update(self.db, self.graph_id, {key: None})
+        doc_update(self.db, self.graph_id, {key: None})
 
     # @values_are_json_serializable # TODO?
     @logger_debug
@@ -172,7 +172,7 @@ class GraphDict(UserDict[str, Any]):
         graph_attr_dict.data = graph_attr_dict_data
 
         self.data.update(graph_attr_dict_data)
-        self.data["_rev"] = doc_update(self.db, self.graph_id, attrs)
+        doc_update(self.db, self.graph_id, attrs)
 
     @logger_debug
     def clear(self) -> None:
@@ -262,8 +262,7 @@ class GraphAttrDict(UserDict[str, Any]):
         graph_attr_dict_value = process_graph_attr_dict_value(self, key, value)
         update_dict = get_update_dict(self.parent_keys, {key: value})
         self.data[key] = graph_attr_dict_value
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.graph_id, update_dict)
+        doc_update(self.db, self.graph_id, update_dict)
 
     @key_is_string
     @logger_debug
@@ -271,8 +270,7 @@ class GraphAttrDict(UserDict[str, Any]):
         """del G.graph['foo']['bar']"""
         self.data.pop(key, None)
         update_dict = get_update_dict(self.parent_keys, {key: None})
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.graph_id, update_dict)
+        doc_update(self.db, self.graph_id, update_dict)
 
     @logger_debug
     def update(self, attrs: Any) -> None:
@@ -282,5 +280,4 @@ class GraphAttrDict(UserDict[str, Any]):
 
         self.data.update(build_graph_attr_dict_data(self, attrs))
         updated_dict = get_update_dict(self.parent_keys, attrs)
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.graph_id, updated_dict)
+        doc_update(self.db, self.graph_id, updated_dict)

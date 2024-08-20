@@ -236,8 +236,7 @@ class EdgeAttrDict(UserDict[str, Any]):
         edge_attr_dict_value = process_edge_attr_dict_value(self, key, value)
         update_dict = get_update_dict(self.parent_keys, {key: value})
         self.data[key] = edge_attr_dict_value
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
+        doc_update(self.db, self.edge_id, update_dict)
 
     @key_is_string
     @key_is_not_reserved
@@ -247,8 +246,7 @@ class EdgeAttrDict(UserDict[str, Any]):
         assert self.edge_id
         self.data.pop(key, None)
         update_dict = get_update_dict(self.parent_keys, {key: None})
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
+        doc_update(self.db, self.edge_id, update_dict)
 
     @keys_are_strings
     @keys_are_not_reserved
@@ -265,8 +263,7 @@ class EdgeAttrDict(UserDict[str, Any]):
             return
 
         update_dict = get_update_dict(self.parent_keys, attrs)
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
+        doc_update(self.db, self.edge_id, update_dict)
 
 
 class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
@@ -458,6 +455,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
             return False
 
         edge = self.graph.edge(key)
+        del edge["_rev"]
 
         if edge is None:
             logger.warning(f"Edge '{key}' does not exist in Graph.")
@@ -501,6 +499,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
             raise KeyError(key)
 
         edge = self.graph.edge(key)
+        del edge["_rev"]
 
         if edge is None:
             raise KeyError(key)
@@ -550,6 +549,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
             edge_type, self.src_node_id, self.dst_node_id, edge_attr_dict.data
         )
 
+        del edge["_rev"]
         edge_data: dict[str, Any] = {
             **edge_attr_dict.data,
             **edge,
@@ -700,6 +700,8 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
             raise ValueError("Failed to fetch edges")
 
         for edge in edges:
+            del edge["_rev"]
+
             edge_attr_dict = self._create_edge_attr_dict(edge)
             self.data[edge["_id"]] = edge_attr_dict
 
@@ -944,6 +946,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         if not edge:
             raise KeyError(key)
 
+        del edge["_rev"]
         edge_attr_dict: EdgeAttrDict = self._create_edge_attr_dict(edge)
 
         self.data[dst_node_id] = edge_attr_dict
@@ -1039,6 +1042,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
                 edge_type, self.src_node_id, dst_node_id, edge_attr_dict.data
             )
 
+        del edge["_rev"]
         edge_data: dict[str, Any] = {
             **edge_attr_dict.data,
             **edge,
@@ -1075,6 +1079,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             edge_type, self.src_node_id, dst_node_id, edge_attr_dict.data
         )
 
+        del edge["_rev"]
         edge_data: dict[str, Any] = {
             **edge_attr_dict.data,
             **edge,
@@ -1223,6 +1228,8 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
 
         for edge in aql(self.db, query, bind_vars):
+            del edge["_rev"]
+
             edge_attr_dict: EdgeAttrDict = self._create_edge_attr_dict(edge)
 
             dst_node_id: str = (
@@ -1550,6 +1557,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         def set_edge_graph(
             src_node_id: str, dst_node_id: str, edge: dict[str, Any]
         ) -> EdgeAttrDict:
+            edge.pop("_rev", None)
+
             adjlist_inner_dict = self.data[src_node_id]
 
             edge_attr_dict: EdgeAttrDict
@@ -1575,6 +1584,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             edge_key_dict.FETCHED_ALL_IDS = True
 
             for edge in edges.values():
+                edge.pop("_rev", None)
+
                 edge_attr_dict: EdgeAttrDict
                 edge_attr_dict = adjlist_inner_dict._create_edge_attr_dict(edge)
 

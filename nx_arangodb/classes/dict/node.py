@@ -168,8 +168,7 @@ class NodeAttrDict(UserDict[str, Any]):
         node_attr_dict_value = process_node_attr_dict_value(self, key, value)
         update_dict = get_update_dict(self.parent_keys, {key: value})
         self.data[key] = node_attr_dict_value
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.node_id, update_dict)
+        doc_update(self.db, self.node_id, update_dict)
 
     @key_is_string
     @key_is_not_reserved
@@ -179,8 +178,7 @@ class NodeAttrDict(UserDict[str, Any]):
         assert self.node_id
         self.data.pop(key, None)
         update_dict = get_update_dict(self.parent_keys, {key: None})
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.node_id, update_dict)
+        doc_update(self.db, self.node_id, update_dict)
 
     @keys_are_strings
     @keys_are_not_reserved
@@ -198,8 +196,7 @@ class NodeAttrDict(UserDict[str, Any]):
             return
 
         update_dict = get_update_dict(self.parent_keys, attrs)
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.node_id, update_dict)
+        doc_update(self.db, self.node_id, update_dict)
 
 
 class NodeDict(UserDict[str, NodeAttrDict]):
@@ -287,6 +284,8 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             raise KeyError(key)
 
         if vertex := self.graph.vertex(node_id):
+            del vertex["_rev"]
+
             node_attr_dict = self._create_node_attr_dict(vertex)
             self.data[node_id] = node_attr_dict
 
@@ -307,6 +306,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         node_type, node_id = get_node_type_and_id(key, self.default_node_type)
 
         result = doc_insert(self.db, node_type, node_id, value.data)
+        del result["_rev"]
 
         node_attr_dict = self._create_node_attr_dict(result)
 
@@ -458,6 +458,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         )
 
         for node_id, node_data in node_dict.items():
+            del node_data["_rev"]
             node_attr_dict = self._create_node_attr_dict(node_data)
             self.data[node_id] = node_attr_dict
 

@@ -583,10 +583,9 @@ def aql_fetch_data_edge(
 
 def doc_update(
     db: StandardDatabase, id: str, data: dict[str, Any], **kwargs: Any
-) -> str:
+) -> None:
     """Updates a document in the collection."""
-    res = db.update_document({**data, "_id": id}, keep_none=False, **kwargs)
-    return str(res["_rev"])
+    db.update_document({**data, "_id": id}, keep_none=False, silent=True, **kwargs)
 
 
 def doc_delete(db: StandardDatabase, id: str, **kwargs: Any) -> None:

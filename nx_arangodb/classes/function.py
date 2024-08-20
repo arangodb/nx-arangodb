@@ -747,9 +747,7 @@ def upsert_collection_documents(db: StandardDatabase, separated: Any) -> Any:
     return results
 
 
-def separate_edges_by_collections_graph(
-        edges: Any, default_node_type: str
-) -> Any:
+def separate_edges_by_collections_graph(edges: Any, default_node_type: str) -> Any:
     """
     Separate the dictionary into collections for Graph and DiGraph types.
     :param edges: The input dictionary with keys that must contain the real doc id.
@@ -777,9 +775,7 @@ def separate_edges_by_collections_graph(
     return separated
 
 
-def separate_edges_by_collections_multigraph(
-        edges: Any, default_node_type: str
-) -> Any:
+def separate_edges_by_collections_multigraph(edges: Any, default_node_type: str) -> Any:
     """
     Separate the dictionary into collections for MultiGraph and MultiDiGraph types.
     :param edges: The input dictionary with keys that must contain the real doc id.
@@ -810,7 +806,7 @@ def separate_edges_by_collections_multigraph(
 
 
 def separate_edges_by_collections(
-        edges: Any, graph_type: str, default_node_type: str
+    edges: Any, graph_type: str, default_node_type: str
 ) -> Any:
     """
     Wrapper function to separate the dictionary into collections based on graph type.

@@ -62,7 +62,6 @@ def process_graph_attr_dict_value(parent: GraphAttrDict, key: str, value: Any) -
         return value
 
     graph_attr_dict = parent.graph_attr_dict_factory()
-    graph_attr_dict.root = parent.root or parent
     graph_attr_dict.parent_keys = parent.parent_keys + [key]
     graph_attr_dict.data = build_graph_attr_dict_data(graph_attr_dict, value)
 
@@ -211,7 +210,6 @@ class GraphAttrDict(UserDict[str, Any]):
         self.graph = graph
         self.graph_id: str = graph_id
 
-        self.root: GraphAttrDict | None = None
         self.parent_keys: list[str] = []
         self.graph_attr_dict_factory = graph_attr_dict_factory(
             self.db, self.graph, self.graph_id

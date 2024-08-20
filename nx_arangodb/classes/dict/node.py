@@ -78,7 +78,6 @@ def process_node_attr_dict_value(parent: NodeAttrDict, key: str, value: Any) -> 
         return value
 
     node_attr_dict = parent.node_attr_dict_factory()
-    node_attr_dict.root = parent.root or parent
     node_attr_dict.node_id = parent.node_id
     node_attr_dict.parent_keys = parent.parent_keys + [key]
     node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, value)
@@ -109,8 +108,6 @@ class NodeAttrDict(UserDict[str, Any]):
         # NodeAttrDict may be a child of another NodeAttrDict
         # e.g G._node['node/1']['object']['foo'] = 'bar'
         # In this case, **parent_keys** would be ['object']
-        # and **root** would be G._node['node/1']
-        self.root: NodeAttrDict | None = None
         self.parent_keys: list[str] = []
         self.node_attr_dict_factory = node_attr_dict_factory(self.db, self.graph)
 

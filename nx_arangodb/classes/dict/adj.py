@@ -144,7 +144,6 @@ def process_edge_attr_dict_value(parent: EdgeAttrDict, key: str, value: Any) -> 
         return value
 
     edge_attr_dict = parent.edge_attr_dict_factory()
-    edge_attr_dict.root = parent.root or parent
     edge_attr_dict.edge_id = parent.edge_id
     edge_attr_dict.parent_keys = parent.parent_keys + [key]
     edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, value)
@@ -183,8 +182,6 @@ class EdgeAttrDict(UserDict[str, Any]):
         # EdgeAttrDict may be a child of another EdgeAttrDict
         # e.g G._adj['node/1']['node/2']['object']['foo'] = 'bar'
         # In this case, **parent_keys** would be ['object']
-        # and **root** would be G._adj['node/1']['node/2']
-        self.root: EdgeAttrDict | None = None
         self.parent_keys: list[str] = []
         self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
 

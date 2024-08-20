@@ -136,13 +136,13 @@ class NodeAttrDict(UserDict[str, Any]):
     @logger_debug
     def __getitem__(self, key: str) -> Any:
         """G._node['node/1']['foo']"""
-        if value := self.data.get(key):
-            return value
+        if key in self.data:
+            return self.data[key]
 
         assert self.node_id
         result = aql_doc_get_key(self.db, self.node_id, key, self.parent_keys)
 
-        if not result:
+        if result is None:
             raise KeyError(key)
 
         node_attr_dict_value = process_node_attr_dict_value(self, key, result)

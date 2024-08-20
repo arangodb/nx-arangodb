@@ -334,7 +334,7 @@ def aql_doc_has_key(
 
 def aql_doc_get_key(
     db: StandardDatabase, id: str, key: str, nested_keys: list[str] = []
-) -> Any:
+) -> Any | None:
     """Gets a key from a document."""
     nested_keys_str = "." + ".".join(nested_keys) if nested_keys else ""
     query = f"RETURN DOCUMENT(@id){nested_keys_str}.@key"

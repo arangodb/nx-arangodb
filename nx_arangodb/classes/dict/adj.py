@@ -198,13 +198,13 @@ class EdgeAttrDict(UserDict[str, Any]):
     @logger_debug
     def __getitem__(self, key: str) -> Any:
         """G._adj['node/1']['node/2']['foo']"""
-        if value := self.data.get(key):
-            return value
+        if key in self.data:
+            return self.data[key]
 
         assert self.edge_id
         result = aql_doc_get_key(self.db, self.edge_id, key, self.parent_keys)
 
-        if not result:
+        if result is None:
             raise KeyError(key)
 
         edge_attr_dict_value = process_edge_attr_dict_value(self, key, result)

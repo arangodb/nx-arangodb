@@ -1,8 +1,14 @@
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Union
 
 import networkx as nx
 import pytest
 from arango import DocumentDeleteError
+from phenolrs.networkx.typings import (
+    DiGraphAdjDict,
+    GraphAdjDict,
+    MultiDiGraphAdjDict,
+    MultiGraphAdjDict,
+)
 
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict.adj import EdgeAttrDict
@@ -11,6 +17,10 @@ from nx_arangodb.classes.dict.node import NodeAttrDict
 from .conftest import db
 
 G_NX = nx.karate_club_graph()
+
+
+def extract_arangodb_key(adb_id: str) -> str:
+    return adb_id.split("/")[1]
 
 
 def create_line_graph(load_attributes: set[str]) -> nxadb.Graph:
@@ -271,9 +281,6 @@ def test_node_dict_update_existing_single_collection(
     # of them using the update method using a single collection
     G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
 
-    def extract_arangodb_key(adb_id: str) -> str:
-        return adb_id.split("/")[1]
-
     nodes_ids_list = G_1.nodes
     local_nodes_dict = {}
 
@@ -350,6 +357,166 @@ def test_node_dict_update_multiple_collections(
 
     for i in range(4, 7):
         assert f"{v_2_name}/{i}" in G_1.nodes
+
+
+@pytest.mark.parametrize(
+    "graph_cls",
+    [
+        (nxadb.Graph),
+        (nxadb.DiGraph),
+    ],
+)
+def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
+    load_karate_graph: Any, graph_cls: type[nxadb.Graph]
+) -> None:
+    G_1 = graph_cls(graph_name="KarateGraph", foo="bar")
+
+    local_adj = G_1.adj
+    local_edges_dict: Union[GraphAdjDict | DiGraphAdjDict] = {}
+    if graph_cls == nxadb.Graph:
+        local_edges_dict = GraphAdjDict()
+    elif graph_cls == nxadb.DiGraph:
+        local_edges_dict = DiGraphAdjDict()
+
+    for from_doc_id, target_dict in local_adj.items():
+        for to_doc_id, edge_doc in target_dict.items():
+            edge_doc_id = edge_doc["_id"]
+            if from_doc_id not in local_edges_dict:
+                local_edges_dict[from_doc_id] = {}
+
+            local_edges_dict[from_doc_id][to_doc_id] = {
+                "_id": edge_doc_id,
+                "extraValue": edge_doc["_key"],
+            }
+
+    G_1.adj.update(local_edges_dict)
+
+    edge_col = db.collection("knows")
+    edge_col_docs = edge_col.all()
+
+    # Check if the extraValue attribute was added to each document in the database
+    for doc in edge_col_docs:
+        assert "extraValue" in doc
+        assert doc["extraValue"] == doc["_key"]
+
+    # Check if the extraValue attribute was added to each document in the local cache
+    for from_doc_id, target_dict in local_edges_dict.items():
+        for to_doc_id, edge_doc in target_dict.items():
+            assert "extraValue" in G_1._adj[from_doc_id][to_doc_id]
+            assert G_1.adj[from_doc_id][to_doc_id][
+                "extraValue"
+            ] == extract_arangodb_key(edge_doc["_id"])
+
+
+@pytest.mark.parametrize(
+    "graph_cls",
+    [
+        (nxadb.MultiGraph),
+        (nxadb.MultiDiGraph),
+    ],
+)
+def test_edge_adj_dict_update_existing_single_collection_MultiGraph_and_MultiDiGraph(
+    load_karate_graph: Any, graph_cls: type[nxadb.Graph]
+) -> None:
+    G_1 = graph_cls(graph_name="KarateGraph", foo="bar")
+
+    local_adj = G_1.adj
+    local_edges_dict: Union[MultiGraphAdjDict | MultiDiGraphAdjDict] = {}
+    if graph_cls == nxadb.MultiGraph:
+        local_edges_dict = MultiGraphAdjDict()
+    elif graph_cls == nxadb.MultiDiGraph:
+        local_edges_dict = MultiDiGraphAdjDict()
+
+    for from_doc_id, target_dict in local_adj.items():
+        for to_doc_id, edge_dict in target_dict.items():
+            for edge_id, edge_doc in edge_dict.items():
+                if from_doc_id not in local_edges_dict:
+                    local_edges_dict[from_doc_id] = {}
+
+                if to_doc_id not in local_edges_dict[from_doc_id]:
+                    local_edges_dict[from_doc_id][to_doc_id] = {}
+
+                local_edges_dict[from_doc_id][to_doc_id][edge_id] = {
+                    "_id": edge_doc["_id"],
+                    "extraValue": edge_doc["_key"],
+                }
+
+    G_1.adj.update(local_edges_dict)
+
+    edge_col = db.collection("knows")
+    edge_col_docs = edge_col.all()
+
+    # Check if the extraValue attribute was added to each document in the database
+    for doc in edge_col_docs:
+        assert "extraValue" in doc
+        assert doc["extraValue"] == doc["_key"]
+
+    # Check if the extraValue attribute was added to each document in the local cache
+    for from_doc_id, target_dict in local_edges_dict.items():
+        for to_doc_id, edge_dict in target_dict.items():
+            for edge_id, edge_doc in edge_dict.items():
+                assert "extraValue" in G_1._adj[from_doc_id][to_doc_id][edge_id]
+                assert G_1.adj[from_doc_id][to_doc_id][edge_id][
+                    "extraValue"
+                ] == extract_arangodb_key(edge_doc["_id"])
+
+
+def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> None:
+    graph_name = "IntegrationTestTwoRelationGraph"
+    v_1_name = graph_name + "_v1"
+    v_2_name = graph_name + "_v2"
+    e_1_name = graph_name + "_e1"
+    e_2_name = graph_name + "_e2"
+
+    assert db.collection(v_1_name).count() == 0
+    assert db.collection(v_2_name).count() == 0
+    assert db.collection(e_1_name).count() == 0
+    assert db.collection(e_2_name).count() == 0
+
+    G_1 = nxadb.Graph(graph_name=graph_name, default_node_type=v_1_name)
+    assert len(G_1.nodes) == 0
+    assert len(G_1.edges) == 0
+
+    # inserts into first collection (by default)
+    new_edges_dict: GraphAdjDict = {
+        graph_name
+        + "_v1/1": {
+            graph_name + "_v1/2": {"_id": e_1_name + "/1"},
+            graph_name + "_v1/3": {"_id": e_1_name + "/2"},
+        },
+        graph_name
+        + "_v2/1": {
+            graph_name + "_v1/2": {"_id": e_2_name + "/1"},
+            graph_name + "_v1/3": {"_id": e_2_name + "/2"},
+        },
+    }
+
+    G_1.adj.update(new_edges_dict)
+
+    # _adj list is not responsible for maintaining the vertex collections
+    assert db.collection(v_1_name).count() == 0
+    assert db.collection(v_2_name).count() == 0
+
+    assert db.collection(e_1_name).count() == 2
+    assert db.collection(e_2_name).count() == 2
+
+    # Check that the edge ids are present in the database
+    assert db.has_document({"_id": e_1_name + "/1"})
+    assert db.has_document({"_id": e_1_name + "/2"})
+    assert db.has_document({"_id": e_2_name + "/1"})
+    assert db.has_document({"_id": e_2_name + "/2"})
+
+    # Check local state
+    assert len(G_1.nodes) == 0
+    assert len(G_1.edges) == 4
+
+    local_edge_cache = G_1._adj
+    assert f"{v_1_name}/{1}" in local_edge_cache
+    assert f"{v_2_name}/{1}" in local_edge_cache
+    assert f"{v_1_name}/{2}" in local_edge_cache[f"{v_1_name}/{1}"]
+    assert f"{v_1_name}/{3}" in local_edge_cache[f"{v_1_name}/{1}"]
+    assert f"{v_1_name}/{2}" in local_edge_cache[f"{v_2_name}/{1}"]
+    assert f"{v_1_name}/{3}" in local_edge_cache[f"{v_2_name}/{1}"]
 
 
 @pytest.mark.parametrize(

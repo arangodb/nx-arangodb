@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from collections import UserDict
 from collections.abc import Iterator
 from itertools import islice
@@ -45,6 +46,8 @@ from ..function import (
     keys_are_not_reserved,
     keys_are_strings,
     logger_debug,
+    separate_edges_by_collections,
+    upsert_collection_edges,
     read_collection_name_from_local_id,
     separate_edges_by_collections,
     upsert_collection_edges,
@@ -444,6 +447,11 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         'edge/1' in G._adj['node/1']['node/2']
         0 in G._adj['node/1']['node/2']
         """
+        # HACK: This is a workaround for the fact that
+        # nxadb.MultiGraph does not yet support custom edge keys
+        if key == "-1":
+            return False
+
         if isinstance(key, int):
             key = self.__process_int_edge_key(key)
 
@@ -476,7 +484,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
     def __getitem__(self, key: str | int) -> EdgeAttrDict:
         """G._adj['node/1']['node/2']['edge/1']"""
         # HACK: This is a workaround for the fact that
-        # nxadb.MultiGraph does not yet support edge keys
+        # nxadb.MultiGraph does not yet support custom edge keys
         if key == "-1":
             raise KeyError(key)
 
@@ -1573,7 +1581,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             for collections_results in result:
                 for collection_result in collections_results:
                     errors.append(collection_result)
-            logger.warning(
+            warnings.warn(
                 "Failed to insert at least one node. Will not update local cache."
             )
             raise ArangoDBBatchError(errors)

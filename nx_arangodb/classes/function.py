@@ -797,7 +797,7 @@ def separate_edges_by_collections(
                         m_edge_doc["_id"], default_node_type
                     )[0]
 
-                    if separated.get(edge_collection_name) is None:
+                    if edge_collection_name not in separated:
                         separated[edge_collection_name] = []
 
                     m_edge_doc["_from"] = from_doc_id

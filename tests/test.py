@@ -441,7 +441,7 @@ def test_edge_adj_dict_update_existing_single_collection_MultiGraph_and_MultiDiG
                     "extraValue": edge_doc["_key"],
                 }
 
-    G_1._adj.update(local_edges_dict)
+    G_1.adj.update(local_edges_dict)
 
     edge_col = db.collection("knows")
     edge_col_docs = edge_col.all()
@@ -491,7 +491,7 @@ def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> 
         },
     }
 
-    G_1._adj.update(new_edges_dict)
+    G_1.adj.update(new_edges_dict)
 
     # _adj list is not responsible for maintaining the vertex collections
     assert db.collection(v_1_name).count() == 0

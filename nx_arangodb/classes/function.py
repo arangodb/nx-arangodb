@@ -768,65 +768,81 @@ def upsert_collection_documents(db: StandardDatabase, separated: Any) -> Any:
     return results
 
 
-def separate_edges_by_collections(
-    edges: Any, graph_type: str, default_node_type: str
-) -> Any:
+def separate_edges_by_collections_graph(edges: Any, default_node_type: str) -> Any:
     """
-    Separate the dictionary into collections based on whether keys contain '/'.
-    :param edges:
-        The input dictionary with keys that must contain the real doc id.
-    :param graph_type:
-        The type of graph to create.
-    :param default_node_type:
-        The name of the default collection for keys without '/'.
+    Separate the dictionary into collections for Graph and DiGraph types.
+    :param edges: The input dictionary with keys that must contain the real doc id.
+    :param default_node_type: The name of the default collection for keys without '/'.
     :return: A dictionary where the keys are collection names and the
-        values are dictionaries of key-value pairs belonging to those
-        collections.
+        values are dictionaries of key-value pairs belonging to those collections.
     """
     separated: Any = {}
 
     for from_doc_id, target_dict in edges.items():
         for to_doc_id, edge_doc in target_dict.items():
-            assert edge_doc is not None
+            assert edge_doc is not None and "_id" in edge_doc
+            edge_collection_name = get_node_type_and_id(
+                edge_doc["_id"], default_node_type
+            )[0]
 
-            if (
-                graph_type == GraphType.Graph.name
-                or graph_type == GraphType.DiGraph.name
-            ):
-                assert "_id" in edge_doc
-                edge_collection_name = get_node_type_and_id(
-                    edge_doc["_id"], default_node_type
-                )[0]
+            if edge_collection_name not in separated:
+                separated[edge_collection_name] = []
 
-                if separated.get(edge_collection_name) is None:
-                    separated[edge_collection_name] = []
+            edge_doc["_from"] = from_doc_id
+            edge_doc["_to"] = to_doc_id
 
-                edge_doc["_from"] = from_doc_id
-                edge_doc["_to"] = to_doc_id
-
-                separated[edge_collection_name].append(edge_doc)
-            else:
-                assert (
-                    graph_type == GraphType.MultiGraph.name
-                    or graph_type == GraphType.MultiDiGraph.name
-                )
-                # In case of a Multi(Di)Graph, edge_doc is a list of edges
-                # and NOT a single edge
-                for m_edge_id, m_edge_doc in edge_doc.items():
-                    assert "_id" in m_edge_doc
-                    edge_collection_name = get_node_type_and_id(
-                        m_edge_doc["_id"], default_node_type
-                    )[0]
-
-                    if separated.get(edge_collection_name) is None:
-                        separated[edge_collection_name] = []
-
-                    m_edge_doc["_from"] = from_doc_id
-                    m_edge_doc["_to"] = to_doc_id
-
-                    separated[edge_collection_name].append(m_edge_doc)
+            separated[edge_collection_name].append(edge_doc)
 
     return separated
+
+
+def separate_edges_by_collections_multigraph(edges: Any, default_node_type: str) -> Any:
+    """
+    Separate the dictionary into collections for MultiGraph and MultiDiGraph types.
+    :param edges: The input dictionary with keys that must contain the real doc id.
+    :param default_node_type: The name of the default collection for keys without '/'.
+    :return: A dictionary where the keys are collection names and the
+        values are dictionaries of key-value pairs belonging to those collections.
+    """
+    separated: Any = {}
+
+    for from_doc_id, target_dict in edges.items():
+        for to_doc_id, edge_doc in target_dict.items():
+            # edge_doc is expected to be a list of edges in Multi(Di)Graph
+            for m_edge_id, m_edge_doc in edge_doc.items():
+                assert m_edge_doc is not None and "_id" in m_edge_doc
+                edge_collection_name = get_node_type_and_id(
+                    m_edge_doc["_id"], default_node_type
+                )[0]
+
+                if edge_collection_name not in separated:
+                    separated[edge_collection_name] = []
+
+                m_edge_doc["_from"] = from_doc_id
+                m_edge_doc["_to"] = to_doc_id
+
+                separated[edge_collection_name].append(m_edge_doc)
+
+    return separated
+
+
+def separate_edges_by_collections(
+    edges: Any, graph_type: str, default_node_type: str
+) -> Any:
+    """
+    Wrapper function to separate the dictionary into collections based on graph type.
+    :param edges: The input dictionary with keys that must contain the real doc id.
+    :param graph_type: The type of graph to create.
+    :param default_node_type: The name of the default collection for keys without '/'.
+    :return: A dictionary where the keys are collection names and the
+        values are dictionaries of key-value pairs belonging to those collections.
+    """
+    if graph_type in [GraphType.Graph.name, GraphType.DiGraph.name]:
+        return separate_edges_by_collections_graph(edges, default_node_type)
+    elif graph_type in [GraphType.MultiGraph.name, GraphType.MultiDiGraph.name]:
+        return separate_edges_by_collections_multigraph(edges, default_node_type)
+    else:
+        raise ValueError(f"Unsupported graph type: {graph_type}")
 
 
 def upsert_collection_edges(db: StandardDatabase, separated: Any) -> Any:

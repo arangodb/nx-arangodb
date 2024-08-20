@@ -1311,7 +1311,9 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             if self.data[dst_node_id] == edge_attr_dict:
                 return
 
-            if edge_attr_dict.data.get("_to") and dst_node_id == edge_attr_dict.data.get("_to"):
+            if edge_attr_dict.data.get(
+                "_to"
+            ) and dst_node_id == edge_attr_dict.data.get("_to"):
                 # This will be an update, don't raise an error
                 return
 

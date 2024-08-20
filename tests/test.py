@@ -600,11 +600,11 @@ def test_edge_adj_inner_dict_update_existing_single_collection(
     "graph_cls",
     [
         (nxadb.MultiGraph),
-        #(nxadb.MultiDiGraph),
+        # (nxadb.MultiDiGraph),
     ],
 )
 def test_edge_adj_inner_dict_update_existing_single_collection_multi_graphs(
-        load_karate_graph: Any, graph_cls: type[nxadb.Graph]
+    load_karate_graph: Any, graph_cls: type[nxadb.Graph]
 ) -> None:
     G_1 = graph_cls(graph_name="KarateGraph", foo="bar")
 
@@ -614,7 +614,6 @@ def test_edge_adj_inner_dict_update_existing_single_collection_multi_graphs(
 
     target_dict = local_adj[from_doc_id_to_use]
     for outer_to_doc_id, edge_key_dict in target_dict.items():
-        edge_key_dict: EdgeKeyDict = edge_key_dict
         assert isinstance(edge_key_dict, EdgeKeyDict)
 
         for to_doc_id, edge_doc in edge_key_dict.items():
@@ -641,8 +640,8 @@ def test_edge_adj_inner_dict_update_existing_single_collection_multi_graphs(
 
         assert "extraValue" in G_1.adj[from_doc_id_to_use][to_doc_id][to_doc_id]
         assert G_1.adj[from_doc_id_to_use][to_doc_id][to_doc_id][
-                   "extraValue"
-               ] == extract_arangodb_key(local_inner_edges_dict[to_doc_id]["_id"])
+            "extraValue"
+        ] == extract_arangodb_key(local_inner_edges_dict[to_doc_id]["_id"])
     return
 
 

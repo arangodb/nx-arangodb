@@ -1552,10 +1552,10 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     @logger_debug
     def __set_adj_elements(
         self,
-        node_dict: NodeDict,
         adj_dict: (
             GraphAdjDict | DiGraphAdjDict | MultiGraphAdjDict | MultiDiGraphAdjDict
         ),
+        node_dict: NodeDict | None = None,
     ) -> None:
         def set_edge_graph(
             src_node_id: str, dst_node_id: str, edge: dict[str, Any]
@@ -1636,6 +1636,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
                         if dst_node_id in self.data[src_node_id].data:
                             continue  # can skip due not directed
 
+                self.__set_adj_inner_dict(self, src_node_id)
+                self.__set_adj_inner_dict(self, dst_node_id)
                 edge_attr_or_key_dict = set_edge_func(  # type: ignore[operator]
                     src_node_id, dst_node_id, edge_or_edges
                 )
@@ -1681,7 +1683,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         if self.is_directed:
             adj_dict = adj_dict["succ"]
 
-        self.__set_adj_elements(node_dict, adj_dict)
+        self.__set_adj_elements(adj_dict, node_dict)
 
         self.FETCHED_ALL_DATA = True
         self.FETCHED_ALL_IDS = True

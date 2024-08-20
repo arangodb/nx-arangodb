@@ -83,7 +83,7 @@ def test_load_graph_from_nxadb():
     db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
 
     _ = nxadb.Graph(
-        graph_name=graph_name,
+        name=graph_name,
         incoming_graph_data=G_NX,
         default_node_type="person",
     )
@@ -103,7 +103,7 @@ def test_load_graph_from_nxadb_w_specific_edge_attribute():
     db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
 
     graph = nxadb.Graph(
-        graph_name=graph_name,
+        name=graph_name,
         incoming_graph_data=G_NX,
         default_node_type="person",
         edge_collections_attributes={"weight"},
@@ -131,7 +131,7 @@ def test_load_graph_from_nxadb_w_not_available_edge_attribute():
     db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
 
     graph = nxadb.Graph(
-        graph_name=graph_name,
+        name=graph_name,
         incoming_graph_data=G_NX,
         default_node_type="person",
         # This will lead to weight not being loaded into the edge data
@@ -192,12 +192,12 @@ def test_algorithm(
 
     G_1 = G_NX
     G_2 = nxadb.Graph(incoming_graph_data=G_1)
-    G_3 = nxadb.Graph(graph_name="KarateGraph")
-    G_4 = nxadb.DiGraph(graph_name="KarateGraph", symmetrize_edges=True)
-    G_5 = nxadb.DiGraph(graph_name="KarateGraph", symmetrize_edges=False)
-    G_6 = nxadb.MultiGraph(graph_name="KarateGraph")
-    G_7 = nxadb.MultiDiGraph(graph_name="KarateGraph", symmetrize_edges=True)
-    G_8 = nxadb.MultiDiGraph(graph_name="KarateGraph", symmetrize_edges=False)
+    G_3 = nxadb.Graph(name="KarateGraph")
+    G_4 = nxadb.DiGraph(name="KarateGraph", symmetrize_edges=True)
+    G_5 = nxadb.DiGraph(name="KarateGraph", symmetrize_edges=False)
+    G_6 = nxadb.MultiGraph(name="KarateGraph")
+    G_7 = nxadb.MultiDiGraph(name="KarateGraph", symmetrize_edges=True)
+    G_8 = nxadb.MultiDiGraph(name="KarateGraph", symmetrize_edges=False)
 
     for G in [G_3, G_4, G_5, G_6, G_7, G_8]:
         assert_remote_dict(G)
@@ -283,8 +283,8 @@ def test_algorithm(
 
 
 def test_shortest_path_remote_algorithm(load_karate_graph: Any) -> None:
-    G_1 = nxadb.Graph(graph_name="KarateGraph")
-    G_2 = nxadb.DiGraph(graph_name="KarateGraph")
+    G_1 = nxadb.Graph(name="KarateGraph")
+    G_2 = nxadb.DiGraph(name="KarateGraph")
 
     r_1 = nx.shortest_path(G_1, source="person/1", target="person/34")
     r_2 = nx.shortest_path(G_1, source="person/1", target="person/34", weight="weight")
@@ -311,7 +311,7 @@ def test_node_dict_update_existing_single_collection(
 ) -> None:
     # This tests uses the existing nodes and updates each
     # of them using the update method using a single collection
-    G_1 = nxadb.Graph(graph_name="KarateGraph", foo="bar")
+    G_1 = nxadb.Graph(name="KarateGraph", foo="bar")
 
     nodes_ids_list = G_1.nodes
     local_nodes_dict = {}
@@ -361,7 +361,7 @@ def test_node_dict_update_multiple_collections(
     assert db.collection(e_1_name).count() == 0
     assert db.collection(e_2_name).count() == 0
 
-    G_1 = graph_cls(graph_name=graph_name, default_node_type=v_1_name)
+    G_1 = graph_cls(name=graph_name, default_node_type=v_1_name)
     assert len(G_1.nodes) == 0
     assert len(G_1.edges) == 0
 
@@ -401,7 +401,7 @@ def test_node_dict_update_multiple_collections(
 def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
     load_karate_graph: Any, graph_cls: type[nxadb.Graph]
 ) -> None:
-    G_1 = graph_cls(graph_name="KarateGraph", foo="bar")
+    G_1 = graph_cls(name="KarateGraph", foo="bar")
 
     local_adj = G_1.adj
     local_edges_dict: Union[GraphAdjDict | DiGraphAdjDict] = {}
@@ -450,7 +450,7 @@ def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
 def test_edge_adj_dict_update_existing_single_collection_MultiGraph_and_MultiDiGraph(
     load_karate_graph: Any, graph_cls: type[nxadb.Graph]
 ) -> None:
-    G_1 = graph_cls(graph_name="KarateGraph", foo="bar")
+    G_1 = graph_cls(name="KarateGraph", foo="bar")
 
     local_adj = G_1.adj
     local_edges_dict: Union[MultiGraphAdjDict | MultiDiGraphAdjDict] = {}
@@ -505,7 +505,7 @@ def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> 
     assert db.collection(e_1_name).count() == 0
     assert db.collection(e_2_name).count() == 0
 
-    G_1 = nxadb.Graph(graph_name=graph_name, default_node_type=v_1_name)
+    G_1 = nxadb.Graph(name=graph_name, default_node_type=v_1_name)
     assert len(G_1.nodes) == 0
     assert len(G_1.edges) == 0
 
@@ -561,7 +561,7 @@ def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> 
     ],
 )
 def test_nodes_crud(load_karate_graph: Any, graph_cls: type[nxadb.Graph]) -> None:
-    G_1 = graph_cls(graph_name="KarateGraph", foo="bar")
+    G_1 = graph_cls(name="KarateGraph", foo="bar")
     G_2 = nx.Graph(G_NX)
 
     assert G_1.graph_name == "KarateGraph"
@@ -685,7 +685,7 @@ def test_nodes_crud(load_karate_graph: Any, graph_cls: type[nxadb.Graph]) -> Non
 
 
 def test_graph_edges_crud(load_karate_graph: Any) -> None:
-    G_1 = nxadb.Graph(graph_name="KarateGraph")
+    G_1 = nxadb.Graph(name="KarateGraph")
     G_2 = G_NX
 
     assert len(G_1.adj) == len(G_2.adj)
@@ -832,7 +832,7 @@ def test_graph_edges_crud(load_karate_graph: Any) -> None:
 
 
 def test_digraph_edges_crud(load_karate_graph: Any) -> None:
-    G_1 = nxadb.DiGraph(graph_name="KarateGraph")
+    G_1 = nxadb.DiGraph(name="KarateGraph")
     G_2 = G_NX
 
     assert len(G_1.adj) == len(G_2.adj)
@@ -981,7 +981,7 @@ def test_digraph_edges_crud(load_karate_graph: Any) -> None:
 
 
 def test_multigraph_edges_crud(load_karate_graph: Any) -> None:
-    G_1 = nxadb.MultiGraph(graph_name="KarateGraph")
+    G_1 = nxadb.MultiGraph(name="KarateGraph")
     G_2 = G_NX
 
     assert len(G_1.adj) == len(G_2.adj)
@@ -1143,7 +1143,7 @@ def test_multigraph_edges_crud(load_karate_graph: Any) -> None:
 
 
 def test_multidigraph_edges_crud(load_karate_graph: Any) -> None:
-    G_1 = nxadb.MultiDiGraph(graph_name="KarateGraph")
+    G_1 = nxadb.MultiDiGraph(name="KarateGraph")
     G_2 = G_NX
 
     assert len(G_1.adj) == len(G_2.adj)
@@ -1313,7 +1313,7 @@ def test_multidigraph_edges_crud(load_karate_graph: Any) -> None:
 
 
 def test_graph_dict_init(load_karate_graph: Any) -> None:
-    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
     assert db.collection("_graphs").has("KarateGraph")
     graph_document = db.collection("_graphs").get("KarateGraph")
     assert graph_document["_key"] == "KarateGraph"
@@ -1329,7 +1329,7 @@ def test_graph_dict_init(load_karate_graph: Any) -> None:
 def test_graph_dict_init_extended(load_karate_graph: Any) -> None:
     # Tests that available data (especially dicts) will be properly
     # stored as GraphDicts in the internal cache.
-    G = nxadb.Graph(graph_name="KarateGraph", foo="bar", bar={"baz": True})
+    G = nxadb.Graph(name="KarateGraph", foo="bar", bar={"baz": True})
     G.graph["foo"] = "!!!"
     G.graph["bar"]["baz"] = False
     assert db.document(G.graph.graph_id)["foo"] == "!!!"
@@ -1339,7 +1339,7 @@ def test_graph_dict_init_extended(load_karate_graph: Any) -> None:
 
 def test_graph_dict_clear_will_not_remove_remote_data(load_karate_graph: Any) -> None:
     G_adb = nxadb.Graph(
-        graph_name="KarateGraph",
+        name="KarateGraph",
         foo="bar",
         bar={"a": 4},
     )
@@ -1356,7 +1356,7 @@ def test_graph_dict_clear_will_not_remove_remote_data(load_karate_graph: Any) ->
 
 
 def test_graph_dict_set_item(load_karate_graph: Any) -> None:
-    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
     try:
         db.collection(G.graph.COLLECTION_NAME).delete(G.name)
     except DocumentDeleteError:
@@ -1388,7 +1388,7 @@ def test_graph_dict_set_item(load_karate_graph: Any) -> None:
 
 
 def test_graph_dict_update(load_karate_graph: Any) -> None:
-    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
     G.clear()
 
     G.graph["a"] = "b"
@@ -1406,7 +1406,7 @@ def test_graph_dict_update(load_karate_graph: Any) -> None:
 
 
 def test_graph_attr_dict_nested_update(load_karate_graph: Any) -> None:
-    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
     G.clear()
 
     G.graph["a"] = {"b": "c"}
@@ -1418,7 +1418,7 @@ def test_graph_attr_dict_nested_update(load_karate_graph: Any) -> None:
 
 
 def test_graph_dict_nested_1(load_karate_graph: Any) -> None:
-    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
     G.clear()
     icon = {"football_icon": "MJ7"}
 
@@ -1428,7 +1428,7 @@ def test_graph_dict_nested_1(load_karate_graph: Any) -> None:
 
 
 def test_graph_dict_nested_2(load_karate_graph: Any) -> None:
-    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
     G.clear()
     icon = {"football_icon": "MJ7"}
 
@@ -1440,7 +1440,7 @@ def test_graph_dict_nested_2(load_karate_graph: Any) -> None:
 
 
 def test_graph_dict_empty_values(load_karate_graph: Any) -> None:
-    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
     G.clear()
 
     G.graph["empty"] = {}
@@ -1453,7 +1453,7 @@ def test_graph_dict_empty_values(load_karate_graph: Any) -> None:
 
 
 def test_graph_dict_nested_overwrite(load_karate_graph: Any) -> None:
-    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
     G.clear()
     icon1 = {"football_icon": "MJ7"}
     icon2 = {"basketball_icon": "MJ23"}
@@ -1470,7 +1470,7 @@ def test_graph_dict_nested_overwrite(load_karate_graph: Any) -> None:
 
 
 def test_graph_dict_complex_nested(load_karate_graph: Any) -> None:
-    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
     G.clear()
 
     complex_structure = {"level1": {"level2": {"level3": {"key": "value"}}}}
@@ -1484,7 +1484,7 @@ def test_graph_dict_complex_nested(load_karate_graph: Any) -> None:
 
 
 def test_graph_dict_nested_deletion(load_karate_graph: Any) -> None:
-    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
     G.clear()
     icon = {"football_icon": "MJ7", "amount_of_goals": 1337}
 
@@ -1500,7 +1500,7 @@ def test_graph_dict_nested_deletion(load_karate_graph: Any) -> None:
 
 
 def test_readme(load_karate_graph: Any) -> None:
-    G = nxadb.Graph(graph_name="KarateGraph", default_node_type="person")
+    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
 
     assert len(G.nodes) == len(G_NX.nodes)
     assert len(G.adj) == len(G_NX.adj)
@@ -1582,7 +1582,7 @@ def test_incoming_graph_data_not_nx_graph(
     name = "KarateGraph"
     db.delete_graph(name, drop_collections=True, ignore_missing=True)
 
-    G = nxadb.Graph(incoming_graph_data=incoming_graph_data, graph_name=name)
+    G = nxadb.Graph(incoming_graph_data=incoming_graph_data, name=name)
 
     assert len(G.adj) == len(G_NX.adj) == db.collection(G.default_node_type).count()
     assert (

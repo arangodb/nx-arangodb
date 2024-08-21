@@ -77,6 +77,23 @@ def test_db(load_karate_graph: Any) -> None:
     assert db.version()
 
 
+@pytest.mark.parametrize(
+    "graph_cls",
+    [
+        (nxadb.Graph),
+        (nxadb.DiGraph),
+        (nxadb.MultiGraph),
+        (nxadb.MultiDiGraph),
+    ],
+)
+def test_adb_graph_init(graph_cls: type[nxadb.Graph]) -> None:
+    G = graph_cls(name="TestGraph")
+
+    # Rename of an adb graph is not allowed
+    with pytest.raises(ValueError):
+        G.name = "RenamedTestGraph"
+
+
 def test_load_graph_from_nxadb():
     graph_name = "KarateGraph"
 

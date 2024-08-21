@@ -260,11 +260,18 @@ class Graph(nx.Graph):
         return self._db
 
     @property
-    def graph_name(self) -> str:
+    def name(self) -> str:
         if self._name is None:
             raise GraphNameNotSet("Graph name not set")
 
         return self._name
+
+    @name.setter
+    def name(self, s):
+        if self.graph["name"] is not None:
+            raise ValueError("Existing graph cannot be renamed")
+
+        super().name(s)
 
     @property
     def graph_exists_in_db(self) -> bool:

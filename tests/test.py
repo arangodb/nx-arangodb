@@ -564,7 +564,7 @@ def test_nodes_crud(load_karate_graph: Any, graph_cls: type[nxadb.Graph]) -> Non
     G_1 = graph_cls(name="KarateGraph", foo="bar")
     G_2 = nx.Graph(G_NX)
 
-    assert G_1.graph_name == "KarateGraph"
+    assert G_1.name == "KarateGraph"
     assert G_1.graph["foo"] == "bar"
 
     assert len(G_1.nodes) == len(G_2.nodes)
@@ -1400,7 +1400,7 @@ def test_graph_dict_update(load_karate_graph: Any) -> None:
     assert G.graph["c"] == "d"
 
     # remote
-    adb_doc = db.collection("nxadb_graphs").get(G.graph_name)
+    adb_doc = db.collection("nxadb_graphs").get(G.name)
     assert adb_doc["a"] == "b"
     assert adb_doc["c"] == "d"
 

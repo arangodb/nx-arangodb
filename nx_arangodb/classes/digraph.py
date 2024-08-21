@@ -35,6 +35,7 @@ class DiGraph(Graph, nx.DiGraph):
         read_batch_size: int = 100000,
         write_batch_size: int = 50000,
         symmetrize_edges: bool = False,
+        use_experimental_views: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
@@ -50,6 +51,7 @@ class DiGraph(Graph, nx.DiGraph):
             read_batch_size,
             write_batch_size,
             symmetrize_edges,
+            use_experimental_views,
             *args,
             **kwargs,
         )

@@ -35,6 +35,8 @@ from ..function import (
     check_list_for_errors,
     doc_insert,
     doc_update,
+    edge_get,
+    edge_link,
     get_arangodb_graph,
     get_node_id,
     get_node_type_and_id,
@@ -145,7 +147,6 @@ def process_edge_attr_dict_value(parent: EdgeAttrDict, key: str, value: Any) -> 
         return value
 
     edge_attr_dict = parent.edge_attr_dict_factory()
-    edge_attr_dict.root = parent.root or parent
     edge_attr_dict.edge_id = parent.edge_id
     edge_attr_dict.parent_keys = parent.parent_keys + [key]
     edge_attr_dict.data = build_edge_attr_dict_data(edge_attr_dict, value)
@@ -184,8 +185,6 @@ class EdgeAttrDict(UserDict[str, Any]):
         # EdgeAttrDict may be a child of another EdgeAttrDict
         # e.g G._adj['node/1']['node/2']['object']['foo'] = 'bar'
         # In this case, **parent_keys** would be ['object']
-        # and **root** would be G._adj['node/1']['node/2']
-        self.root: EdgeAttrDict | None = None
         self.parent_keys: list[str] = []
         self.edge_attr_dict_factory = edge_attr_dict_factory(self.db, self.graph)
 
@@ -237,8 +236,7 @@ class EdgeAttrDict(UserDict[str, Any]):
         edge_attr_dict_value = process_edge_attr_dict_value(self, key, value)
         update_dict = get_update_dict(self.parent_keys, {key: value})
         self.data[key] = edge_attr_dict_value
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
+        doc_update(self.db, self.edge_id, update_dict)
 
     @key_is_string
     @key_is_not_reserved
@@ -248,8 +246,7 @@ class EdgeAttrDict(UserDict[str, Any]):
         assert self.edge_id
         self.data.pop(key, None)
         update_dict = get_update_dict(self.parent_keys, {key: None})
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
+        doc_update(self.db, self.edge_id, update_dict)
 
     @keys_are_strings
     @keys_are_not_reserved
@@ -266,8 +263,7 @@ class EdgeAttrDict(UserDict[str, Any]):
             return
 
         update_dict = get_update_dict(self.parent_keys, attrs)
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.edge_id, update_dict)
+        doc_update(self.db, self.edge_id, update_dict)
 
 
 class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
@@ -458,7 +454,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         if self.FETCHED_ALL_IDS:
             return False
 
-        edge = self.graph.edge(key)
+        edge = edge_get(self.graph, key)
 
         if edge is None:
             logger.warning(f"Edge '{key}' does not exist in Graph.")
@@ -501,7 +497,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         if key not in self.data and self.FETCHED_ALL_IDS:
             raise KeyError(key)
 
-        edge = self.graph.edge(key)
+        edge = edge_get(self.graph, key)
 
         if edge is None:
             raise KeyError(key)
@@ -547,8 +543,12 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         if not edge_type:
             edge_type = self.default_edge_type
 
-        edge = self.graph.link(
-            edge_type, self.src_node_id, self.dst_node_id, edge_attr_dict.data
+        edge = edge_link(
+            self.graph,
+            edge_type,
+            self.src_node_id,
+            self.dst_node_id,
+            edge_attr_dict.data,
         )
 
         edge_data: dict[str, Any] = {
@@ -1036,12 +1036,17 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             can_return_multiple=False,
         )
 
-        if edge_id:
-            edge = doc_insert(self.db, edge_type, edge_id, edge_attr_dict.data)
-        else:
-            edge = self.graph.link(
-                edge_type, self.src_node_id, dst_node_id, edge_attr_dict.data
+        edge = (
+            doc_insert(self.db, edge_type, edge_id, edge_attr_dict.data)
+            if edge_id
+            else edge_link(
+                self.graph,
+                edge_type,
+                self.src_node_id,
+                dst_node_id,
+                edge_attr_dict.data,
             )
+        )
 
         edge_data: dict[str, Any] = {
             **edge_attr_dict.data,
@@ -1068,6 +1073,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         assert list(edge_key_dict.data.keys())[0] == "-1"
         assert edge_key_dict.src_node_id is None
         assert edge_key_dict.dst_node_id is None
+        assert self.src_node_id is not None
 
         edge_attr_dict = edge_key_dict.data["-1"]
 
@@ -1075,8 +1081,8 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         if edge_type is None:
             edge_type = self.edge_type_func(self.src_node_type, dst_node_type)
 
-        edge = self.graph.link(
-            edge_type, self.src_node_id, dst_node_id, edge_attr_dict.data
+        edge = edge_link(
+            self.graph, edge_type, self.src_node_id, dst_node_id, edge_attr_dict.data
         )
 
         edge_data: dict[str, Any] = {
@@ -1224,7 +1230,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         query = f"""
             FOR v, e IN 1..1 {self.traversal_direction.name} @src_node_id
             GRAPH @graph_name
-                RETURN e
+                RETURN UNSET(e, '_rev')
         """
 
         bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
@@ -1560,14 +1566,20 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         def set_edge_graph(
             src_node_id: str, dst_node_id: str, edge: dict[str, Any]
         ) -> EdgeAttrDict:
+            edge.pop("_rev", None)
+
             adjlist_inner_dict = self.data[src_node_id]
 
             edge_attr_dict: EdgeAttrDict
             edge_attr_dict = adjlist_inner_dict._create_edge_attr_dict(edge)
 
-            adjlist_inner_dict.data[dst_node_id] = edge_attr_dict
+            if dst_node_id not in adjlist_inner_dict.data:
+                adjlist_inner_dict.data[dst_node_id] = edge_attr_dict
+            else:
+                existing_edge_attr_dict = adjlist_inner_dict.data[dst_node_id]
+                existing_edge_attr_dict.data.update(edge_attr_dict.data)
 
-            return edge_attr_dict
+            return adjlist_inner_dict.data[dst_node_id]  # type: ignore # false positive
 
         def set_edge_multigraph(
             src_node_id: str, dst_node_id: str, edges: dict[int, dict[str, Any]]
@@ -1581,8 +1593,16 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             edge_key_dict.FETCHED_ALL_IDS = True
 
             for edge in edges.values():
+                edge.pop("_rev", None)
+
+                edge_attr_dict: EdgeAttrDict
                 edge_attr_dict = adjlist_inner_dict._create_edge_attr_dict(edge)
-                edge_key_dict.data[edge["_id"]] = edge_attr_dict
+
+                if edge["_id"] not in edge_key_dict.data:
+                    edge_key_dict.data[edge["_id"]] = edge_attr_dict
+                else:
+                    existing_edge_attr_dict = edge_key_dict.data[edge["_id"]]
+                    existing_edge_attr_dict.data.update(edge_attr_dict.data)
 
             adjlist_inner_dict.data[dst_node_id] = edge_key_dict
 
@@ -1631,11 +1651,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
         for src_node_id, inner_dict in adj_dict.items():
             for dst_node_id, edge_or_edges in inner_dict.items():
-
-                if not self.is_directed:
-                    if src_node_id in self.data:
-                        if dst_node_id in self.data[src_node_id].data:
-                            continue  # can skip due not directed
 
                 self.__set_adj_inner_dict(self, src_node_id)
                 self.__set_adj_inner_dict(self, dst_node_id)

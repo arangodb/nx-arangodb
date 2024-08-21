@@ -33,6 +33,8 @@ class MultiGraph(Graph, nx.MultiGraph):
         read_parallelism: int = 10,
         read_batch_size: int = 100000,
         write_batch_size: int = 50000,
+        symmetrize_edges: bool = False,
+        use_experimental_views: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
@@ -46,6 +48,8 @@ class MultiGraph(Graph, nx.MultiGraph):
             read_parallelism,
             read_batch_size,
             write_batch_size,
+            symmetrize_edges,
+            use_experimental_views,
             *args,
             **kwargs,
         )

@@ -329,7 +329,7 @@ def test_node_dict_update_existing_single_collection(
 ) -> None:
     # This tests uses the existing nodes and updates each
     # of them using the update method using a single collection
-    G_1 = nxadb.Graph(name="KarateGraph", foo="bar")
+    G_1 = nxadb.Graph(name="KarateGraph", foo="bar", use_experimental_views=True)
 
     nodes_ids_list = G_1.nodes
     local_nodes_dict = {}
@@ -379,7 +379,9 @@ def test_node_dict_update_multiple_collections(
     assert db.collection(e_1_name).count() == 0
     assert db.collection(e_2_name).count() == 0
 
-    G_1 = graph_cls(name=graph_name, default_node_type=v_1_name)
+    G_1 = graph_cls(
+        name=graph_name, default_node_type=v_1_name, use_experimental_views=True
+    )
     assert len(G_1.nodes) == 0
     assert len(G_1.edges) == 0
 
@@ -419,7 +421,7 @@ def test_node_dict_update_multiple_collections(
 def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
     load_karate_graph: Any, graph_cls: type[nxadb.Graph]
 ) -> None:
-    G_1 = graph_cls(name="KarateGraph", foo="bar")
+    G_1 = graph_cls(name="KarateGraph", foo="bar", use_experimental_views=True)
 
     local_adj = G_1.adj
     local_edges_dict: Union[GraphAdjDict | DiGraphAdjDict] = {}
@@ -493,7 +495,7 @@ def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
 def test_edge_adj_dict_update_existing_single_collection_MultiGraph_and_MultiDiGraph(
     load_karate_graph: Any, graph_cls: type[nxadb.Graph]
 ) -> None:
-    G_1 = graph_cls(name="KarateGraph", foo="bar")
+    G_1 = graph_cls(name="KarateGraph", foo="bar", use_experimental_views=True)
 
     local_adj = G_1.adj
     local_edges_dict: Union[MultiGraphAdjDict | MultiDiGraphAdjDict] = {}
@@ -576,7 +578,9 @@ def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> 
     assert db.collection(e_1_name).count() == 0
     assert db.collection(e_2_name).count() == 0
 
-    G_1 = nxadb.Graph(name=graph_name, default_node_type=v_1_name)
+    G_1 = nxadb.Graph(
+        name=graph_name, default_node_type=v_1_name, use_experimental_views=True
+    )
     assert len(G_1.nodes) == 0
     assert len(G_1.edges) == 0
 

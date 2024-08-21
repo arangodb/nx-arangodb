@@ -268,10 +268,11 @@ class Graph(nx.Graph):
 
     @name.setter
     def name(self, s):
-        if self.graph["name"] is not None:
+        if self._name is not None:
             raise ValueError("Existing graph cannot be renamed")
 
-        super().name(s)
+        self._name = s
+        nx._clear_cache(self)
 
     @property
     def graph_exists_in_db(self) -> bool:
@@ -324,7 +325,7 @@ class Graph(nx.Graph):
         if not isinstance(graph_name, str):
             raise TypeError("**graph_name** must be a string")
 
-        self._name = graph_name
+        self.name = graph_name
         self._graph_exists_in_db = self.db.has_graph(graph_name)
 
         logger.info(f"Graph '{graph_name}' exists: {self._graph_exists_in_db}")

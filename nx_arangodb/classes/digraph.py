@@ -24,7 +24,7 @@ class DiGraph(Graph, nx.DiGraph):
 
     def __init__(
         self,
-        graph_name: str | None = None,
+        name: str | None = None,
         default_node_type: str | None = None,
         edge_type_key: str = "_edge_type",
         edge_type_func: Callable[[str, str], str] | None = None,
@@ -38,7 +38,7 @@ class DiGraph(Graph, nx.DiGraph):
         **kwargs: Any,
     ):
         super().__init__(
-            graph_name,
+            name,
             default_node_type,
             edge_type_key,
             edge_type_func,

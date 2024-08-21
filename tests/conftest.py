@@ -97,6 +97,6 @@ def create_line_graph(load_attributes: set[str]) -> nxadb.Graph:
 
     return nxadb.Graph(
         incoming_graph_data=G,
-        graph_name="LineGraph",
+        name="LineGraph",
         edge_collections_attributes=load_attributes,
     )

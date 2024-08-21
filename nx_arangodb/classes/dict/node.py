@@ -453,7 +453,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         )
 
         for node_id, node_data in node_dict.items():
-            del node_data["_rev"] # TODO: Optimize away via phenolrs
+            del node_data["_rev"]  # TODO: Optimize away via phenolrs
             node_attr_dict = self._create_node_attr_dict(node_data)
             self.data[node_id] = node_attr_dict
 

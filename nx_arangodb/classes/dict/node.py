@@ -31,6 +31,7 @@ from ..function import (
     logger_debug,
     separate_nodes_by_collections,
     upsert_collection_documents,
+    vertex_get,
 )
 
 #############
@@ -78,7 +79,6 @@ def process_node_attr_dict_value(parent: NodeAttrDict, key: str, value: Any) -> 
         return value
 
     node_attr_dict = parent.node_attr_dict_factory()
-    node_attr_dict.root = parent.root or parent
     node_attr_dict.node_id = parent.node_id
     node_attr_dict.parent_keys = parent.parent_keys + [key]
     node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, value)
@@ -109,8 +109,6 @@ class NodeAttrDict(UserDict[str, Any]):
         # NodeAttrDict may be a child of another NodeAttrDict
         # e.g G._node['node/1']['object']['foo'] = 'bar'
         # In this case, **parent_keys** would be ['object']
-        # and **root** would be G._node['node/1']
-        self.root: NodeAttrDict | None = None
         self.parent_keys: list[str] = []
         self.node_attr_dict_factory = node_attr_dict_factory(self.db, self.graph)
 
@@ -168,8 +166,7 @@ class NodeAttrDict(UserDict[str, Any]):
         node_attr_dict_value = process_node_attr_dict_value(self, key, value)
         update_dict = get_update_dict(self.parent_keys, {key: value})
         self.data[key] = node_attr_dict_value
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.node_id, update_dict)
+        doc_update(self.db, self.node_id, update_dict)
 
     @key_is_string
     @key_is_not_reserved
@@ -179,8 +176,7 @@ class NodeAttrDict(UserDict[str, Any]):
         assert self.node_id
         self.data.pop(key, None)
         update_dict = get_update_dict(self.parent_keys, {key: None})
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.node_id, update_dict)
+        doc_update(self.db, self.node_id, update_dict)
 
     @keys_are_strings
     @keys_are_not_reserved
@@ -198,8 +194,7 @@ class NodeAttrDict(UserDict[str, Any]):
             return
 
         update_dict = get_update_dict(self.parent_keys, attrs)
-        root_data = self.root.data if self.root else self.data
-        root_data["_rev"] = doc_update(self.db, self.node_id, update_dict)
+        doc_update(self.db, self.node_id, update_dict)
 
 
 class NodeDict(UserDict[str, NodeAttrDict]):
@@ -280,14 +275,14 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         """G._node['node/1']"""
         node_id = get_node_id(key, self.default_node_type)
 
-        if vertex := self.data.get(node_id):
-            return vertex
+        if vertex_cache := self.data.get(node_id):
+            return vertex_cache
 
         if node_id not in self.data and self.FETCHED_ALL_IDS:
             raise KeyError(key)
 
-        if vertex := self.graph.vertex(node_id):
-            node_attr_dict = self._create_node_attr_dict(vertex)
+        if vertex_db := vertex_get(self.graph, node_id):
+            node_attr_dict = self._create_node_attr_dict(vertex_db)
             self.data[node_id] = node_attr_dict
 
             return node_attr_dict
@@ -458,6 +453,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         )
 
         for node_id, node_data in node_dict.items():
+            del node_data["_rev"]  # TODO: Optimize away via phenolrs
             node_attr_dict = self._create_node_attr_dict(node_data)
             self.data[node_id] = node_attr_dict
 

@@ -329,7 +329,7 @@ def test_node_dict_update_existing_single_collection(
 ) -> None:
     # This tests uses the existing nodes and updates each
     # of them using the update method using a single collection
-    G_1 = nxadb.Graph(name="KarateGraph", foo="bar")
+    G_1 = nxadb.Graph(name="KarateGraph", foo="bar", use_experimental_views=True)
 
     nodes_ids_list = G_1.nodes
     local_nodes_dict = {}
@@ -379,7 +379,9 @@ def test_node_dict_update_multiple_collections(
     assert db.collection(e_1_name).count() == 0
     assert db.collection(e_2_name).count() == 0
 
-    G_1 = graph_cls(name=graph_name, default_node_type=v_1_name)
+    G_1 = graph_cls(
+        name=graph_name, default_node_type=v_1_name, use_experimental_views=True
+    )
     assert len(G_1.nodes) == 0
     assert len(G_1.edges) == 0
 
@@ -419,7 +421,7 @@ def test_node_dict_update_multiple_collections(
 def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
     load_karate_graph: Any, graph_cls: type[nxadb.Graph]
 ) -> None:
-    G_1 = graph_cls(name="KarateGraph", foo="bar")
+    G_1 = graph_cls(name="KarateGraph", foo="bar", use_experimental_views=True)
 
     local_adj = G_1.adj
     local_edges_dict: Union[GraphAdjDict | DiGraphAdjDict] = {}
@@ -437,6 +439,7 @@ def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
             local_edges_dict[from_doc_id][to_doc_id] = {
                 "_id": edge_doc_id,
                 "extraValue": edge_doc["_key"],
+                "newDict": {"foo": "bar"},
             }
 
     G_1.adj.update(local_edges_dict)
@@ -444,18 +447,42 @@ def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
     edge_col = db.collection("knows")
     edge_col_docs = edge_col.all()
 
-    # Check if the extraValue attribute was added to each document in the database
+    # Check if the attributes were added to each document in the database
     for doc in edge_col_docs:
         assert "extraValue" in doc
         assert doc["extraValue"] == doc["_key"]
+        assert "newDict" in doc
+        assert doc["newDict"] == {"foo": "bar"}
+        assert "weight" in doc
 
-    # Check if the extraValue attribute was added to each document in the local cache
+    # Check if the attributes were added to each document in the local cache
     for from_doc_id, target_dict in local_edges_dict.items():
         for to_doc_id, edge_doc in target_dict.items():
-            assert "extraValue" in G_1._adj[from_doc_id][to_doc_id]
-            assert G_1.adj[from_doc_id][to_doc_id][
-                "extraValue"
-            ] == extract_arangodb_key(edge_doc["_id"])
+            key = extract_arangodb_key(edge_doc["_id"])
+
+            adj_edge = G_1._adj.data[from_doc_id].data[to_doc_id].data
+            assert adj_edge["extraValue"] == key
+            assert db.document(edge_doc["_id"])["extraValue"] == key
+            assert "_rev" not in adj_edge
+
+            assert isinstance(adj_edge["newDict"], EdgeAttrDict)
+            G_1.adj[from_doc_id][to_doc_id]["newDict"]["foo"] = "foo"
+            assert db.document(edge_doc["_id"])["newDict"] == {"foo": "foo"}
+
+            if G_1.is_directed():
+                pred_edge = G_1._pred.data[to_doc_id].data[from_doc_id].data
+                assert pred_edge["extraValue"] == key
+                assert "_rev" not in pred_edge
+
+                assert isinstance(pred_edge["newDict"], EdgeAttrDict)
+                assert pred_edge["newDict"]["foo"] == "foo"
+            else:
+                reverse_adj_edge = G_1._adj.data[to_doc_id].data[from_doc_id].data
+                assert reverse_adj_edge["extraValue"] == key
+                assert "_rev" not in reverse_adj_edge
+
+                assert isinstance(reverse_adj_edge["newDict"], EdgeAttrDict)
+                assert reverse_adj_edge["newDict"]["foo"] == "foo"
 
 
 @pytest.mark.parametrize(
@@ -468,7 +495,7 @@ def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
 def test_edge_adj_dict_update_existing_single_collection_MultiGraph_and_MultiDiGraph(
     load_karate_graph: Any, graph_cls: type[nxadb.Graph]
 ) -> None:
-    G_1 = graph_cls(name="KarateGraph", foo="bar")
+    G_1 = graph_cls(name="KarateGraph", foo="bar", use_experimental_views=True)
 
     local_adj = G_1.adj
     local_edges_dict: Union[MultiGraphAdjDict | MultiDiGraphAdjDict] = {}
@@ -489,6 +516,7 @@ def test_edge_adj_dict_update_existing_single_collection_MultiGraph_and_MultiDiG
                 local_edges_dict[from_doc_id][to_doc_id][edge_id] = {
                     "_id": edge_doc["_id"],
                     "extraValue": edge_doc["_key"],
+                    "newDict": {"foo": "bar"},
                 }
 
     G_1.adj.update(local_edges_dict)
@@ -496,19 +524,46 @@ def test_edge_adj_dict_update_existing_single_collection_MultiGraph_and_MultiDiG
     edge_col = db.collection("knows")
     edge_col_docs = edge_col.all()
 
-    # Check if the extraValue attribute was added to each document in the database
+    # Check if the attributes were added to each document in the database
     for doc in edge_col_docs:
         assert "extraValue" in doc
         assert doc["extraValue"] == doc["_key"]
+        assert "newDict" in doc
+        assert doc["newDict"] == {"foo": "bar"}
+        assert "weight" in doc
 
-    # Check if the extraValue attribute was added to each document in the local cache
+    # Check if the attributes were added to each document in the local cache
     for from_doc_id, target_dict in local_edges_dict.items():
         for to_doc_id, edge_dict in target_dict.items():
             for edge_id, edge_doc in edge_dict.items():
-                assert "extraValue" in G_1._adj[from_doc_id][to_doc_id][edge_id]
-                assert G_1.adj[from_doc_id][to_doc_id][edge_id][
-                    "extraValue"
-                ] == extract_arangodb_key(edge_doc["_id"])
+                key = extract_arangodb_key(edge_doc["_id"])
+
+                adj_edge = G_1._adj.data[from_doc_id].data[to_doc_id].data[edge_id].data
+                assert adj_edge["extraValue"] == key
+                assert db.document(edge_doc["_id"])["extraValue"] == key
+
+                assert isinstance(adj_edge["newDict"], EdgeAttrDict)
+                G_1.adj[from_doc_id][to_doc_id][edge_id]["newDict"]["foo"] = "foo"
+                assert db.document(edge_doc["_id"])["newDict"] == {"foo": "foo"}
+
+                if G_1.is_directed():
+                    pred_edge = (
+                        G_1._pred.data[to_doc_id].data[from_doc_id].data[edge_id].data
+                    )
+                    assert pred_edge["extraValue"] == key
+                    assert "_rev" not in pred_edge
+
+                    assert isinstance(pred_edge["newDict"], EdgeAttrDict)
+                    assert pred_edge["newDict"]["foo"] == "foo"
+                else:
+                    reverse_adj_edge = (
+                        G_1._adj.data[to_doc_id].data[from_doc_id].data[edge_id].data
+                    )
+                    assert reverse_adj_edge["extraValue"] == key
+                    assert "_rev" not in reverse_adj_edge
+
+                    assert isinstance(reverse_adj_edge["newDict"], EdgeAttrDict)
+                    assert reverse_adj_edge["newDict"]["foo"] == "foo"
 
 
 def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> None:
@@ -523,7 +578,9 @@ def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> 
     assert db.collection(e_1_name).count() == 0
     assert db.collection(e_2_name).count() == 0
 
-    G_1 = nxadb.Graph(name=graph_name, default_node_type=v_1_name)
+    G_1 = nxadb.Graph(
+        name=graph_name, default_node_type=v_1_name, use_experimental_views=True
+    )
     assert len(G_1.nodes) == 0
     assert len(G_1.edges) == 0
 
@@ -682,7 +739,9 @@ def test_nodes_crud(load_karate_graph: Any, graph_cls: type[nxadb.Graph]) -> Non
     assert len(G_1.nodes) == len(G_2.nodes)
 
     for k, v in G_1.nodes(data=True):
-        assert db.document(k) == v
+        doc = db.document(k)
+        del doc["_rev"]
+        assert doc == v
 
     for k, v in G_1.nodes(data="club"):
         assert db.document(k)["club"] == v
@@ -708,7 +767,9 @@ def test_nodes_crud(load_karate_graph: Any, graph_cls: type[nxadb.Graph]) -> Non
     assert db.document("person/3")["club"] == "bar"
 
     for k in G_1:
-        assert G_1.nodes[k] == db.document(k)
+        doc = db.document(k)
+        del doc["_rev"]
+        assert G_1.nodes[k] == doc
 
     for v in G_1.nodes.values():
         assert v
@@ -827,6 +888,7 @@ def test_graph_edges_crud(load_karate_graph: Any) -> None:
 
     G_1.adj["person/1"]["person/1"].update({"bar": "foo"})
     doc = db.document(edge_id)
+    del doc["_rev"]
     assert doc["bar"] == "foo"
 
     assert len(G_1.adj["person/1"]["person/1"]) == len(doc)
@@ -974,6 +1036,7 @@ def test_digraph_edges_crud(load_karate_graph: Any) -> None:
 
     G_1.adj["person/1"]["person/1"].update({"bar": "foo"})
     doc = db.document(edge_id)
+    del doc["_rev"]
     assert doc["bar"] == "foo"
 
     assert len(G_1.adj["person/1"]["person/1"]) == len(doc)
@@ -1123,6 +1186,7 @@ def test_multigraph_edges_crud(load_karate_graph: Any) -> None:
 
     G_1.adj["person/1"]["person/1"][0].update({"bar": "foo"})
     doc = db.document(edge_id)
+    del doc["_rev"]
     assert doc["bar"] == "foo"
 
     assert len(G_1.adj["person/1"]["person/1"][0]) == len(doc)
@@ -1285,6 +1349,7 @@ def test_multidigraph_edges_crud(load_karate_graph: Any) -> None:
 
     G_1.adj["person/1"]["person/1"][0].update({"bar": "foo"})
     doc = db.document(edge_id)
+    del doc["_rev"]
     assert doc["bar"] == "foo"
 
     assert len(G_1.adj["person/1"]["person/1"][0]) == len(doc)

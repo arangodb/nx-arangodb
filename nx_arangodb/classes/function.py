@@ -609,7 +609,6 @@ def doc_get_or_insert(
     """Loads a document if existing, otherwise inserts it & returns it."""
     if db.has_document(id):
         result: dict[str, Any] = db.document(id)
-        del result["_rev"]
         return result
 
     return doc_insert(db, collection, id, **kwargs)

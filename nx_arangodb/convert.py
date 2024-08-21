@@ -105,7 +105,7 @@ def nx_to_nxadb(
         else:
             klass = nxadb.Graph
 
-    # graph_name=kwargs.get("graph_name") ?
+    # name=kwargs.get("name") ?
     return klass(incoming_graph_data=graph)
 
 

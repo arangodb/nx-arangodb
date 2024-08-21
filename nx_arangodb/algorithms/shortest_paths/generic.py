@@ -35,6 +35,12 @@ def shortest_path(
     if method != "dijkstra":
         raise NotImplementedError("Only dijkstra method is supported")
 
+    if isinstance(source, int):
+        source = G.nodes[source]["_id"]
+
+    if isinstance(target, int):
+        target = G.nodes[target]["_id"]
+
     query = """
         FOR vertex IN ANY SHORTEST_PATH @source TO @target GRAPH @graph
         OPTIONS {'weightAttribute': @weight}
@@ -44,7 +50,7 @@ def shortest_path(
     bind_vars = {
         "source": source,
         "target": target,
-        "graph": G.graph_name,
+        "graph": G.name,
         "weight": weight,
     }
 

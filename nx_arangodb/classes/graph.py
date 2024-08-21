@@ -55,18 +55,19 @@ class Graph(nx.Graph):
         read_batch_size: int = 100000,
         write_batch_size: int = 50000,
         symmetrize_edges: bool = False,
+        use_experimental_views: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
         self._db = None
         self.__name = None
         self._graph_exists_in_db = False
+        self.__use_experimental_views = use_experimental_views
 
         self._set_db(db)
         if self._db is not None:
             self._set_graph_name(name)
 
-        # We need to store the data transfer properties as some functions will need them
         self.read_parallelism = read_parallelism
         self.read_batch_size = read_batch_size
         self.write_batch_size = write_batch_size
@@ -395,7 +396,7 @@ class Graph(nx.Graph):
 
     @cached_property
     def nodes(self):
-        if self.graph_exists_in_db:
+        if self.__use_experimental_views and self.graph_exists_in_db:
             logger.warning("nxadb.CustomNodeView is currently EXPERIMENTAL")
             return CustomNodeView(self)
 
@@ -403,7 +404,7 @@ class Graph(nx.Graph):
 
     @cached_property
     def adj(self):
-        if self.graph_exists_in_db:
+        if self.__use_experimental_views and self.graph_exists_in_db:
             logger.warning("nxadb.CustomAdjacencyView is currently EXPERIMENTAL")
             return CustomAdjacencyView(self._adj)
 
@@ -411,7 +412,7 @@ class Graph(nx.Graph):
 
     @cached_property
     def edges(self):
-        if self.graph_exists_in_db:
+        if self.__use_experimental_views and self.graph_exists_in_db:
             if self.is_directed():
                 logger.warning("CustomEdgeView for Directed Graphs not yet implemented")
                 return super().edges

@@ -183,7 +183,11 @@ class Graph(nx.Graph):
             logger.info(f"Graph '{name}' created.")
             self._graph_exists_in_db = True
 
-        super().__init__(*args, name=name, **kwargs)
+        # add graph name to kwargs if not none
+        if name is not None:
+            kwargs["name"] = name
+
+        super().__init__(*args, **kwargs)
 
     #######################
     # Init helper methods #

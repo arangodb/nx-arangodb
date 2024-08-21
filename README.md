@@ -30,7 +30,7 @@ os.environ["DATABASE_USERNAME"] = "root"
 os.environ["DATABASE_PASSWORD"] = "password"
 os.environ["DATABASE_NAME"] = "_system"
 
-G = nxadb.Graph(graph_name="KarateGraph")
+G = nxadb.Graph(name="KarateGraph")
 
 G_nx = nx.karate_club_graph()
 assert len(G.nodes) == len(G_nx.nodes)

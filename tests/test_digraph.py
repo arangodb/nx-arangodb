@@ -289,7 +289,7 @@ class TestDiGraph(BaseAttrDiGraphTester, _TestGraph):
         ed1, ed2, ed3, ed4, ed5, ed6 = ({}, {}, {}, {}, {}, {})
         self.k3adj = {0: {1: ed1, 2: ed2}, 1: {0: ed3, 2: ed4}, 2: {0: ed5, 1: ed6}}
         self.k3edges = [(0, 1), (0, 2), (1, 2)]
-        self.k3nodes = [0, 1, 2]
+        self.k3nodes = ["test_graph_node/0", "test_graph_node/1", "test_graph_node/2"]
         self.K3 = self.Graph()
         self.K3._succ = self.k3adj  # K3._adj is synced with K3._succ
         self.K3._pred = {0: {1: ed3, 2: ed5}, 1: {0: ed1, 2: ed6}, 2: {0: ed2, 1: ed4}}
@@ -318,6 +318,7 @@ class TestDiGraph(BaseAttrDiGraphTester, _TestGraph):
         self.K3Graph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs, incoming_graph_data=self.K3
         )
+        self.Graph = self.K3Graph
         self.P3Graph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs, incoming_graph_data=self.P3
         )

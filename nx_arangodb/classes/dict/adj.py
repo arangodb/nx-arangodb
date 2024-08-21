@@ -1285,20 +1285,19 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         for dst_node_id, edge in edges.items():
             edge_attr_dict: EdgeAttrDict = self._create_edge_attr_dict(edge)
 
-            self.__fetch_all_helper(edge_attr_dict, dst_node_id)
+            self.__fetch_all_helper(edge_attr_dict, dst_node_id, is_update=True)
 
     @logger_debug
-    def __fetch_all_graph(self, edge_attr_dict: EdgeAttrDict, dst_node_id: str) -> None:
+    def __fetch_all_graph(
+        self, edge_attr_dict: EdgeAttrDict, dst_node_id: str, is_update: bool = False
+    ) -> None:
         """Helper function for _fetch_all() in Graphs."""
         if dst_node_id in self.data:
             # Don't raise an error if it's a self-loop
             if self.data[dst_node_id] == edge_attr_dict:
                 return
 
-            if edge_attr_dict.data.get(
-                "_to"
-            ) and dst_node_id == edge_attr_dict.data.get("_to"):
-                # This will be an update, don't raise an error
+            if is_update:
                 return
 
             m = "Multiple edges between the same nodes are not supported in Graphs."
@@ -1310,7 +1309,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
     @logger_debug
     def __fetch_all_multigraph(
-        self, edge_attr_dict: EdgeAttrDict, dst_node_id: str
+        self, edge_attr_dict: EdgeAttrDict, dst_node_id: str, is_update: bool = False
     ) -> None:
         """Helper function for _fetch_all() in MultiGraphs."""
         edge_key_dict = self.data.get(dst_node_id)

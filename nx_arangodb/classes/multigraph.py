@@ -48,6 +48,7 @@ class MultiGraph(Graph, nx.MultiGraph):
             read_parallelism,
             read_batch_size,
             write_batch_size,
+            symmetrize_edges,
             use_experimental_views,
             *args,
             **kwargs,

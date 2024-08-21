@@ -312,7 +312,9 @@ class TestDiGraph(BaseAttrDiGraphTester, _TestGraph):
 
         def nxadb_graph_constructor(*args, **kwargs) -> nxadb.DiGraph:
             db.delete_graph(GRAPH_NAME, drop_collections=True, ignore_missing=True)
-            G = nxadb.DiGraph(*args, **kwargs, name=GRAPH_NAME, use_experimental_views=True)
+            G = nxadb.DiGraph(
+                *args, **kwargs, name=GRAPH_NAME, use_experimental_views=True
+            )
             # Experimenting with a delay to see if it helps with CircleCI...
             time.sleep(0.10)
             return G

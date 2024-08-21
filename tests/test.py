@@ -623,7 +623,7 @@ def test_edge_adj_inner_dict_update_existing_single_collection_multi_graphs(
                 "extraValue": edge_doc["_key"],
             }
 
-    G_1._adj[from_doc_id_to_use].update(local_inner_edges_dict)
+    G_1.adj[from_doc_id_to_use].update(local_inner_edges_dict)
 
     edge_col = db.collection("knows")
     edge_col_docs = edge_col.all()

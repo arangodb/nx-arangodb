@@ -400,7 +400,10 @@ def aql_edge_get(
     direction: str,
     can_return_multiple: bool = False,
 ) -> Any | None:
-    return_clause = "DISTINCT UNSET(e, '_rev')" if direction == "ANY" else "e"
+    return_clause = "UNSET(e, '_rev')"
+    if direction == "ANY":
+        return_clause = f"DISTINCT {return_clause}"
+
     return aql_edge(
         db,
         src_node_id,

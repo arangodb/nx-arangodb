@@ -384,7 +384,9 @@ class Graph(nx.Graph):
 
     def clear_edges(self):
         logger.info("Note that clearing edges ony erases the edges in the local cache")
-        super().clear_edges()
+        for nbr_dict in self._adj.data.values():
+            nbr_dict.clear()
+        nx._clear_cache(self)
 
     def clear_nxcg_cache(self):
         self.nxcg_graph = None

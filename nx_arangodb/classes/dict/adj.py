@@ -847,6 +847,10 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
         mirror = self.adjlist_outer_dict  # fake mirror (i.e G._adj)
         if self.is_directed:
+            # TODO: Revisit...
+            # if not hasattr(mirror, "mirror"):
+            # return None
+
             mirror = mirror.mirror  # real mirror (i.e _pred or _succ)
 
         if dst_node_id in mirror.data:
@@ -1495,7 +1499,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
     @logger_debug
     def clear(self) -> None:
-        """g._node.clear()"""
+        """g._adj.clear()"""
         self.data.clear()
         self.FETCHED_ALL_DATA = False
         self.FETCHED_ALL_IDS = False

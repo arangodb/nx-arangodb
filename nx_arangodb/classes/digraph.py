@@ -5,6 +5,7 @@ from arango.database import StandardDatabase
 
 import nx_arangodb as nxadb
 from nx_arangodb.classes.graph import Graph
+from nx_arangodb.logger import logger
 
 from .dict.adj import AdjListOuterDict
 from .enum import TraversalDirection
@@ -75,6 +76,14 @@ class DiGraph(Graph, nx.DiGraph):
     # @cached_property
     # def out_edges(self):
     # pass
+
+    def clear_edges(self):
+        logger.info("Note that clearing edges ony erases the edges in the local cache")
+        for predecessor_dict in self._pred.data.values():
+            predecessor_dict.clear()
+        for successor_dict in self._succ.data.values():
+            successor_dict.clear()
+        nx._clear_cache(self)
 
     def add_node(self, node_for_adding, **attr):
         if node_for_adding not in self._succ:

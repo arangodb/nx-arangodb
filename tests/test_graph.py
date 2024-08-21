@@ -152,12 +152,11 @@ class BaseGraphTester:
             ("test_graph_node/0", "test_graph_node/2"),
             ("test_graph_node/1", "test_graph_node/2"),
         ]
-        edges_0 = [(0, "test_graph_node/1"), (0, "test_graph_node/2")]
-        edges_0_1 = [
-            (0, "test_graph_node/1"),
-            (0, "test_graph_node/2"),
-            (1, "test_graph_node/2"),
+        edges_0 = [
+            ("test_graph_node/0", "test_graph_node/1"),
+            ("test_graph_node/0", "test_graph_node/2"),
         ]
+        edges_0_1 = edges_0 + [("test_graph_node/1", "test_graph_node/2")]
         assert isinstance(G._adj, AdjListOuterDict)
         assert edges_equal(G.edges(), edges_all)
         assert edges_equal(G.edges(0), edges_0)
@@ -189,8 +188,10 @@ class BaseGraphTester:
     def test_nbunch_iter(self):
         G = self.Graph()
         assert nodes_equal(list(G.nbunch_iter()), self.k3nodes)  # all nodes
-        assert nodes_equal(G.nbunch_iter(0), [0])  # single node
-        assert nodes_equal(G.nbunch_iter([0, 1]), [0, 1])  # sequence
+        assert nodes_equal(G.nbunch_iter(0), ["test_graph_node/0"])  # single node
+        assert nodes_equal(
+            G.nbunch_iter([0, 1]), ["test_graph_node/0", "test_graph_node/1"]
+        )  # sequence
         # sequence with none in graph
         assert nodes_equal(G.nbunch_iter([-1]), [])
         # string sequence with none in graph
@@ -227,7 +228,7 @@ class BaseGraphTester:
         assert sorted(G.degree()) == [("test_graph_node/1", 2)]
         assert dict(G.degree()) == {"test_graph_node/1": 2}
         assert G.degree(1) == 2
-        assert sorted(G.degree([1])) == [(1, 2)]
+        assert sorted(G.degree([1])) == [("test_graph_node/1", 2)]
         assert G.degree(1, weight="weight") == 2
 
     def test_selfloops(self):
@@ -281,7 +282,7 @@ class BaseAttrGraphTester(BaseGraphTester):
             "test_graph_node/3": 3,
         }
         assert G.degree(1, weight="weight") == 2
-        assert nodes_equal((G.degree([1], weight="weight")), [(1, 2)])
+        assert nodes_equal((G.degree([1], weight="weight")), [("test_graph_node/1", 2)])
 
         assert nodes_equal((d for n, d in G.degree(weight="other")), [3, 7, 4])
         assert dict(G.degree(weight="other")) == {
@@ -290,7 +291,7 @@ class BaseAttrGraphTester(BaseGraphTester):
             "test_graph_node/3": 4,
         }
         assert G.degree(1, weight="other") == 3
-        assert edges_equal((G.degree([1], weight="other")), [(1, 3)])
+        assert edges_equal((G.degree([1], weight="other")), [("test_graph_node/1", 3)])
 
     def add_attributes(self, G):
         G.graph["foo"] = []
@@ -1009,12 +1010,12 @@ class TestGraph(BaseAttrGraphTester):
         assert edges_equal(G.edges(data=True), all_edges)
         all_edges_0 = [
             (
-                0,
+                "test_graph_node/0",
                 "test_graph_node/1",
                 get_doc("test_graph_node_to_test_graph_node/0"),
             ),
             (
-                0,
+                "test_graph_node/0",
                 "test_graph_node/2",
                 get_doc("test_graph_node_to_test_graph_node/1"),
             ),
@@ -1022,7 +1023,7 @@ class TestGraph(BaseAttrGraphTester):
         assert edges_equal(G.edges(0, data=True), all_edges_0)
         all_edges_0_1 = all_edges_0 + [
             (
-                1,
+                "test_graph_node/1",
                 "test_graph_node/2",
                 get_doc("test_graph_node_to_test_graph_node/2"),
             ),
@@ -1100,9 +1101,10 @@ class TestGraph(BaseAttrGraphTester):
         H.update(edges=[(3, 4)])
         # NOTE: We can't guarantee the order of the edges here. Should revisit...
         H_edges_data = H.edges.data()
-        assert H_edges_data == [
-            ("test_graph_node/3", "test_graph_node/4", get_doc(H[3][4]["_id"]))
-        ] or [("test_graph_node/4", "test_graph_node/3", get_doc(H[3][4]["_id"]))]
+        edge = get_doc(H[3][4]["_id"])
+        assert H_edges_data == [("test_graph_node/3", "test_graph_node/4", edge)] or [
+            ("test_graph_node/4", "test_graph_node/3", edge)
+        ]
         # No inputs -> exception
         with pytest.raises(nx.NetworkXError):
             nx.Graph().update()

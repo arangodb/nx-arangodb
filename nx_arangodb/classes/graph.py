@@ -9,6 +9,7 @@ from adbnx_adapter import ADBNX_Adapter
 from arango import ArangoClient
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
+from networkx.exception import NetworkXError
 
 import nx_arangodb as nxadb
 from nx_arangodb.exceptions import (
@@ -28,6 +29,7 @@ from .dict import (
     node_attr_dict_factory,
     node_dict_factory,
 )
+from .function import get_node_id
 from .reportviews import CustomEdgeView, CustomNodeView
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.Graph)  # type: ignore
@@ -491,3 +493,61 @@ class Graph(nx.Graph):
         # Reason:
         # It is more efficient to count the number of edges in the edge collections
         # compared to relying on the DegreeView.
+
+    def nbunch_iter(self, nbunch=None):
+        if not self._graph_exists_in_db:
+            return super().nbunch_iter(nbunch)
+
+        if nbunch is None:
+            bunch = iter(self._adj)
+        elif nbunch in self:
+            ######################
+            # NOTE: monkey patch #
+            ######################
+
+            # Old: Nothing
+
+            # New:
+            if isinstance(nbunch, int):
+                nbunch = get_node_id(str(nbunch), self.default_node_type)
+
+            # Reason:
+            # ArangoDB only uses strings as node IDs. Therefore, we need to convert
+            # the integer node ID to a string before using it in an iterator.
+
+            bunch = iter([nbunch])
+        else:
+
+            def bunch_iter(nlist, adj):
+                try:
+                    for n in nlist:
+                        ######################
+                        # NOTE: monkey patch #
+                        ######################
+
+                        # Old: Nothing
+
+                        # New:
+                        if isinstance(n, int):
+                            n = get_node_id(str(n), self.default_node_type)
+
+                        # Reason:
+                        # ArangoDB only uses strings as node IDs. Therefore,
+                        # we need to convert the integer node ID to a
+                        # string before using it in an iterator.
+
+                        if n in adj:
+                            yield n
+
+                except TypeError as err:
+                    exc, message = err, err.args[0]
+                    if "iter" in message:
+                        m = "nbunch is not a node or a sequence of nodes."
+                        exc = NetworkXError(m)
+                    if "hashable" in message:
+                        m = f"Node {n} in sequence nbunch is not a valid node."
+                        exc = NetworkXError(m)
+                    raise exc
+
+            bunch = bunch_iter(nbunch, self._adj)
+        return bunch

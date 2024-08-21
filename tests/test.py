@@ -525,7 +525,9 @@ def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> 
     assert db.collection(e_1_name).count() == 0
     assert db.collection(e_2_name).count() == 0
 
-    G_1 = nxadb.Graph(name=graph_name, default_node_type=v_1_name)
+    G_1 = nxadb.Graph(
+        name=graph_name, default_node_type=v_1_name, use_experimental_views=True
+    )
     assert len(G_1.nodes) == 0
     assert len(G_1.edges) == 0
 

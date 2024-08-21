@@ -45,7 +45,7 @@ class Graph(nx.Graph):
 
     def __init__(
         self,
-        graph_name: str | None = None,
+        name: str | None = None,
         default_node_type: str | None = None,
         edge_type_key: str = "_edge_type",
         edge_type_func: Callable[[str, str], str] | None = None,
@@ -59,12 +59,12 @@ class Graph(nx.Graph):
         **kwargs: Any,
     ):
         self._db = None
-        self._graph_name = None
+        self.__name = None
         self._graph_exists_in_db = False
 
         self._set_db(db)
         if self._db is not None:
-            self._set_graph_name(graph_name)
+            self._set_graph_name(name)
 
         # We need to store the data transfer properties as some functions will need them
         self.read_parallelism = read_parallelism
@@ -104,7 +104,7 @@ class Graph(nx.Graph):
                 m = "Cannot pass **edge_type_func** if the graph already exists"
                 raise NotImplementedError(m)
 
-            self.adb_graph = self.db.graph(self._graph_name)
+            self.adb_graph = self.db.graph(self.__name)
             vertex_collections = self.adb_graph.vertex_collections()
             edge_definitions = self.adb_graph.edge_definitions()
 
@@ -112,7 +112,7 @@ class Graph(nx.Graph):
                 default_node_type = list(vertex_collections)[0]
                 logger.info(f"Default node type set to '{default_node_type}'")
             elif default_node_type not in vertex_collections:
-                m = f"Default node type '{default_node_type}' not found in graph '{graph_name}'"  # noqa: E501
+                m = f"Default node type '{default_node_type}' not found in graph '{name}'"  # noqa: E501
                 raise InvalidDefaultNodeType(m)
 
             node_types_to_edge_type_map: dict[tuple[str, str], str] = {}
@@ -138,9 +138,9 @@ class Graph(nx.Graph):
             self._set_factory_methods()
             self._set_arangodb_backend_config()
 
-        elif self._graph_name:
+        elif self.__name:
 
-            prefix = f"{graph_name}_" if graph_name else ""
+            prefix = f"{name}_" if name else ""
             if default_node_type is None:
                 default_node_type = f"{prefix}node"
             if edge_type_func is None:
@@ -162,7 +162,7 @@ class Graph(nx.Graph):
 
             if isinstance(incoming_graph_data, nx.Graph):
                 self.adb_graph = ADBNX_Adapter(self.db).networkx_to_arangodb(
-                    self._graph_name,
+                    self.__name,
                     incoming_graph_data,
                     edge_definitions=edge_definitions,
                     batch_size=self.write_batch_size,
@@ -174,14 +174,18 @@ class Graph(nx.Graph):
 
             else:
                 self.adb_graph = self.db.create_graph(
-                    self._graph_name,
+                    self.__name,
                     edge_definitions=edge_definitions,
                 )
 
             self._set_factory_methods()
             self._set_arangodb_backend_config()
-            logger.info(f"Graph '{graph_name}' created.")
+            logger.info(f"Graph '{name}' created.")
             self._graph_exists_in_db = True
+
+        # add graph name to kwargs if not none
+        if name is not None:
+            kwargs["name"] = name
 
         super().__init__(*args, **kwargs)
 
@@ -260,11 +264,21 @@ class Graph(nx.Graph):
         return self._db
 
     @property
-    def graph_name(self) -> str:
-        if self._graph_name is None:
+    def name(self) -> str:
+        if self.__name is None:
             raise GraphNameNotSet("Graph name not set")
 
-        return self._graph_name
+        return self.__name
+
+    @name.setter
+    def name(self, s):
+        if self.__name is not None:
+            raise ValueError("Existing graph cannot be renamed")
+
+        self.__name = s
+        m = "Note that setting the graph name does not create the graph in the database"  # noqa: E501
+        logger.warning(m)
+        nx._clear_cache(self)
 
     @property
     def graph_exists_in_db(self) -> bool:
@@ -317,7 +331,7 @@ class Graph(nx.Graph):
         if not isinstance(graph_name, str):
             raise TypeError("**graph_name** must be a string")
 
-        self._graph_name = graph_name
+        self.__name = graph_name
         self._graph_exists_in_db = self.db.has_graph(graph_name)
 
         logger.info(f"Graph '{graph_name}' exists: {self._graph_exists_in_db}")

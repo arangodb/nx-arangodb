@@ -44,7 +44,7 @@ def shortest_path(
     bind_vars = {
         "source": source,
         "target": target,
-        "graph": G.graph_name,
+        "graph": G.name,
         "weight": weight,
     }
 

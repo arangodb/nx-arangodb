@@ -88,6 +88,7 @@ def test_db(load_karate_graph: Any) -> None:
 )
 def test_adb_graph_init(graph_cls: type[nxadb.Graph]) -> None:
     G = graph_cls(name="TestGraph")
+    assert G.name == "TestGraph"
 
     # Rename of an adb graph is not allowed
     with pytest.raises(ValueError):

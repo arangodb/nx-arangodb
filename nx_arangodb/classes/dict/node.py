@@ -31,6 +31,7 @@ from ..function import (
     logger_debug,
     separate_nodes_by_collections,
     upsert_collection_documents,
+    vertex_get,
 )
 
 #############
@@ -274,16 +275,14 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         """G._node['node/1']"""
         node_id = get_node_id(key, self.default_node_type)
 
-        if vertex := self.data.get(node_id):
-            return vertex
+        if vertex_cache := self.data.get(node_id):
+            return vertex_cache
 
         if node_id not in self.data and self.FETCHED_ALL_IDS:
             raise KeyError(key)
 
-        if vertex := self.graph.vertex(node_id):
-            del vertex["_rev"]
-
-            node_attr_dict = self._create_node_attr_dict(vertex)
+        if vertex_db := vertex_get(self.graph, node_id):
+            node_attr_dict = self._create_node_attr_dict(vertex_db)
             self.data[node_id] = node_attr_dict
 
             return node_attr_dict
@@ -303,7 +302,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         node_type, node_id = get_node_type_and_id(key, self.default_node_type)
 
         result = doc_insert(self.db, node_type, node_id, value.data)
-        del result["_rev"]
 
         node_attr_dict = self._create_node_attr_dict(result)
 
@@ -455,7 +453,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         )
 
         for node_id, node_data in node_dict.items():
-            del node_data["_rev"]
+            del node_data["_rev"] # TODO: Optimize away via phenolrs
             node_attr_dict = self._create_node_attr_dict(node_data)
             self.data[node_id] = node_attr_dict
 

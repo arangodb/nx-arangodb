@@ -34,6 +34,8 @@ from ..function import (
     check_list_for_errors,
     doc_insert,
     doc_update,
+    edge_get,
+    edge_link,
     get_arangodb_graph,
     get_node_id,
     get_node_type_and_id,
@@ -451,8 +453,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         if self.FETCHED_ALL_IDS:
             return False
 
-        edge = self.graph.edge(key)
-        del edge["_rev"]
+        edge = edge_get(self.graph, key)
 
         if edge is None:
             logger.warning(f"Edge '{key}' does not exist in Graph.")
@@ -495,8 +496,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         if key not in self.data and self.FETCHED_ALL_IDS:
             raise KeyError(key)
 
-        edge = self.graph.edge(key)
-        del edge["_rev"]
+        edge = edge_get(self.graph, key)
 
         if edge is None:
             raise KeyError(key)
@@ -542,11 +542,14 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         if not edge_type:
             edge_type = self.default_edge_type
 
-        edge = self.graph.link(
-            edge_type, self.src_node_id, self.dst_node_id, edge_attr_dict.data
+        edge = edge_link(
+            self.graph,
+            edge_type,
+            self.src_node_id,
+            self.dst_node_id,
+            edge_attr_dict.data,
         )
 
-        del edge["_rev"]
         edge_data: dict[str, Any] = {
             **edge_attr_dict.data,
             **edge,
@@ -697,8 +700,6 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
             raise ValueError("Failed to fetch edges")
 
         for edge in edges:
-            del edge["_rev"]
-
             edge_attr_dict = self._create_edge_attr_dict(edge)
             self.data[edge["_id"]] = edge_attr_dict
 
@@ -943,7 +944,6 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         if not edge:
             raise KeyError(key)
 
-        del edge["_rev"]
         edge_attr_dict: EdgeAttrDict = self._create_edge_attr_dict(edge)
 
         self.data[dst_node_id] = edge_attr_dict
@@ -1032,14 +1032,18 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             can_return_multiple=False,
         )
 
-        if edge_id:
-            edge = doc_insert(self.db, edge_type, edge_id, edge_attr_dict.data)
-        else:
-            edge = self.graph.link(
-                edge_type, self.src_node_id, dst_node_id, edge_attr_dict.data
+        edge = (
+            doc_insert(self.db, edge_type, edge_id, edge_attr_dict.data)
+            if edge_id
+            else edge_link(
+                self.graph,
+                edge_type,
+                self.src_node_id,
+                dst_node_id,
+                edge_attr_dict.data,
             )
+        )
 
-        del edge["_rev"]
         edge_data: dict[str, Any] = {
             **edge_attr_dict.data,
             **edge,
@@ -1065,6 +1069,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         assert list(edge_key_dict.data.keys())[0] == "-1"
         assert edge_key_dict.src_node_id is None
         assert edge_key_dict.dst_node_id is None
+        assert self.src_node_id is not None
 
         edge_attr_dict = edge_key_dict.data["-1"]
 
@@ -1072,11 +1077,10 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         if edge_type is None:
             edge_type = self.edge_type_func(self.src_node_type, dst_node_type)
 
-        edge = self.graph.link(
-            edge_type, self.src_node_id, dst_node_id, edge_attr_dict.data
+        edge = edge_link(
+            self.graph, edge_type, self.src_node_id, dst_node_id, edge_attr_dict.data
         )
 
-        del edge["_rev"]
         edge_data: dict[str, Any] = {
             **edge_attr_dict.data,
             **edge,
@@ -1219,14 +1223,12 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         query = f"""
             FOR v, e IN 1..1 {self.traversal_direction.name} @src_node_id
             GRAPH @graph_name
-                RETURN e
+                RETURN UNSET(e, '_rev')
         """
 
         bind_vars = {"src_node_id": self.src_node_id, "graph_name": self.graph.name}
 
         for edge in aql(self.db, query, bind_vars):
-            del edge["_rev"]
-
             edge_attr_dict: EdgeAttrDict = self._create_edge_attr_dict(edge)
 
             dst_node_id: str = (

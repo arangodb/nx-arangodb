@@ -400,7 +400,7 @@ def aql_edge_get(
     direction: str,
     can_return_multiple: bool = False,
 ) -> Any | None:
-    return_clause = "DISTINCT e" if direction == "ANY" else "e"
+    return_clause = "DISTINCT UNSET(e, '_rev')" if direction == "ANY" else "e"
     return aql_edge(
         db,
         src_node_id,
@@ -605,6 +605,8 @@ def doc_insert(
         collection, {**data, "_id": id}, overwrite=True, **kwargs
     )
 
+    del result["_rev"]
+
     return result
 
 
@@ -617,6 +619,36 @@ def doc_get_or_insert(
         return result
 
     return doc_insert(db, collection, id, **kwargs)
+
+
+def vertex_get(graph: Graph, id: str) -> dict[str, Any] | None:
+    """Gets a vertex from the graph."""
+    vertex: dict[str, Any] | None = graph.vertex(id)
+    if vertex is None:
+        return None
+
+    del vertex["_rev"]
+    return vertex
+
+
+def edge_get(graph: Graph, id: str) -> dict[str, Any] | None:
+    """Gets an edge from the graph."""
+    edge: dict[str, Any] | None = graph.edge(id)
+    if edge is None:
+        return None
+
+    del edge["_rev"]
+
+    return edge
+
+
+def edge_link(
+    graph: Graph, collection: str, src_id: str, dst_id: str, data: dict[str, Any]
+) -> dict[str, Any]:
+    """Links two vertices via an edge."""
+    edge: dict[str, Any] = graph.link(collection, src_id, dst_id, data)
+    del edge["_rev"]
+    return edge
 
 
 def get_node_id(key: str, default_node_type: str) -> str:

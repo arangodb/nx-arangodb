@@ -427,12 +427,15 @@ def test_edge_adj_dict_update_existing_single_collection_graph_and_digraph(
     edge_col = db.collection("knows")
     edge_col_docs = edge_col.all()
 
-    # Check if the extraValue attribute was added to each document in the database
+    # Check if the attributes were added to each document in the database
     for doc in edge_col_docs:
         assert "extraValue" in doc
         assert doc["extraValue"] == doc["_key"]
+        assert "newDict" in doc
+        assert doc["newDict"] == {"foo": "bar"}
+        assert "weight" in doc
 
-    # Check if the extraValue attribute was added to each document in the local cache
+    # Check if the attributes were added to each document in the local cache
     for from_doc_id, target_dict in local_edges_dict.items():
         for to_doc_id, edge_doc in target_dict.items():
             key = extract_arangodb_key(edge_doc["_id"])
@@ -501,12 +504,15 @@ def test_edge_adj_dict_update_existing_single_collection_MultiGraph_and_MultiDiG
     edge_col = db.collection("knows")
     edge_col_docs = edge_col.all()
 
-    # Check if the extraValue attribute was added to each document in the database
+    # Check if the attributes were added to each document in the database
     for doc in edge_col_docs:
         assert "extraValue" in doc
         assert doc["extraValue"] == doc["_key"]
+        assert "newDict" in doc
+        assert doc["newDict"] == {"foo": "bar"}
+        assert "weight" in doc
 
-    # Check if the extraValue attribute was added to each document in the local cache
+    # Check if the attributes were added to each document in the local cache
     for from_doc_id, target_dict in local_edges_dict.items():
         for to_doc_id, edge_dict in target_dict.items():
             for edge_id, edge_doc in edge_dict.items():

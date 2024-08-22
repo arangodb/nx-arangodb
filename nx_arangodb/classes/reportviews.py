@@ -9,6 +9,8 @@ import networkx as nx
 
 import nx_arangodb as nxadb
 
+from .function import get_node_id
+
 
 class CustomNodeView(nx.classes.reportviews.NodeView):
     def __call__(self, data=False, default=None):
@@ -71,19 +73,7 @@ class CustomEdgeDataView(nx.classes.reportviews.EdgeDataView):
             # Filter for self._data  server-side
             yield from self._adjdict.items(data=self._data, default=self._default)
         else:
-            # Reason: *n* may be an integer, whereas **nbr** is always
-            # an ArangoDB Vertex ID. Therefore, we can't use the original
-            # *seen* logic in EdgeDataView.__iter__. Instead, we can rely
-            # on the ArangoDB Edge ID returned in *dd* to ensure that we
-            # don't return duplicate edges.
-
-            seen = {}
-            for n, nbrs in self._nodes_nbrs():
-                for nbr, dd in nbrs.items():
-                    if dd["_id"] not in seen:
-                        seen[dd["_id"]] = 1
-                        yield self._report(n, nbr, dd)
-            del seen
+            yield from super().__iter__()
 
 
 class CustomEdgeView(nx.classes.reportviews.EdgeView):

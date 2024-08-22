@@ -9,6 +9,7 @@ from nx_arangodb.logger import logger
 
 from .dict.adj import AdjListOuterDict
 from .enum import TraversalDirection
+from .function import get_node_id
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.DiGraph)  # type: ignore
 
@@ -83,9 +84,8 @@ class DiGraph(Graph, nx.DiGraph):
         logger.info("Note that clearing edges ony erases the edges in the local cache")
         for predecessor_dict in self._pred.data.values():
             predecessor_dict.clear()
-        for successor_dict in self._succ.data.values():
-            successor_dict.clear()
-        nx._clear_cache(self)
+
+        super().clear_edges()
 
     def add_node(self, node_for_adding, **attr):
         if node_for_adding not in self._succ:
@@ -119,6 +119,9 @@ class DiGraph(Graph, nx.DiGraph):
         nx._clear_cache(self)
 
     def remove_node(self, n):
+        if isinstance(n, (str, int)):
+            n = get_node_id(str(n), self.default_node_type)
+
         try:
 
             ######################
@@ -145,6 +148,22 @@ class DiGraph(Graph, nx.DiGraph):
             del self._pred[u][n]  # remove all edges n-u in digraph
         del self._succ[n]  # remove node from succ
         for u in nbrs_pred:
+            ######################
+            # NOTE: Monkey patch #
+            ######################
+
+            # Old: Nothing
+
+            # New:
+            if u == n:
+                continue  # skip self loops
+
+            # Reason: We need to skip self loops, as they are
+            # already taken care of in the previous step. This
+            # avoids getting a KeyError on the next line.
+
+            ###########################
+
             del self._succ[u][n]  # remove all edges n-u in digraph
         del self._pred[n]  # remove node from pred
         nx._clear_cache(self)

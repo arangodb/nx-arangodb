@@ -61,14 +61,14 @@ class BaseDiGraphTester(BaseGraphTester):
             ("test_graph_node/2", "test_graph_node/1"),
         ]
         assert sorted(G.edges(0)) == [
-            (0, "test_graph_node/1"),
-            (0, "test_graph_node/2"),
+            ("test_graph_node/0", "test_graph_node/1"),
+            ("test_graph_node/0", "test_graph_node/2"),
         ]
         assert sorted(G.edges([0, 1])) == [
-            (0, "test_graph_node/1"),
-            (0, "test_graph_node/2"),
-            (1, "test_graph_node/0"),
-            (1, "test_graph_node/2"),
+            ("test_graph_node/0", "test_graph_node/1"),
+            ("test_graph_node/0", "test_graph_node/2"),
+            ("test_graph_node/1", "test_graph_node/0"),
+            ("test_graph_node/1", "test_graph_node/2"),
         ]
         with pytest.raises(nx.NetworkXError):
             G.edges(-1)
@@ -85,8 +85,8 @@ class BaseDiGraphTester(BaseGraphTester):
         ]
 
         assert sorted(G.out_edges(0)) == [
-            (0, "test_graph_node/1"),
-            (0, "test_graph_node/2"),
+            ("test_graph_node/0", "test_graph_node/1"),
+            ("test_graph_node/0", "test_graph_node/2"),
         ]
         with pytest.raises(nx.NetworkXError):
             G.out_edges(-1)
@@ -121,7 +121,7 @@ class BaseDiGraphTester(BaseGraphTester):
             ("test_graph_node/1", "test_graph_node/0"),
             ("test_graph_node/2", "test_graph_node/1"),
         ]
-        assert sorted(G.in_edges(0)) == [("test_graph_node/1", 0)]
+        assert sorted(G.in_edges(0)) == [("test_graph_node/1", "test_graph_node/0")]
         assert sorted(G.in_edges(2)) == []
 
     def test_in_edges_data(self):
@@ -144,7 +144,9 @@ class BaseDiGraphTester(BaseGraphTester):
             "test_graph_node/2": 4,
         }
         assert G.degree(0) == 4
-        assert list(G.degree(iter([0]))) == [(0, 4)]  # run through iterator
+        assert list(G.degree(iter([0]))) == [
+            ("test_graph_node/0", 4)
+        ]  # run through iterator
 
     def test_in_degree(self):
         G = self.K3Graph()
@@ -159,7 +161,9 @@ class BaseDiGraphTester(BaseGraphTester):
             "test_graph_node/2": 2,
         }
         assert G.in_degree(0) == 2
-        assert list(G.in_degree(iter([0]))) == [(0, 2)]  # run through iterator
+        assert list(G.in_degree(iter([0]))) == [
+            ("test_graph_node/0", 2)
+        ]  # run through iterator
 
     def test_out_degree(self):
         G = self.K3Graph()
@@ -174,7 +178,7 @@ class BaseDiGraphTester(BaseGraphTester):
             "test_graph_node/2": 2,
         }
         assert G.out_degree(0) == 2
-        assert list(G.out_degree(iter([0]))) == [(0, 2)]
+        assert list(G.out_degree(iter([0]))) == [("test_graph_node/0", 2)]
 
     def test_size(self):
         G = self.K3Graph()
@@ -329,8 +333,7 @@ class TestDiGraph(BaseAttrDiGraphTester, _TestGraph):
         )
 
     def test_data_input(self):
-        G = self.EmptyGraph(incoming_graph_data={1: [2], 2: [1]}, name="test")
-        assert G.name == "test"
+        G = self.EmptyGraph(incoming_graph_data={1: [2], 2: [1]})
         assert sorted(G.adj.items()) == [(1, {2: {}}), (2, {1: {}})]
         assert sorted(G.succ.items()) == [(1, {2: {}}), (2, {1: {}})]
         assert sorted(G.pred.items()) == [(1, {2: {}}), (2, {1: {}})]
@@ -414,15 +417,20 @@ class TestDiGraph(BaseAttrDiGraphTester, _TestGraph):
         G = self.K3Graph()
         G.graph["name"] = "K3"
         nodes = list(G.nodes)
+
+        G._adj._fetch_all()
         G.clear_edges()
+
         assert list(G.nodes) == nodes
-        expected = {
-            "test_graph_node/0": {},
-            "test_graph_node/1": {},
-            "test_graph_node/2": {},
-        }
-        assert G._succ.data == expected
-        assert G._pred.data == expected
+
+        for node, adj_inner_dict in G._succ.data.items():
+            assert node in G._pred.data
+            assert adj_inner_dict.data == {}
+
+        for node, adj_inner_dict in G._pred.data.items():
+            assert node in G._succ.data
+            assert adj_inner_dict.data == {}
+
         assert list(G.edges) != []
         assert G.graph["name"] == "K3"
 

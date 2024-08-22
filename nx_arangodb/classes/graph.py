@@ -510,12 +510,13 @@ class Graph(nx.Graph):
             # Old: Nothing
 
             # New:
-            if isinstance(nbunch, int):
+            if isinstance(nbunch, (str, int)):
                 nbunch = get_node_id(str(nbunch), self.default_node_type)
 
             # Reason:
             # ArangoDB only uses strings as node IDs. Therefore, we need to convert
-            # the integer node ID to a string before using it in an iterator.
+            # the non-prefixed node ID to an ArangoDB ID before
+            # using it in an iterator.
 
             bunch = iter([nbunch])
         else:
@@ -530,13 +531,15 @@ class Graph(nx.Graph):
                         # Old: Nothing
 
                         # New:
-                        if isinstance(n, int):
+                        if isinstance(n, (str, int)):
                             n = get_node_id(str(n), self.default_node_type)
 
                         # Reason:
                         # ArangoDB only uses strings as node IDs. Therefore,
-                        # we need to convert the integer node ID to a
-                        # string before using it in an iterator.
+                        # we need to convert non-prefixed node IDs to an
+                        # ArangoDB ID before using it in an iterator.
+
+                        ######################
 
                         if n in adj:
                             yield n

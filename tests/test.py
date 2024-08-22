@@ -636,7 +636,7 @@ def test_edge_dict_update_multiple_collections(load_two_relation_graph: Any) -> 
 def test_edge_adj_inner_dict_update_existing_single_collection(
     load_karate_graph: Any, graph_cls: type[nxadb.Graph]
 ) -> None:
-    G_1 = graph_cls(graph_name="KarateGraph", foo="bar")
+    G_1 = graph_cls(name="KarateGraph", foo="bar", use_experimental_views=True)
 
     local_adj = G_1.adj
     local_inner_edges_dict: GraphAdjDict = {}
@@ -675,13 +675,13 @@ def test_edge_adj_inner_dict_update_existing_single_collection(
     "graph_cls",
     [
         (nxadb.MultiGraph),
-        # (nxadb.MultiDiGraph),
+        (nxadb.MultiDiGraph),
     ],
 )
 def test_edge_adj_inner_dict_update_existing_single_collection_multi_graphs(
     load_karate_graph: Any, graph_cls: type[nxadb.Graph]
 ) -> None:
-    G_1 = graph_cls(graph_name="KarateGraph", foo="bar")
+    G_1 = graph_cls(name="KarateGraph", foo="bar", use_experimental_views=True)
 
     local_adj = G_1.adj
     local_inner_edges_dict: GraphAdjDict = {}
@@ -717,7 +717,6 @@ def test_edge_adj_inner_dict_update_existing_single_collection_multi_graphs(
         assert G_1.adj[from_doc_id_to_use][to_doc_id][to_doc_id][
             "extraValue"
         ] == extract_arangodb_key(local_inner_edges_dict[to_doc_id]["_id"])
-    return
 
 
 @pytest.mark.parametrize(

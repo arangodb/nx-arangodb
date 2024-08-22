@@ -1,3 +1,5 @@
+# type: ignore
+
 import time
 from collections import UserDict
 
@@ -29,7 +31,7 @@ class BaseMultiGraphTester(BaseAttrGraphTester):
         edge_id = "test_graph_node_to_test_graph_node/0"
         edge = get_doc(edge_id)
         # edge is not cached, int key not supported
-        assert G.get_edge_data(0, 1, 0) == None
+        assert G.get_edge_data(0, 1, 0) is None
         assert G.get_edge_data(0, 1) == {edge_id: edge}
         assert G.get_edge_data(0, 1, edge_id) == edge
         assert G[0][1] == {edge_id: edge}

@@ -530,8 +530,13 @@ class BaseAttrGraphTester(BaseGraphTester):
     def test_edge_attr2(self):
         G = self.EmptyGraph()
         G.add_edges_from([(1, 2), (3, 4)], foo="foo")
-        edge_1_2 = get_doc(G.adj[1][2]["_id"])
-        edge_3_4 = get_doc(G.adj[3][4]["_id"])
+        if G.is_multigraph():
+            edge_1_2 = get_doc(G.adj[1][2][0]["_id"])
+            edge_3_4 = get_doc(G.adj[3][4][0]["_id"])
+        else:
+            edge_1_2 = get_doc(G.adj[1][2]["_id"])
+            edge_3_4 = get_doc(G.adj[3][4]["_id"])
+
         assert edge_1_2["foo"] == "foo"
         assert edge_3_4["foo"] == "foo"
         assert edges_equal(
@@ -552,8 +557,13 @@ class BaseAttrGraphTester(BaseGraphTester):
     def test_edge_attr3(self):
         G = self.EmptyGraph()
         G.add_edges_from([(1, 2, {"weight": 32}), (3, 4, {"weight": 64})], foo="foo")
-        edge_1_2 = get_doc(G.adj[1][2]["_id"])
-        edge_3_4 = get_doc(G.adj[3][4]["_id"])
+        if G.is_multigraph():
+            edge_1_2 = get_doc(G.adj[1][2][0]["_id"])
+            edge_3_4 = get_doc(G.adj[3][4][0]["_id"])
+        else:
+            edge_1_2 = get_doc(G.adj[1][2]["_id"])
+            edge_3_4 = get_doc(G.adj[3][4]["_id"])
+
         assert edge_1_2["weight"] == 32
         assert edge_3_4["weight"] == 64
         assert edge_1_2["foo"] == "foo"
@@ -568,7 +578,10 @@ class BaseAttrGraphTester(BaseGraphTester):
 
         G.remove_edges_from([(1, 2), (3, 4)])
         G.add_edge(1, 2, data=7, spam="bar", bar="foo")
-        edge_1_2 = get_doc(G.adj[1][2]["_id"])
+        if G.is_multigraph:
+            edge_1_2 = get_doc(G.adj[1][2][0]["_id"])
+        else:
+            edge_1_2 = get_doc(G.adj[1][2]["_id"])
         assert edge_1_2["spam"] == "bar"
         assert edge_1_2["bar"] == "foo"
         assert edge_1_2["data"] == 7

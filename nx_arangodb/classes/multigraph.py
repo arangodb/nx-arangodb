@@ -104,3 +104,29 @@ class MultiGraph(Graph, nx.MultiGraph):
         # document. This will allow us to use the edge key as a unique identifier
 
         ###########################
+
+    def has_edge(self, u, v, key=None):
+        try:
+            if key is None:
+                return v in self._adj[u]
+            else:
+                ######################
+                # NOTE: monkey patch #
+                ######################
+
+                # Old: Nothing
+
+                # New:
+                if isinstance(key, int):
+                    return len(self._adj[u][v]) > key
+
+                # Reason:
+                # Integer keys in nxadb.MultiGraph are simply used
+                # as syntactic sugar to access the edge data of a specific
+                # edge that is **cached** in the adjacency dictionary.
+                # So we simply just check if the integer key is within the
+                # range of the number of edges between u and v.
+
+                return key in self._adj[u][v]
+        except KeyError:
+            return False

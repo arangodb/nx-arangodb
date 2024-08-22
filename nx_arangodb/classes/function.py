@@ -447,10 +447,10 @@ def aql_edge_count_src(
     direction: str,
 ) -> int:
     query = f"""
-        RETURN LENGTH(
-            FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
-                RETURN DISTINCT e._id
-        )
+        FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
+            COLLECT id = e._id
+            COLLECT WITH COUNT INTO num
+            RETURN num
     """
 
     bind_vars = {
@@ -475,8 +475,9 @@ def aql_edge_count_src_dst(
     query = f"""
         FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
             FILTER {filter_clause}
-            COLLECT WITH COUNT INTO length
-            RETURN length
+            COLLECT id = e._id
+            COLLECT WITH COUNT INTO num
+            RETURN num
     """
 
     bind_vars = {

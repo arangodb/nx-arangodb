@@ -5,7 +5,7 @@ Used by the nx_arangodb Graph, DiGraph, MultiGraph, and MultiDiGraph classes.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Generator, Tuple
+from typing import Any, Callable, Optional, Tuple, Generator
 
 import networkx as nx
 from arango import ArangoError, DocumentInsertError
@@ -699,6 +699,27 @@ def get_arangodb_collection_key_tuple(key):
     if not is_arangodb_id(key):
         raise ValueError(f"Invalid ArangoDB key: {key}")
     return key.split("/", 1)
+
+
+def extract_arangodb_collection_name(arangodb_id: str) -> str:
+    if not is_arangodb_id(arangodb_id):
+        raise ValueError(f"Invalid ArangoDB key: {arangodb_id}")
+    return arangodb_id.split("/")[0]
+
+
+def read_collection_name_from_local_id(
+    local_id: Optional[str], default_collection: str
+) -> str:
+    if local_id is None:
+        print("local_id is None, cannot read collection name.")
+        return ""
+
+    if is_arangodb_id(local_id):
+        return extract_arangodb_collection_name(local_id)
+
+    assert default_collection is not None
+    assert default_collection != ""
+    return default_collection
 
 
 def separate_nodes_by_collections(nodes: Any, default_collection: str) -> Any:

@@ -58,6 +58,11 @@ class DiGraph(Graph, nx.DiGraph):
             **kwargs,
         )
 
+        if self.graph_exists_in_db:
+            self.clear_edges = self.clear_edges_override
+            self.add_node = self.add_node_override
+            self.remove_node = self.remove_node_override
+
     #######################
     # nx.DiGraph Overides #
     #######################
@@ -72,14 +77,14 @@ class DiGraph(Graph, nx.DiGraph):
     # def out_edges(self):
     # pass
 
-    def clear_edges(self):
+    def clear_edges_override(self):
         logger.info("Note that clearing edges ony erases the edges in the local cache")
         for predecessor_dict in self._pred.data.values():
             predecessor_dict.clear()
 
         super().clear_edges()
 
-    def add_node(self, node_for_adding, **attr):
+    def add_node_override(self, node_for_adding, **attr):
         if node_for_adding not in self._succ:
             if node_for_adding is None:
                 raise ValueError("None cannot be a node")
@@ -110,7 +115,7 @@ class DiGraph(Graph, nx.DiGraph):
 
         nx._clear_cache(self)
 
-    def remove_node(self, n):
+    def remove_node_override(self, n):
         if isinstance(n, (str, int)):
             n = get_node_id(str(n), self.default_node_type)
 

@@ -4,7 +4,7 @@ import warnings
 from collections import UserDict
 from collections.abc import Iterator
 from itertools import islice
-from typing import Any, Callable
+from typing import Any, Callable, Dict, List
 
 from arango.database import StandardDatabase
 from arango.exceptions import DocumentDeleteError
@@ -41,6 +41,7 @@ from ..function import (
     get_node_id,
     get_node_type_and_id,
     get_update_dict,
+    is_arangodb_id,
     json_serializable,
     key_is_adb_id_or_int,
     key_is_not_reserved,
@@ -48,6 +49,7 @@ from ..function import (
     keys_are_not_reserved,
     keys_are_strings,
     logger_debug,
+    read_collection_name_from_local_id,
     separate_edges_by_collections,
     upsert_collection_edges,
 )
@@ -1207,7 +1209,50 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
     @logger_debug
     def update(self, edges: Any) -> None:
         """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
-        raise NotImplementedError("AdjListInnerDict.update()")
+        from_col_name = read_collection_name_from_local_id(
+            self.src_node_id, self.default_node_type
+        )
+
+        to_upsert: Dict[str, List[Dict[str, Any]]] = {from_col_name: []}
+
+        for edge_id, edge_data in edges.items():
+            edge_doc = edge_data
+            edge_doc["_from"] = self.src_node_id
+            edge_doc["_to"] = edge_id
+
+            edge_doc_id = edge_data.get("_id")
+            assert is_arangodb_id(edge_doc_id)
+            edge_col_name = read_collection_name_from_local_id(
+                edge_doc_id, self.default_node_type
+            )
+
+            if to_upsert.get(edge_col_name) is None:
+                to_upsert[edge_col_name] = [edge_doc]
+            else:
+                to_upsert[edge_col_name].append(edge_doc)
+
+        # perform write to ArangoDB
+        result = upsert_collection_edges(self.db, to_upsert)
+
+        all_good = check_list_for_errors(result)
+        if all_good:
+            # Means no single operation failed, in this case we update the local cache
+            self.__set_adj_elements(edges)
+        else:
+            # In this case some or all documents failed. Right now we will not
+            # update the local cache, but raise an error instead.
+            # Reason: We cannot set silent to True, because we need as it does
+            # not report errors then. We need to update the driver to also pass
+            # the errors back to the user, then we can adjust the behavior here.
+            # This will also save network traffic and local computation time.
+            errors = []
+            for collections_results in result:
+                for collection_result in collections_results:
+                    errors.append(collection_result)
+            logger.warning(
+                "Failed to insert at least one node. Will not update local cache."
+            )
+            raise ArangoDBBatchError(errors)
 
     @logger_debug
     def values(self) -> Any:
@@ -1253,12 +1298,23 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         self.FETCHED_ALL_DATA = True
         self.FETCHED_ALL_IDS = True
 
+    def __set_adj_elements(self, edges):
+        for dst_node_id, edge in edges.items():
+            edge_attr_dict: EdgeAttrDict = self._create_edge_attr_dict(edge)
+
+            self.__fetch_all_helper(edge_attr_dict, dst_node_id, is_update=True)
+
     @logger_debug
-    def __fetch_all_graph(self, edge_attr_dict: EdgeAttrDict, dst_node_id: str) -> None:
+    def __fetch_all_graph(
+        self, edge_attr_dict: EdgeAttrDict, dst_node_id: str, is_update: bool = False
+    ) -> None:
         """Helper function for _fetch_all() in Graphs."""
         if dst_node_id in self.data:
             # Don't raise an error if it's a self-loop
             if self.data[dst_node_id] == edge_attr_dict:
+                return
+
+            if is_update:
                 return
 
             m = "Multiple edges between the same nodes are not supported in Graphs."
@@ -1270,7 +1326,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
     @logger_debug
     def __fetch_all_multigraph(
-        self, edge_attr_dict: EdgeAttrDict, dst_node_id: str
+        self, edge_attr_dict: EdgeAttrDict, dst_node_id: str, is_update: bool = False
     ) -> None:
         """Helper function for _fetch_all() in MultiGraphs."""
         edge_key_dict = self.data.get(dst_node_id)

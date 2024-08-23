@@ -58,6 +58,7 @@ class MultiGraph(Graph, nx.MultiGraph):
 
         if self.graph_exists_in_db:
             self.add_edge = self.add_edge_override
+            self.has_edge = self.has_edge_override
 
     #######################
     # Init helper methods #
@@ -105,7 +106,7 @@ class MultiGraph(Graph, nx.MultiGraph):
 
         ###########################
 
-    def has_edge(self, u, v, key=None):
+    def has_edge_override(self, u, v, key=None):
         try:
             if key is None:
                 return v in self._adj[u]

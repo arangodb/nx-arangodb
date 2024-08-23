@@ -103,6 +103,7 @@ def create_line_graph(load_attributes: set[str]) -> nxadb.Graph:
 
 
 def create_grid_graph(graph_cls: type[nxadb.Graph]) -> nxadb.Graph:
+    global db
     if db.has_graph("GridGraph"):
         return graph_cls(name="GridGraph")
 

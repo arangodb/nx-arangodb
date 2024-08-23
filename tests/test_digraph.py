@@ -333,10 +333,28 @@ class TestDiGraph(BaseAttrDiGraphTester, _TestGraph):
         )
 
     def test_data_input(self):
+        # NOTE: Creating a DiGraph from incoming_graph_data
+        # that is *not* a NetworkX Graph will *symmetrize* the data!
+        # i.e symmetrize_edges = True (no way around it AFAIK)
         G = self.EmptyGraph(incoming_graph_data={1: [2], 2: [1]})
-        assert sorted(G.adj.items()) == [(1, {2: {}}), (2, {1: {}})]
-        assert sorted(G.succ.items()) == [(1, {2: {}}), (2, {1: {}})]
-        assert sorted(G.pred.items()) == [(1, {2: {}}), (2, {1: {}})]
+
+        assert G._succ[1][2]["_id"] != G._succ[2][1]["_id"]
+        assert G._pred[1][2]["_id"] != G._pred[2][1]["_id"]
+        assert G._succ[1][2]["_id"] == G._pred[2][1]["_id"]
+        assert G._succ[2][1]["_id"] == G._pred[1][2]["_id"]
+
+        succ = {
+            "test_graph_node/1": {"test_graph_node/2": G._succ[1][2]},
+            "test_graph_node/2": {"test_graph_node/1": G._succ[2][1]},
+        }
+        pred = {
+            "test_graph_node/1": {"test_graph_node/2": G._pred[1][2]},
+            "test_graph_node/2": {"test_graph_node/1": G._pred[2][1]},
+        }
+
+        assert dict(G.adj.items()) == succ
+        assert dict(G.succ.items()) == succ
+        assert dict(G.pred.items()) == pred
 
     def test_add_edge(self):
         G = self.EmptyGraph()

@@ -58,14 +58,6 @@ class DiGraph(Graph, nx.DiGraph):
             **kwargs,
         )
 
-        if self.graph_exists_in_db:
-            assert isinstance(self._succ, AdjListOuterDict)
-            assert isinstance(self._pred, AdjListOuterDict)
-            self._succ.mirror = self._pred
-            self._pred.mirror = self._succ
-            self._succ.traversal_direction = TraversalDirection.OUTBOUND
-            self._pred.traversal_direction = TraversalDirection.INBOUND
-
     #######################
     # nx.DiGraph Overides #
     #######################

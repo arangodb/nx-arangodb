@@ -12,6 +12,11 @@ executors:
     machine:
       image: ubuntu-2404:current
 
+  gpu-executor:
+    machine:
+      image: linux-cuda-12:default
+    resource_class: gpu.nvidia.small
+
 jobs:
   lint:
     executor: python-executor
@@ -80,12 +85,30 @@ jobs:
           command: ./run_nx_tests.sh
 
   test-gpu:
-    machine:
-      image: linux-cuda-12:default
-      resource_class: gpu.nvidia.small
+    parameters:
+      python_version:
+        type: string
+    executor: gpu-executor
     steps:
-      - run: Run local gpu tests
-        command: pytest tests/test_gpu.py
+      - checkout
+
+      - run:
+          name: Set up ArangoDB
+          command: |
+            chmod +x starter.sh
+            ./starter.sh
+
+      - run:
+          name: Install packages
+          command: pip install .[dev]
+
+      - run:
+          name: Install cuda related dependencies
+          command: pip install nx-cugraph-cu12 --extra-index-url https://pypi.nvidia.com
+
+      - run:
+          name: Run local gpu tests
+          command: pytest tests/test_gpu.py
 
 workflows:
   version: 2

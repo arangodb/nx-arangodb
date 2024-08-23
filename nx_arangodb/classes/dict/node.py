@@ -134,13 +134,13 @@ class NodeAttrDict(UserDict[str, Any]):
     @logger_debug
     def __getitem__(self, key: str) -> Any:
         """G._node['node/1']['foo']"""
-        if value := self.data.get(key):
-            return value
+        if key in self.data:
+            return self.data[key]
 
         assert self.node_id
         result = aql_doc_get_key(self.db, self.node_id, key, self.parent_keys)
 
-        if not result:
+        if result is None:
             raise KeyError(key)
 
         node_attr_dict_value = process_node_attr_dict_value(self, key, result)
@@ -348,7 +348,15 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
     @logger_debug
     def __iter__(self) -> Iterator[str]:
-        """iter(g._node)"""
+        """for k in g._node"""
+        if not (self.FETCHED_ALL_IDS or self.FETCHED_ALL_DATA):
+            self._fetch_all()
+
+        yield from self.data.keys()
+
+    @logger_debug
+    def keys(self) -> Any:
+        """g._node.keys()"""
         if self.FETCHED_ALL_IDS:
             yield from self.data.keys()
         else:
@@ -359,11 +367,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
                     empty_node_attr_dict.node_id = node_id
                     self.data[node_id] = empty_node_attr_dict
                     yield node_id
-
-    @logger_debug
-    def keys(self) -> Any:
-        """g._node.keys()"""
-        return self.__iter__()
 
     @logger_debug
     def clear(self) -> None:
@@ -429,8 +432,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             yield from self.data.items()
         else:
             v_cols = list(self.graph.vertex_collections())
-            result = aql_fetch_data(self.db, v_cols, data, default)
-            yield from result.items()
+            yield from aql_fetch_data(self.db, v_cols, data, default)
 
     @logger_debug
     def _fetch_all(self):

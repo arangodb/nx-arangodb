@@ -24,6 +24,7 @@ class MultiGraph(Graph, nx.MultiGraph):
 
     def __init__(
         self,
+        incoming_graph_data: Any = None,
         name: str | None = None,
         default_node_type: str | None = None,
         edge_type_key: str = "_edge_type",
@@ -39,6 +40,7 @@ class MultiGraph(Graph, nx.MultiGraph):
         **kwargs: Any,
     ):
         super().__init__(
+            incoming_graph_data,
             name,
             default_node_type,
             edge_type_key,

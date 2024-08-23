@@ -35,7 +35,7 @@ dependencies = [
     "numpy>=1.23,<2.0a0",
     "phenolrs",
     "python-arango",
-    "adbnx-adapter==5.0.2"
+    "adbnx-adapter"
 ]
 
 [project.optional-dependencies]

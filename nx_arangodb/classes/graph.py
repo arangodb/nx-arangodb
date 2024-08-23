@@ -9,6 +9,7 @@ from adbnx_adapter import ADBNX_Adapter
 from arango import ArangoClient
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
+from networkx.exception import NetworkXError
 
 import nx_arangodb as nxadb
 from nx_arangodb.exceptions import (
@@ -28,6 +29,7 @@ from .dict import (
     node_attr_dict_factory,
     node_dict_factory,
 )
+from .function import get_node_id
 from .reportviews import CustomEdgeView, CustomNodeView
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.Graph)  # type: ignore
@@ -45,6 +47,7 @@ class Graph(nx.Graph):
 
     def __init__(
         self,
+        incoming_graph_data: Any = None,
         name: str | None = None,
         default_node_type: str | None = None,
         edge_type_key: str = "_edge_type",
@@ -87,8 +90,6 @@ class Graph(nx.Graph):
         self.symmetrize_edges = symmetrize_edges
 
         self.edge_type_key = edge_type_key
-
-        incoming_graph_data = kwargs.get("incoming_graph_data")
 
         # TODO: Consider this
         # if not self.__graph_name:
@@ -170,21 +171,24 @@ class Graph(nx.Graph):
                     use_async=True,
                 )
 
-                # No longer need this (we've already populated the graph)
-                del kwargs["incoming_graph_data"]
-
             else:
                 self.adb_graph = self.db.create_graph(
                     self.__name,
                     edge_definitions=edge_definitions,
                 )
 
+                # Let the parent class handle the incoming graph data
+                # if it is not a networkx.Graph object
+                kwargs["incoming_graph_data"] = incoming_graph_data
+
             self._set_factory_methods()
             self._set_arangodb_backend_config()
             logger.info(f"Graph '{name}' created.")
             self._graph_exists_in_db = True
 
-        # add graph name to kwargs if not none
+        else:
+            kwargs["incoming_graph_data"] = incoming_graph_data
+
         if name is not None:
             kwargs["name"] = name
 
@@ -378,7 +382,14 @@ class Graph(nx.Graph):
     #####################
 
     def copy(self, *args, **kwargs):
-        raise NotImplementedError("Copying an ArangoDB Graph is not yet implemented")
+        logger.warning("Note that copying a graph loses the connection to the database")
+        G = super().copy(*args, **kwargs)
+        G.node_dict_factory = nx.Graph.node_dict_factory
+        G.node_attr_dict_factory = nx.Graph.node_attr_dict_factory
+        G.edge_attr_dict_factory = nx.Graph.edge_attr_dict_factory
+        G.adjlist_inner_dict_factory = nx.Graph.adjlist_inner_dict_factory
+        G.adjlist_outer_dict_factory = nx.Graph.adjlist_outer_dict_factory
+        return G
 
     def subgraph(self, nbunch):
         raise NotImplementedError("Subgraphing is not yet implemented")
@@ -430,6 +441,7 @@ class Graph(nx.Graph):
         if node_for_adding not in self._node:
             if node_for_adding is None:
                 raise ValueError("None cannot be a node")
+
             self._adj[node_for_adding] = self.adjlist_inner_dict_factory()
 
             ######################
@@ -481,3 +493,61 @@ class Graph(nx.Graph):
         # Reason:
         # It is more efficient to count the number of edges in the edge collections
         # compared to relying on the DegreeView.
+
+    def nbunch_iter(self, nbunch=None):
+        if not self._graph_exists_in_db:
+            return super().nbunch_iter(nbunch)
+
+        if nbunch is None:
+            bunch = iter(self._adj)
+        elif nbunch in self:
+            ######################
+            # NOTE: monkey patch #
+            ######################
+
+            # Old: Nothing
+
+            # New:
+            if isinstance(nbunch, int):
+                nbunch = get_node_id(str(nbunch), self.default_node_type)
+
+            # Reason:
+            # ArangoDB only uses strings as node IDs. Therefore, we need to convert
+            # the integer node ID to a string before using it in an iterator.
+
+            bunch = iter([nbunch])
+        else:
+
+            def bunch_iter(nlist, adj):
+                try:
+                    for n in nlist:
+                        ######################
+                        # NOTE: monkey patch #
+                        ######################
+
+                        # Old: Nothing
+
+                        # New:
+                        if isinstance(n, int):
+                            n = get_node_id(str(n), self.default_node_type)
+
+                        # Reason:
+                        # ArangoDB only uses strings as node IDs. Therefore,
+                        # we need to convert the integer node ID to a
+                        # string before using it in an iterator.
+
+                        if n in adj:
+                            yield n
+
+                except TypeError as err:
+                    exc, message = err, err.args[0]
+                    if "iter" in message:
+                        m = "nbunch is not a node or a sequence of nodes."
+                        exc = NetworkXError(m)
+                    if "hashable" in message:
+                        m = f"Node {n} in sequence nbunch is not a valid node."
+                        exc = NetworkXError(m)
+                    raise exc
+
+            bunch = bunch_iter(nbunch, self._adj)
+        return bunch

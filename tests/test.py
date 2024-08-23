@@ -1735,7 +1735,7 @@ def test_readme(load_karate_graph: Any) -> None:
 @pytest.mark.parametrize(
     "data_type, incoming_graph_data, has_club, has_weight",
     [
-        ("dict of dicts", G_NX._adj, False, True),
+        ("dict of dicts", nx.karate_club_graph()._adj, False, True),
         (
             "dict of lists",
             {k: list(v) for k, v in G_NX._adj.items()},

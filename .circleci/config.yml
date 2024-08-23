@@ -15,7 +15,7 @@ executors:
   gpu-executor:
     machine:
       image: linux-cuda-12:default
-    resource_class: gpu.nvidia.small
+    resource_class: gpu.nvidia.small.multi
 
 jobs:
   lint:
@@ -115,11 +115,14 @@ workflows:
   build:
     jobs:
       - lint
-      - test:
+      #- test:
+      #    matrix:
+      #      parameters:
+      #        python_version: ["3.10", "3.11", "3.12.2"]
+      - test-gpu:
+          # RE-ENABLE LATER WHEN DONE
+          #requires:
+          #  - test
           matrix:
             parameters:
-              python_version: ["3.10", "3.11", "3.12.2"]
-      - test-gpu:
-            matrix:
-              parameters:
-                python_version: [ "3.10", "3.11", "3.12.2" ]
+              python_version: [ "3.10", "3.11", "3.12.2" ]

@@ -29,6 +29,8 @@ from .dict import (
     node_attr_dict_factory,
     node_dict_factory,
 )
+from .dict.adj import AdjListOuterDict
+from .enum import TraversalDirection
 from .function import get_node_id
 from .reportviews import CustomEdgeView, CustomNodeView
 
@@ -97,6 +99,7 @@ class Graph(nx.Graph):
         #         m = "Must set **graph_name** if passing **incoming_graph_data**"
         #         raise ValueError(m)
 
+        loaded_incoming_graph_data = False
         if self._graph_exists_in_db:
             if incoming_graph_data is not None:
                 m = "Cannot pass both **incoming_graph_data** and **graph_name** yet if the already graph exists"  # noqa: E501
@@ -171,28 +174,34 @@ class Graph(nx.Graph):
                     use_async=True,
                 )
 
+                loaded_incoming_graph_data = True
+
             else:
                 self.adb_graph = self.db.create_graph(
                     self.__name,
                     edge_definitions=edge_definitions,
                 )
 
-                # Let the parent class handle the incoming graph data
-                # if it is not a networkx.Graph object
-                kwargs["incoming_graph_data"] = incoming_graph_data
-
             self._set_factory_methods()
             self._set_arangodb_backend_config()
             logger.info(f"Graph '{name}' created.")
             self._graph_exists_in_db = True
 
-        else:
-            kwargs["incoming_graph_data"] = incoming_graph_data
-
-        if name is not None:
-            kwargs["name"] = name
+        if self.__name is not None:
+            kwargs["name"] = self.__name
 
         super().__init__(*args, **kwargs)
+
+        if self.is_directed() and self.graph_exists_in_db:
+            assert isinstance(self._succ, AdjListOuterDict)
+            assert isinstance(self._pred, AdjListOuterDict)
+            self._succ.mirror = self._pred
+            self._pred.mirror = self._succ
+            self._succ.traversal_direction = TraversalDirection.OUTBOUND
+            self._pred.traversal_direction = TraversalDirection.INBOUND
+
+        if incoming_graph_data is not None and not loaded_incoming_graph_data:
+            nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)
 
     #######################
     # Init helper methods #

@@ -1,4 +1,3 @@
-import time
 from typing import Any, Callable, Dict, Union
 
 import networkx as nx
@@ -1765,8 +1764,6 @@ def test_incoming_graph_data_not_nx_graph(
 
     G = nxadb.Graph(incoming_graph_data=incoming_graph_data, name=name)
 
-    time.sleep(0.1)  # Wait for CircleCI...
-
     assert len(G.adj) == len(G_NX.adj) == db.collection(G.default_node_type).count()
     assert (
         len(G.nodes)
@@ -1817,8 +1814,6 @@ def test_incoming_graph_data_not_nx_graph_digraph(
     db.delete_graph(name, drop_collections=True, ignore_missing=True)
 
     G = nxadb.DiGraph(incoming_graph_data=incoming_graph_data, name=name)
-
-    time.sleep(0.1)  # Wait for CircleCI...
 
     assert (
         len(G.adj)

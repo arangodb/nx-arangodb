@@ -100,3 +100,11 @@ def create_line_graph(load_attributes: set[str]) -> nxadb.Graph:
         name="LineGraph",
         edge_collections_attributes=load_attributes,
     )
+
+
+def create_grid_graph(graph_cls: type[nxadb.Graph]) -> nxadb.Graph:
+    if db.has_graph("GridGraph"):
+        return graph_cls(name="GridGraph")
+
+    grid_graph = nx.grid_graph(dim=(250, 250))
+    return graph_cls(incoming_graph_data=grid_graph, name="GridGraph")

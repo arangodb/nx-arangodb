@@ -79,6 +79,14 @@ jobs:
           name: Run NetworkX tests
           command: ./run_nx_tests.sh
 
+    gpu:
+      machine:
+        image: linux-cuda-12:default
+        resource_class: gpu.nvidia.small
+      steps:
+        - run: Run local gpu tests
+          command: pytest tests/test_gpu.py
+
 workflows:
   version: 2
   build:

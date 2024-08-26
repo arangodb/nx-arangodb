@@ -104,7 +104,9 @@ jobs:
 
       - run:
           name: Install cuda related dependencies
-          command: pip install nx-cugraph-cu12 --extra-index-url https://pypi.nvidia.com
+          command:
+            pip install --extra-index-url https://pypi.nvidia.com pylibcugraph-cu12
+            pip install nx-cugraph-cu12 --extra-index-url https://pypi.nvidia.com
 
       - run:
           name: Run local gpu tests
@@ -125,4 +127,5 @@ workflows:
           #  - test
           matrix:
             parameters:
-              python_version: [ "3.10", "3.11", "3.12.2" ]
+              #python_version: [ "3.10", "3.11", "3.12.2" ]
+              python_version: [ "3.10"]

@@ -18,8 +18,9 @@ from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 from .conftest import db
 
 # from .test_graph import TestEdgeSubgraph as _TestGraphEdgeSubgraph
-from .test_graph import BaseAttrGraphTester, BaseGraphTester, get_doc
+from .test_graph import BaseAttrGraphTester, BaseGraphTester
 from .test_graph import TestGraph as _TestGraph
+from .test_graph import get_doc
 
 GRAPH_NAME = "test_graph"
 

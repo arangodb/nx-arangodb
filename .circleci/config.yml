@@ -99,12 +99,23 @@ jobs:
             ./starter.sh
 
       - run:
+        name: Setup Python
+        command: |
+          pyenv --version
+          pyenv install -f << parameters.python_version >>
+          pyenv global << parameters.python_version >>
+
+      - run:
+          name: Setup pip
+          command: python -m pip install --upgrade pip setuptools wheel
+
+      - run:
           name: Install packages
           command: pip install .[dev]
 
       - run:
           name: Install cuda related dependencies
-          command:
+          command: |
             pip install --extra-index-url https://pypi.nvidia.com pylibcugraph-cu12
             pip install nx-cugraph-cu12 --extra-index-url https://pypi.nvidia.com
 
@@ -124,4 +135,4 @@ workflows:
       - test-gpu:
           matrix:
             parameters:
-              python_version: [ "3.10"]
+              python_version: ["3.10", "3.11", "3.12.2"]

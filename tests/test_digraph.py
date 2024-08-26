@@ -18,7 +18,7 @@ from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 from .conftest import db
 
 # from .test_graph import TestEdgeSubgraph as _TestGraphEdgeSubgraph
-from .test_graph import BaseAttrGraphTester, BaseGraphTester
+from .test_graph import BaseAttrGraphTester, BaseGraphTester, get_doc
 from .test_graph import TestGraph as _TestGraph
 
 GRAPH_NAME = "test_graph"
@@ -104,16 +104,25 @@ class BaseDiGraphTester(BaseGraphTester):
 
     def test_out_edges_data(self):
         G = self.EmptyGraph(incoming_graph_data=[(0, 1, {"data": 0}), (1, 0, {})])
-        edge_0_1 = db.document(G[0][1]["_id"])
-        edge_1_0 = db.document(G[1][0]["_id"])
+        edge_0_1 = get_doc(G[0][1]["_id"])
+        edge_1_0 = get_doc(G[1][0]["_id"])
         assert "data" in edge_0_1
         assert edge_0_1["data"] == 0
-        assert "data" not in edge_1_0  # TODO: Why is this failing?
-
-        # assert sorted(G.out_edges(data=True)) == [(0, 1, {"data": 0}), (1, 0, {})]
-        # assert sorted(G.out_edges(0, data=True)) == [(0, 1, {"data": 0})]
-        # assert sorted(G.out_edges(data="data")) == [(0, 1, 0), (1, 0, None)]
-        # assert sorted(G.out_edges(0, data="data")) == [(0, 1, 0)]
+        assert "data" not in edge_1_0
+        assert sorted(G.out_edges(data=True)) == [
+            ("test_graph_node/0", "test_graph_node/1", edge_0_1),
+            ("test_graph_node/1", "test_graph_node/0", edge_1_0),
+        ]
+        assert sorted(G.out_edges(0, data=True)) == [
+            ("test_graph_node/0", "test_graph_node/1", edge_0_1)
+        ]
+        assert sorted(G.out_edges(data="data")) == [
+            ("test_graph_node/0", "test_graph_node/1", 0),
+            ("test_graph_node/1", "test_graph_node/0", None),
+        ]
+        assert sorted(G.out_edges(0, data="data")) == [
+            ("test_graph_node/0", "test_graph_node/1", 0)
+        ]
 
     def test_in_edges_dir(self):
         G = self.P3Graph()
@@ -185,56 +194,76 @@ class BaseDiGraphTester(BaseGraphTester):
         assert G.size() == 6
         assert G.number_of_edges() == 6
 
-    # TODO: Implement these tests
-    # def test_to_undirected_reciprocal(self):
-    #     G = self.Graph()
-    #     G.add_edge(1, 2)
-    #     assert G.to_undirected().has_edge(1, 2)
-    #     assert not G.to_undirected(reciprocal=True).has_edge(1, 2)
-    #     G.add_edge(2, 1)
-    #     assert G.to_undirected(reciprocal=True).has_edge(1, 2)
+    def test_to_undirected_reciprocal(self):
+        G = self.EmptyGraph()
+        G.add_edge(1, 2)
+        assert G.to_undirected().has_edge("test_graph_node/1", "test_graph_node/2")
+        assert not G.to_undirected(reciprocal=True).has_edge(1, 2)
+        G.add_edge(2, 1)
+        assert G.to_undirected(reciprocal=True).has_edge(
+            "test_graph_node/1", "test_graph_node/2"
+        )
 
-    # def test_reverse_copy(self):
-    #     G = nx.DiGraph([(0, 1), (1, 2)])
-    #     R = G.reverse()
-    #     assert sorted(R.edges()) == [(1, 0), (2, 1)]
-    #     R.remove_edge(1, 0)
-    #     assert sorted(R.edges()) == [(2, 1)]
-    #     assert sorted(G.edges()) == [(0, 1), (1, 2)]
+    def test_reverse_copy(self):
+        G = self.EmptyGraph(incoming_graph_data=[(0, 1), (1, 2)])
+        R = G.reverse()
+        assert sorted(R.edges()) == [
+            ("test_graph_node/1", "test_graph_node/0"),
+            ("test_graph_node/2", "test_graph_node/1"),
+        ]
+        R.remove_edge("test_graph_node/1", "test_graph_node/0")
+        assert sorted(R.edges()) == [("test_graph_node/2", "test_graph_node/1")]
+        assert sorted(G.edges()) == [
+            ("test_graph_node/0", "test_graph_node/1"),
+            ("test_graph_node/1", "test_graph_node/2"),
+        ]
 
-    # def test_reverse_nocopy(self):
-    #     G = nx.DiGraph([(0, 1), (1, 2)])
-    #     R = G.reverse(copy=False)
-    #     assert sorted(R.edges()) == [(1, 0), (2, 1)]
-    #     with pytest.raises(nx.NetworkXError):
-    #         R.remove_edge(1, 0)
+    def test_reverse_nocopy(self):
+        G = self.EmptyGraph(incoming_graph_data=[(0, 1), (1, 2)])
+        R = G.reverse(copy=False)
+        assert R[1][0]
+        assert R[2][1]
+        assert R._pred[0][1]
+        assert R._pred[1][2]
+        with pytest.raises(KeyError):
+            R[0][1]
+        with pytest.raises(KeyError):
+            R[1][2]
+        with pytest.raises(KeyError):
+            R._pred[1][0]
+        with pytest.raises(KeyError):
+            R._pred[2][1]
+        with pytest.raises(nx.NetworkXError):
+            R.remove_edge(1, 0)
 
-    # def test_reverse_hashable(self):
-    #     class Foo:
-    #         pass
+    def test_reverse_hashable(self):
+        pytest.skip("Class-based nodes are not supported in ArangoDB.")
 
-    #     x = Foo()
-    #     y = Foo()
-    #     G = nx.DiGraph()
-    #     G.add_edge(x, y)
-    #     assert nodes_equal(G.nodes(), G.reverse().nodes())
-    #     assert [(y, x)] == list(G.reverse().edges())
+        class Foo:
+            pass
 
-    # def test_di_cache_reset(self):
-    #     G = self.K3.copy()
-    #     old_succ = G.succ
-    #     assert id(G.succ) == id(old_succ)
-    #     old_adj = G.adj
-    #     assert id(G.adj) == id(old_adj)
+        x = Foo()
+        y = Foo()
+        G = self.EmptyGraph()
+        G.add_edge(x, y)
+        assert nodes_equal(G.nodes(), G.reverse().nodes())
+        assert [(y, x)] == list(G.reverse().edges())
 
-    #     G._succ = {}
-    #     assert id(G.succ) != id(old_succ)
-    #     assert id(G.adj) != id(old_adj)
+    def test_di_cache_reset(self):
+        G = self.K3Graph().copy()
+        old_succ = G.succ
+        assert id(G.succ) == id(old_succ)
+        old_adj = G.adj
+        assert id(G.adj) == id(old_adj)
 
-    #     old_pred = G.pred
-    #     assert id(G.pred) == id(old_pred)
-    #     G._pred = {}
-    #     assert id(G.pred) != id(old_pred)
+        G._succ = {}
+        assert id(G.succ) != id(old_succ)
+        assert id(G.adj) != id(old_adj)
+
+        old_pred = G.pred
+        assert id(G.pred) == id(old_pred)
+        G._pred = {}
+        assert id(G.pred) != id(old_pred)
 
     def test_di_attributes_cached(self):
         G = self.K3Graph()

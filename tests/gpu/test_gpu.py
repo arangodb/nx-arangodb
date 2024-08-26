@@ -7,7 +7,7 @@ import networkx as nx
 import pytest
 
 import nx_arangodb as nxadb
-from tests.conftest import create_grid_graph
+from tests.conftest import assert_pagerank, create_grid_graph
 
 
 # Taken from:
@@ -22,27 +22,6 @@ class Capturing(list[str]):
         self.extend(self._stringio.getvalue().splitlines())
         del self._stringio  # free up some memory
         sys.stdout = self._stdout
-
-
-def assert_same_dict_values(
-    d1: dict[str | int, float], d2: dict[str | int, float], digit: int
-) -> None:
-    if type(next(iter(d1.keys()))) == int:
-        d1 = {f"person/{k+1}": v for k, v in d1.items()}  # type: ignore
-
-    if type(next(iter(d2.keys()))) == int:
-        d2 = {f"person/{k+1}": v for k, v in d2.items()}  # type: ignore
-
-    assert d1.keys() == d2.keys(), "Dictionaries have different keys"
-    for key in d1:
-        m = f"Values for key '{key}' are not equal up to digit {digit}"
-        assert round(d1[key], digit) == round(d2[key], digit), m
-
-
-def assert_pagerank(d1: dict[str | int, float], d2: dict[str | int, float]) -> None:
-    assert d1
-    assert d2
-    assert_same_dict_values(d1, d2, 5)
 
 
 @pytest.mark.parametrize(

@@ -14,62 +14,16 @@ from phenolrs.networkx.typings import (
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict.adj import AdjListOuterDict, EdgeAttrDict, EdgeKeyDict
 from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
-from tests.conftest import create_line_graph, db
+from tests.conftest import (
+    assert_bc,
+    assert_pagerank,
+    assert_remote_dict,
+    create_line_graph,
+    db,
+    extract_arangodb_key,
+)
 
 G_NX = nx.karate_club_graph()
-
-
-def assert_remote_dict(G: nxadb.Graph) -> None:
-    assert isinstance(G._node, NodeDict)
-    assert isinstance(G._adj, AdjListOuterDict)
-
-
-def extract_arangodb_key(adb_id: str) -> str:
-    return adb_id.split("/")[1]
-
-
-def assert_same_dict_values(
-    d1: dict[str | int, float], d2: dict[str | int, float], digit: int
-) -> None:
-    if type(next(iter(d1.keys()))) == int:
-        d1 = {f"person/{k}": v for k, v in d1.items()}
-
-    if type(next(iter(d2.keys()))) == int:
-        d2 = {f"person/{k}": v for k, v in d2.items()}
-
-    assert d1.keys() == d2.keys(), "Dictionaries have different keys"
-    for key in d1:
-        m = f"Values for key '{key}' are not equal up to digit {digit}"
-        assert round(d1[key], digit) == round(d2[key], digit), m
-
-
-def assert_bc(d1: dict[str | int, float], d2: dict[str | int, float]) -> None:
-    assert d1
-    assert d2
-    assert_same_dict_values(d1, d2, 14)
-
-
-def assert_pagerank(d1: dict[str | int, float], d2: dict[str | int, float]) -> None:
-    assert d1
-    assert d2
-    assert_same_dict_values(d1, d2, 15)
-
-
-def assert_louvain(l1: list[set[Any]], l2: list[set[Any]]) -> None:
-    # TODO: Implement some kind of comparison
-    # Reason: Louvain returns different results on different runs
-    assert l1
-    assert l2
-    pass
-
-
-def assert_k_components(
-    d1: dict[int, list[set[Any]]], d2: dict[int, list[set[Any]]]
-) -> None:
-    assert d1
-    assert d2
-    assert d1.keys() == d2.keys(), "Dictionaries have different keys"
-    assert d1 == d2
 
 
 def test_db(load_karate_graph: Any) -> None:

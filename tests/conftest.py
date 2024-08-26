@@ -125,6 +125,12 @@ def extract_arangodb_key(adb_id: str) -> str:
 def assert_same_dict_values(
     d1: dict[str | int, float], d2: dict[str | int, float], digit: int
 ) -> None:
+    if type(next(iter(d1.keys()))) == int:
+        d1 = {f"person/{k}": v for k, v in d1.items()}
+
+    if type(next(iter(d2.keys()))) == int:
+        d2 = {f"person/{k}": v for k, v in d2.items()}
+
     d1_keys = set(d1.keys())
     d2_keys = set(d2.keys())
     difference = d1_keys ^ d2_keys

@@ -14,7 +14,6 @@ from phenolrs.networkx.typings import (
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict.adj import AdjListOuterDict, EdgeAttrDict, EdgeKeyDict
 from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
-
 from tests.conftest import create_line_graph, db
 
 G_NX = nx.karate_club_graph()

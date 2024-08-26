@@ -7,7 +7,6 @@ import networkx as nx
 import pytest
 
 import nx_arangodb as nxadb
-
 from tests.conftest import create_grid_graph
 
 

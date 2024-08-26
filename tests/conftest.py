@@ -147,10 +147,12 @@ def assert_bc(d1: dict[str | int, float], d2: dict[str | int, float]) -> None:
     assert_same_dict_values(d1, d2, 14)
 
 
-def assert_pagerank(d1: dict[str | int, float], d2: dict[str | int, float]) -> None:
+def assert_pagerank(
+    d1: dict[str | int, float], d2: dict[str | int, float], digit: int = 15
+) -> None:
     assert d1
     assert d2
-    assert_same_dict_values(d1, d2, 15)
+    assert_same_dict_values(d1, d2, digit)
 
 
 def assert_louvain(l1: list[set[Any]], l2: list[set[Any]]) -> None:

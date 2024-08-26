@@ -38,7 +38,7 @@ def test_adb_graph_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     # sleep 1s to make sure potential async operations are finished (writes to adb)
     # first iteration needs to write the graph to adb, whereas the other iterations
     # can directly read the graph from adb
-    time.sleep(1)
+    time.sleep(5)
 
     res_gpu = None
     res_cpu = None

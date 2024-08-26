@@ -78,7 +78,7 @@ jobs:
 
       - run:
           name: Run local tests
-          command: pytest tests/test.py
+          command: pytest tests/*.py
 
       - run:
           name: Run NetworkX tests

@@ -5,7 +5,7 @@ Used by the nx_arangodb Graph, DiGraph, MultiGraph, and MultiDiGraph classes.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Generator, Optional, Tuple
 
 import networkx as nx
 from arango import ArangoError, DocumentInsertError
@@ -160,6 +160,9 @@ def key_is_string(func: Callable[..., Any]) -> Any:
 
     def wrapper(self: Any, key: Any, *args: Any, **kwargs: Any) -> Any:
         """"""
+        if key is None:
+            raise ValueError("Key cannot be None.")
+
         if not isinstance(key, str):
             if not isinstance(key, (int, float)):
                 raise TypeError(f"{key} cannot be casted to string.")
@@ -332,7 +335,7 @@ def aql_doc_has_key(
 
 def aql_doc_get_key(
     db: StandardDatabase, id: str, key: str, nested_keys: list[str] = []
-) -> Any:
+) -> Any | None:
     """Gets a key from a document."""
     nested_keys_str = "." + ".".join(nested_keys) if nested_keys else ""
     query = f"RETURN DOCUMENT(@id){nested_keys_str}.@key"
@@ -541,23 +544,16 @@ def aql_fetch_data(
     collections: list[str],
     data: str,
     default: Any,
-) -> dict[str, Any]:
-    items = {}
+) -> Generator[dict[str, Any], None, None]:
+    bind_vars = {"data": data, "default": default}
+    query = """
+        FOR doc IN @@collection
+            RETURN [doc._id, doc.@data or @default]
+    """
+
     for collection in collections:
-        query = """
-            LET result = (
-                FOR doc IN @@collection
-                    RETURN {[doc._id]: doc.@data or @default}
-            )
-
-            RETURN MERGE(result)
-        """
-
-        bind_vars = {"data": data, "default": default, "@collection": collection}
-        result = aql_single(db, query, bind_vars)
-        items.update(result if result is not None else {})
-
-    return items
+        bind_vars["@collection"] = collection
+        yield from aql(db, query, bind_vars)
 
 
 def aql_fetch_data_edge(
@@ -565,23 +561,17 @@ def aql_fetch_data_edge(
     collections: list[str],
     data: str,
     default: Any,
-) -> list[tuple[str, str, Any]]:
-    items = []
+) -> Generator[tuple[str, str, Any], None, None]:
+    bind_vars = {"data": data, "default": default}
+    query = """
+        FOR doc IN @@collection
+            RETURN [doc._from, doc._to, doc.@data or @default]
+    """
+
     for collection in collections:
-        query = """
-            LET result = (
-                FOR doc IN @@collection
-                    RETURN [doc._from, doc._to, doc.@data or @default]
-            )
-
-            RETURN result
-        """
-
-        bind_vars = {"data": data, "default": default, "@collection": collection}
-        result = aql_single(db, query, bind_vars)
-        items.extend(result if result is not None else [])
-
-    return items
+        bind_vars["@collection"] = collection
+        for item in aql(db, query, bind_vars):
+            yield tuple(item)
 
 
 def doc_update(
@@ -619,6 +609,7 @@ def doc_get_or_insert(
     """Loads a document if existing, otherwise inserts it & returns it."""
     if db.has_document(id):
         result: dict[str, Any] = db.document(id)
+        del result["_rev"]
         return result
 
     return doc_insert(db, collection, id, **kwargs)

@@ -9,6 +9,8 @@ import networkx as nx
 
 import nx_arangodb as nxadb
 
+from .function import get_node_id
+
 
 class CustomNodeView(nx.classes.reportviews.NodeView):
     def __call__(self, data=False, default=None):
@@ -58,32 +60,20 @@ class CustomEdgeDataView(nx.classes.reportviews.EdgeDataView):
     # NOTE: Monkey Patch #
     ######################
 
-    # Reason: We can utilize AQL to filter the data we
-    # want to return, instead of filtering it in Python
-    # This is hacky for now, but it's meant to show that
-    # the data can be filtered server-side.
-    # We solve this by relying on self._adjdict, which
-    # is the AdjListOuterDict object that has a custom
-    # items() method that can filter data with AQL.
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        if self._data and not isinstance(self._data, bool):
-            self._report = lambda n, nbr, dd: self._adjdict.items(
-                data=self._data, default=self._default
-            )
-
     def __iter__(self):
-        if self._data and not isinstance(self._data, bool):
-            # don't need to filter data in Python
-            return self._report("", "", "")
+        if self._nbunch is None and self._data not in [None, True, False]:
+            # Reason: We can utilize AQL to filter the data we
+            # want to return, instead of filtering it in Python
+            # This is hacky for now, but it's meant to show that
+            # the data can be filtered server-side.
+            # We solve this by relying on self._adjdict, which
+            # is the AdjListOuterDict object that has a custom
+            # items() method that can filter data with AQL.
 
-        return (
-            self._report(n, nbr, dd)
-            for n, nbrs in self._nodes_nbrs()
-            for nbr, dd in nbrs.items()
-        )
+            # Filter for self._data  server-side
+            yield from self._adjdict.items(data=self._data, default=self._default)
+        else:
+            yield from super().__iter__()
 
 
 class CustomEdgeView(nx.classes.reportviews.EdgeView):

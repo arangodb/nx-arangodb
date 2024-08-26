@@ -33,10 +33,10 @@ def assert_same_dict_values(
     d1: dict[str | int, float], d2: dict[str | int, float], digit: int
 ) -> None:
     if type(next(iter(d1.keys()))) == int:
-        d1 = {f"person/{k+1}": v for k, v in d1.items()}  # type: ignore
+        d1 = {f"person/{k}": v for k, v in d1.items()}
 
     if type(next(iter(d2.keys()))) == int:
-        d2 = {f"person/{k+1}": v for k, v in d2.items()}  # type: ignore
+        d2 = {f"person/{k}": v for k, v in d2.items()}
 
     assert d1.keys() == d2.keys(), "Dictionaries have different keys"
     for key in d1:
@@ -304,10 +304,10 @@ def test_shortest_path_remote_algorithm(load_karate_graph: Any) -> None:
     G_1 = nxadb.Graph(name="KarateGraph")
     G_2 = nxadb.DiGraph(name="KarateGraph")
 
-    r_1 = nx.shortest_path(G_1, source="person/1", target="person/34")
-    r_2 = nx.shortest_path(G_1, source="person/1", target="person/34", weight="weight")
-    r_3 = nx.shortest_path(G_2, source="person/1", target="person/34")
-    r_4 = nx.shortest_path(G_2, source="person/1", target="person/34", weight="weight")
+    r_1 = nx.shortest_path(G_1, source="person/0", target="person/33")
+    r_2 = nx.shortest_path(G_1, source="person/0", target="person/33", weight="weight")
+    r_3 = nx.shortest_path(G_2, source="person/0", target="person/33")
+    r_4 = nx.shortest_path(G_2, source="person/0", target="person/33", weight="weight")
 
     assert r_1 == r_3
     assert r_2 == r_4
@@ -386,12 +386,12 @@ def test_node_dict_update_multiple_collections(
     assert len(G_1.edges) == 0
 
     # inserts into first collection (by default)
-    new_nodes_v1: Dict[str, Dict[str, Any]] = {"1": {}, "2": {}, "3": {}}
+    new_nodes_v1: Dict[str, Dict[str, Any]] = {"0": {}, "1": {}, "2": {}}
     # needs to be inserted into second collection
     new_nodes_v2: Dict[str, Dict[str, Any]] = {
+        f"{v_2_name}/3": {},
         f"{v_2_name}/4": {},
         f"{v_2_name}/5": {},
-        f"{v_2_name}/6": {},
     }
 
     G_1.nodes.update(new_nodes_v1)
@@ -404,10 +404,10 @@ def test_node_dict_update_multiple_collections(
     assert len(G_1.nodes) == 6
     # check that keys are present
     # loop three times
-    for i in range(1, 4):
+    for i in range(0, 3):
         assert f"{v_1_name}/{str(i)}" in G_1.nodes
 
-    for i in range(4, 7):
+    for i in range(3, 6):
         assert f"{v_2_name}/{i}" in G_1.nodes
 
 
@@ -752,18 +752,18 @@ def test_nodes_crud(load_karate_graph: Any, graph_cls: type[nxadb.Graph]) -> Non
 
     G_1.clear()  # clear cache
 
-    person_1 = G_1.nodes["person/1"]
-    assert person_1["_key"] == "1"
-    assert person_1["_id"] == "person/1"
+    person_1 = G_1.nodes["person/0"]
+    assert person_1["_key"] == "0"
+    assert person_1["_id"] == "person/0"
     assert person_1["club"] == "Mr. Hi"
 
-    assert G_1.nodes["person/2"]["club"]
-    assert set(G_1._node.data.keys()) == {"person/1", "person/2"}
+    assert G_1.nodes["person/1"]["club"]
+    assert set(G_1._node.data.keys()) == {"person/0", "person/1"}
 
-    G_1.nodes["person/3"]["club"] = "foo"
-    assert db.document("person/3")["club"] == "foo"
-    G_1.nodes["person/3"]["club"] = "bar"
-    assert db.document("person/3")["club"] == "bar"
+    G_1.nodes["person/2"]["club"] = "foo"
+    assert db.document("person/2")["club"] == "foo"
+    G_1.nodes["person/2"]["club"] = "bar"
+    assert db.document("person/2")["club"] == "bar"
 
     for k in G_1:
         doc = db.document(k)
@@ -783,9 +783,9 @@ def test_nodes_crud(load_karate_graph: Any, graph_cls: type[nxadb.Graph]) -> Non
     with pytest.raises(KeyError):
         G_1.nodes["person/unknown"]
 
-    assert G_1.nodes["person/1"]["club"] == "Mr. Hi"
-    G_1.add_node("person/1", club="updated value")
-    assert G_1.nodes["person/1"]["club"] == "updated value"
+    assert G_1.nodes["person/0"]["club"] == "Mr. Hi"
+    G_1.add_node("person/0", club="updated value")
+    assert G_1.nodes["person/0"]["club"] == "updated value"
     len(G_1.nodes) == len(G_2.nodes)
 
     G_1.add_node("person/35", foo={"bar": "baz"})
@@ -823,37 +823,37 @@ def test_nodes_crud(load_karate_graph: Any, graph_cls: type[nxadb.Graph]) -> Non
     with pytest.raises(KeyError):
         G_1.adj["b"]
 
-    assert len(G_1.adj["person/1"]) > 0
-    assert G_1.adj["person/1"]["person/2"]
-    edge_id = "knows/1"
-    G_1.remove_node("person/1")
-    assert not db.has_document("person/1")
+    assert len(G_1.adj["person/0"]) > 0
+    assert G_1.adj["person/0"]["person/1"]
+    edge_id = "knows/0"
+    G_1.remove_node("person/0")
+    assert not db.has_document("person/0")
     assert not db.has_document(edge_id)
 
-    G_1.nodes["person/2"]["object"] = {"foo": "bar", "bar": "foo"}
-    assert "_rev" not in G_1.nodes["person/2"]["object"]
-    assert isinstance(G_1.nodes["person/2"]["object"], NodeAttrDict)
-    assert db.document("person/2")["object"] == {"foo": "bar", "bar": "foo"}
+    G_1.nodes["person/1"]["object"] = {"foo": "bar", "bar": "foo"}
+    assert "_rev" not in G_1.nodes["person/1"]["object"]
+    assert isinstance(G_1.nodes["person/1"]["object"], NodeAttrDict)
+    assert db.document("person/1")["object"] == {"foo": "bar", "bar": "foo"}
 
-    G_1.nodes["person/2"]["object"]["foo"] = "baz"
-    assert db.document("person/2")["object"]["foo"] == "baz"
+    G_1.nodes["person/1"]["object"]["foo"] = "baz"
+    assert db.document("person/1")["object"]["foo"] == "baz"
 
-    del G_1.nodes["person/2"]["object"]["foo"]
-    assert "_rev" not in G_1.nodes["person/2"]["object"]
-    assert isinstance(G_1.nodes["person/2"]["object"], NodeAttrDict)
-    assert "foo" not in db.document("person/2")["object"]
+    del G_1.nodes["person/1"]["object"]["foo"]
+    assert "_rev" not in G_1.nodes["person/1"]["object"]
+    assert isinstance(G_1.nodes["person/1"]["object"], NodeAttrDict)
+    assert "foo" not in db.document("person/1")["object"]
 
-    G_1.nodes["person/2"]["object"].update({"sub_object": {"foo": "bar"}})
-    assert "_rev" not in G_1.nodes["person/2"]["object"]["sub_object"]
-    assert isinstance(G_1.nodes["person/2"]["object"]["sub_object"], NodeAttrDict)
-    assert db.document("person/2")["object"]["sub_object"]["foo"] == "bar"
+    G_1.nodes["person/1"]["object"].update({"sub_object": {"foo": "bar"}})
+    assert "_rev" not in G_1.nodes["person/1"]["object"]["sub_object"]
+    assert isinstance(G_1.nodes["person/1"]["object"]["sub_object"], NodeAttrDict)
+    assert db.document("person/1")["object"]["sub_object"]["foo"] == "bar"
 
     G_1.clear()
 
-    assert G_1.nodes["person/2"]["object"]["sub_object"]["foo"] == "bar"
-    G_1.nodes["person/2"]["object"]["sub_object"]["foo"] = "baz"
-    assert "_rev" not in G_1.nodes["person/2"]["object"]["sub_object"]
-    assert db.document("person/2")["object"]["sub_object"]["foo"] == "baz"
+    assert G_1.nodes["person/1"]["object"]["sub_object"]["foo"] == "bar"
+    G_1.nodes["person/1"]["object"]["sub_object"]["foo"] = "baz"
+    assert "_rev" not in G_1.nodes["person/1"]["object"]["sub_object"]
+    assert db.document("person/1")["object"]["sub_object"]["foo"] == "baz"
 
 
 def test_graph_edges_crud(load_karate_graph: Any) -> None:
@@ -871,31 +871,31 @@ def test_graph_edges_crud(load_karate_graph: Any) -> None:
         assert "bad_key" not in G_1.adj[src][dst]
         assert w == "boom!"
 
-    for k, edge in G_1.adj["person/1"].items():
+    for k, edge in G_1.adj["person/0"].items():
         assert db.has_document(k)
         assert db.has_document(edge["_id"])
 
-    G_1.add_edge("person/1", "person/1", foo="bar", _edge_type="knows")
-    edge_id = G_1.adj["person/1"]["person/1"]["_id"]
+    G_1.add_edge("person/0", "person/0", foo="bar", _edge_type="knows")
+    edge_id = G_1.adj["person/0"]["person/0"]["_id"]
     doc = db.document(edge_id)
     assert doc["foo"] == "bar"
-    assert G_1.adj["person/1"]["person/1"]["foo"] == "bar"
+    assert G_1.adj["person/0"]["person/0"]["foo"] == "bar"
 
-    del G_1.adj["person/1"]["person/1"]["foo"]
+    del G_1.adj["person/0"]["person/0"]["foo"]
     doc = db.document(edge_id)
     assert "foo" not in doc
 
-    G_1.adj["person/1"]["person/1"].update({"bar": "foo"})
+    G_1.adj["person/0"]["person/0"].update({"bar": "foo"})
     doc = db.document(edge_id)
     del doc["_rev"]
     assert doc["bar"] == "foo"
 
-    assert len(G_1.adj["person/1"]["person/1"]) == len(doc)
-    adj_count = len(G_1.adj["person/1"])
-    G_1.remove_edge("person/1", "person/1")
-    assert len(G_1.adj["person/1"]) == adj_count - 1
+    assert len(G_1.adj["person/0"]["person/0"]) == len(doc)
+    adj_count = len(G_1.adj["person/0"])
+    G_1.remove_edge("person/0", "person/0")
+    assert len(G_1.adj["person/0"]) == adj_count - 1
     assert not db.has_document(edge_id)
-    assert "person/1" in G_1
+    assert "person/0" in G_1
 
     assert not db.has_document("person/new_node_1")
     col_count = db.collection("knows").count()
@@ -968,39 +968,39 @@ def test_graph_edges_crud(load_karate_graph: Any) -> None:
     assert "new_node_2" not in G_1.adj["new_node_1"]
     assert "new_node_3" not in G_1.adj["new_node_1"]
 
-    assert G_1["person/1"]["person/2"] == G_1["person/2"]["person/1"]
+    assert G_1["person/0"]["person/1"] == G_1["person/1"]["person/0"]
     new_weight = 1000
-    G_1["person/1"]["person/2"]["weight"] = new_weight
-    assert G_1["person/1"]["person/2"]["weight"] == new_weight
-    assert G_1["person/2"]["person/1"]["weight"] == new_weight
+    G_1["person/0"]["person/1"]["weight"] = new_weight
+    assert G_1["person/0"]["person/1"]["weight"] == new_weight
+    assert G_1["person/1"]["person/0"]["weight"] == new_weight
     G_1.clear()
-    assert G_1["person/1"]["person/2"]["weight"] == new_weight
-    assert G_1["person/2"]["person/1"]["weight"] == new_weight
+    assert G_1["person/0"]["person/1"]["weight"] == new_weight
+    assert G_1["person/1"]["person/0"]["weight"] == new_weight
 
-    edge_id = G_1["person/1"]["person/2"]["_id"]
-    G_1["person/1"]["person/2"]["object"] = {"foo": "bar", "bar": "foo"}
-    assert "_rev" not in G_1["person/1"]["person/2"]["object"]
-    assert isinstance(G_1["person/1"]["person/2"]["object"], EdgeAttrDict)
+    edge_id = G_1["person/0"]["person/1"]["_id"]
+    G_1["person/0"]["person/1"]["object"] = {"foo": "bar", "bar": "foo"}
+    assert "_rev" not in G_1["person/0"]["person/1"]["object"]
+    assert isinstance(G_1["person/0"]["person/1"]["object"], EdgeAttrDict)
     assert db.document(edge_id)["object"] == {"foo": "bar", "bar": "foo"}
 
-    G_1["person/1"]["person/2"]["object"]["foo"] = "baz"
+    G_1["person/0"]["person/1"]["object"]["foo"] = "baz"
     assert db.document(edge_id)["object"]["foo"] == "baz"
 
-    del G_1["person/1"]["person/2"]["object"]["foo"]
-    assert "_rev" not in G_1["person/1"]["person/2"]["object"]
-    assert isinstance(G_1["person/1"]["person/2"]["object"], EdgeAttrDict)
+    del G_1["person/0"]["person/1"]["object"]["foo"]
+    assert "_rev" not in G_1["person/0"]["person/1"]["object"]
+    assert isinstance(G_1["person/0"]["person/1"]["object"], EdgeAttrDict)
     assert "foo" not in db.document(edge_id)["object"]
 
-    G_1["person/1"]["person/2"]["object"].update({"sub_object": {"foo": "bar"}})
-    assert "_rev" not in G_1["person/1"]["person/2"]["object"]["sub_object"]
-    assert isinstance(G_1["person/1"]["person/2"]["object"]["sub_object"], EdgeAttrDict)
+    G_1["person/0"]["person/1"]["object"].update({"sub_object": {"foo": "bar"}})
+    assert "_rev" not in G_1["person/0"]["person/1"]["object"]["sub_object"]
+    assert isinstance(G_1["person/0"]["person/1"]["object"]["sub_object"], EdgeAttrDict)
     assert db.document(edge_id)["object"]["sub_object"]["foo"] == "bar"
 
     G_1.clear()
 
-    assert G_1["person/1"]["person/2"]["object"]["sub_object"]["foo"] == "bar"
-    G_1["person/1"]["person/2"]["object"]["sub_object"]["foo"] = "baz"
-    assert "_rev" not in G_1["person/1"]["person/2"]["object"]["sub_object"]
+    assert G_1["person/0"]["person/1"]["object"]["sub_object"]["foo"] == "bar"
+    G_1["person/0"]["person/1"]["object"]["sub_object"]["foo"] = "baz"
+    assert "_rev" not in G_1["person/0"]["person/1"]["object"]["sub_object"]
     assert db.document(edge_id)["object"]["sub_object"]["foo"] == "baz"
 
 
@@ -1019,31 +1019,31 @@ def test_digraph_edges_crud(load_karate_graph: Any) -> None:
         assert "bad_key" not in G_1.adj[src][dst]
         assert w == "boom!"
 
-    for k, edge in G_1.adj["person/1"].items():
+    for k, edge in G_1.adj["person/0"].items():
         assert db.has_document(k)
         assert db.has_document(edge["_id"])
 
-    G_1.add_edge("person/1", "person/1", foo="bar", _edge_type="knows")
-    edge_id = G_1.adj["person/1"]["person/1"]["_id"]
+    G_1.add_edge("person/0", "person/0", foo="bar", _edge_type="knows")
+    edge_id = G_1.adj["person/0"]["person/0"]["_id"]
     doc = db.document(edge_id)
     assert doc["foo"] == "bar"
-    assert G_1.adj["person/1"]["person/1"]["foo"] == "bar"
+    assert G_1.adj["person/0"]["person/0"]["foo"] == "bar"
 
-    del G_1.adj["person/1"]["person/1"]["foo"]
+    del G_1.adj["person/0"]["person/0"]["foo"]
     doc = db.document(edge_id)
     assert "foo" not in doc
 
-    G_1.adj["person/1"]["person/1"].update({"bar": "foo"})
+    G_1.adj["person/0"]["person/0"].update({"bar": "foo"})
     doc = db.document(edge_id)
     del doc["_rev"]
     assert doc["bar"] == "foo"
 
-    assert len(G_1.adj["person/1"]["person/1"]) == len(doc)
-    adj_count = len(G_1.adj["person/1"])
-    G_1.remove_edge("person/1", "person/1")
-    assert len(G_1.adj["person/1"]) == adj_count - 1
+    assert len(G_1.adj["person/0"]["person/0"]) == len(doc)
+    adj_count = len(G_1.adj["person/0"])
+    G_1.remove_edge("person/0", "person/0")
+    assert len(G_1.adj["person/0"]) == adj_count - 1
     assert not db.has_document(edge_id)
-    assert "person/1" in G_1
+    assert "person/0" in G_1
 
     assert not db.has_document("person/new_node_1")
     col_count = db.collection("knows").count()
@@ -1117,40 +1117,40 @@ def test_digraph_edges_crud(load_karate_graph: Any) -> None:
     assert "new_node_2" not in G_1.adj["new_node_1"]
     assert "new_node_3" not in G_1.adj["new_node_1"]
 
-    assert "person/1" not in G_1["person/2"]
-    assert G_1.succ["person/1"]["person/2"] == G_1.pred["person/2"]["person/1"]
+    assert "person/0" not in G_1["person/1"]
+    assert G_1.succ["person/0"]["person/1"] == G_1.pred["person/1"]["person/0"]
     new_weight = 1000
-    G_1["person/1"]["person/2"]["weight"] = new_weight
-    assert G_1.succ["person/1"]["person/2"]["weight"] == new_weight
-    assert G_1.pred["person/2"]["person/1"]["weight"] == new_weight
+    G_1["person/0"]["person/1"]["weight"] = new_weight
+    assert G_1.succ["person/0"]["person/1"]["weight"] == new_weight
+    assert G_1.pred["person/1"]["person/0"]["weight"] == new_weight
     G_1.clear()
-    assert G_1.succ["person/1"]["person/2"]["weight"] == new_weight
-    assert G_1.pred["person/2"]["person/1"]["weight"] == new_weight
+    assert G_1.succ["person/0"]["person/1"]["weight"] == new_weight
+    assert G_1.pred["person/1"]["person/0"]["weight"] == new_weight
 
-    edge_id = G_1["person/1"]["person/2"]["_id"]
-    G_1["person/1"]["person/2"]["object"] = {"foo": "bar", "bar": "foo"}
-    assert "_rev" not in G_1["person/1"]["person/2"]["object"]
-    assert isinstance(G_1["person/1"]["person/2"]["object"], EdgeAttrDict)
+    edge_id = G_1["person/0"]["person/1"]["_id"]
+    G_1["person/0"]["person/1"]["object"] = {"foo": "bar", "bar": "foo"}
+    assert "_rev" not in G_1["person/0"]["person/1"]["object"]
+    assert isinstance(G_1["person/0"]["person/1"]["object"], EdgeAttrDict)
     assert db.document(edge_id)["object"] == {"foo": "bar", "bar": "foo"}
 
-    G_1["person/1"]["person/2"]["object"]["foo"] = "baz"
+    G_1["person/0"]["person/1"]["object"]["foo"] = "baz"
     assert db.document(edge_id)["object"]["foo"] == "baz"
 
-    del G_1["person/1"]["person/2"]["object"]["foo"]
-    assert "_rev" not in G_1["person/1"]["person/2"]["object"]
-    assert isinstance(G_1["person/1"]["person/2"]["object"], EdgeAttrDict)
+    del G_1["person/0"]["person/1"]["object"]["foo"]
+    assert "_rev" not in G_1["person/0"]["person/1"]["object"]
+    assert isinstance(G_1["person/0"]["person/1"]["object"], EdgeAttrDict)
     assert "foo" not in db.document(edge_id)["object"]
 
-    G_1["person/1"]["person/2"]["object"].update({"sub_object": {"foo": "bar"}})
-    assert "_rev" not in G_1["person/1"]["person/2"]["object"]["sub_object"]
-    assert isinstance(G_1["person/1"]["person/2"]["object"]["sub_object"], EdgeAttrDict)
+    G_1["person/0"]["person/1"]["object"].update({"sub_object": {"foo": "bar"}})
+    assert "_rev" not in G_1["person/0"]["person/1"]["object"]["sub_object"]
+    assert isinstance(G_1["person/0"]["person/1"]["object"]["sub_object"], EdgeAttrDict)
     assert db.document(edge_id)["object"]["sub_object"]["foo"] == "bar"
 
     G_1.clear()
 
-    assert G_1["person/1"]["person/2"]["object"]["sub_object"]["foo"] == "bar"
-    G_1["person/1"]["person/2"]["object"]["sub_object"]["foo"] = "baz"
-    assert "_rev" not in G_1["person/1"]["person/2"]["object"]["sub_object"]
+    assert G_1["person/0"]["person/1"]["object"]["sub_object"]["foo"] == "bar"
+    G_1["person/0"]["person/1"]["object"]["sub_object"]["foo"] = "baz"
+    assert "_rev" not in G_1["person/0"]["person/1"]["object"]["sub_object"]
     assert db.document(edge_id)["object"]["sub_object"]["foo"] == "baz"
 
 
@@ -1169,31 +1169,31 @@ def test_multigraph_edges_crud(load_karate_graph: Any) -> None:
         assert "bad_key" not in G_1.adj[src][dst][0]
         assert w == "boom!"
 
-    for k, edge_key_dict in G_1.adj["person/1"].items():
+    for k, edge_key_dict in G_1.adj["person/0"].items():
         assert db.has_document(k)
         assert db.has_document(edge_key_dict[0]["_id"])
 
-    G_1.add_edge("person/1", "person/1", foo="bar", _edge_type="knows")
-    edge_id = G_1.adj["person/1"]["person/1"][0]["_id"]
+    G_1.add_edge("person/0", "person/0", foo="bar", _edge_type="knows")
+    edge_id = G_1.adj["person/0"]["person/0"][0]["_id"]
     doc = db.document(edge_id)
     assert doc["foo"] == "bar"
-    assert G_1.adj["person/1"]["person/1"][0]["foo"] == "bar"
+    assert G_1.adj["person/0"]["person/0"][0]["foo"] == "bar"
 
-    del G_1.adj["person/1"]["person/1"][0]["foo"]
+    del G_1.adj["person/0"]["person/0"][0]["foo"]
     doc = db.document(edge_id)
     assert "foo" not in doc
 
-    G_1.adj["person/1"]["person/1"][0].update({"bar": "foo"})
+    G_1.adj["person/0"]["person/0"][0].update({"bar": "foo"})
     doc = db.document(edge_id)
     del doc["_rev"]
     assert doc["bar"] == "foo"
 
-    assert len(G_1.adj["person/1"]["person/1"][0]) == len(doc)
-    adj_count = len(G_1.adj["person/1"])
-    G_1.remove_edge("person/1", "person/1")
-    assert len(G_1.adj["person/1"]) == adj_count - 1
+    assert len(G_1.adj["person/0"]["person/0"][0]) == len(doc)
+    adj_count = len(G_1.adj["person/0"])
+    G_1.remove_edge("person/0", "person/0")
+    assert len(G_1.adj["person/0"]) == adj_count - 1
     assert not db.has_document(edge_id)
-    assert "person/1" in G_1
+    assert "person/0" in G_1
 
     assert not db.has_document("person/new_node_1")
     col_count = db.collection("knows").count()
@@ -1276,44 +1276,44 @@ def test_multigraph_edges_crud(load_karate_graph: Any) -> None:
     assert "new_node_2" in G_1.adj["new_node_1"]
     assert "new_node_3" not in G_1.adj["new_node_1"]
 
-    edge_id = "knows/1"
-    assert G_1["person/1"]["person/2"][edge_id] == G_1["person/2"]["person/1"][edge_id]
+    edge_id = "knows/0"
+    assert G_1["person/0"]["person/1"][edge_id] == G_1["person/1"]["person/0"][edge_id]
     new_weight = 1000
-    G_1["person/1"]["person/2"][edge_id]["weight"] = new_weight
-    assert G_1["person/1"]["person/2"][edge_id]["weight"] == new_weight
-    assert G_1["person/2"]["person/1"][edge_id]["weight"] == new_weight
+    G_1["person/0"]["person/1"][edge_id]["weight"] = new_weight
+    assert G_1["person/0"]["person/1"][edge_id]["weight"] == new_weight
+    assert G_1["person/1"]["person/0"][edge_id]["weight"] == new_weight
     G_1.clear()
-    assert G_1["person/1"]["person/2"][edge_id]["weight"] == new_weight
-    assert G_1["person/2"]["person/1"][edge_id]["weight"] == new_weight
+    assert G_1["person/0"]["person/1"][edge_id]["weight"] == new_weight
+    assert G_1["person/1"]["person/0"][edge_id]["weight"] == new_weight
 
-    edge_id = G_1["person/1"]["person/2"][edge_id]["_id"]
-    G_1["person/1"]["person/2"][edge_id]["object"] = {"foo": "bar", "bar": "foo"}
-    assert "_rev" not in G_1["person/1"]["person/2"][edge_id]["object"]
-    assert isinstance(G_1["person/1"]["person/2"][edge_id]["object"], EdgeAttrDict)
+    edge_id = G_1["person/0"]["person/1"][edge_id]["_id"]
+    G_1["person/0"]["person/1"][edge_id]["object"] = {"foo": "bar", "bar": "foo"}
+    assert "_rev" not in G_1["person/0"]["person/1"][edge_id]["object"]
+    assert isinstance(G_1["person/0"]["person/1"][edge_id]["object"], EdgeAttrDict)
     assert db.document(edge_id)["object"] == {"foo": "bar", "bar": "foo"}
 
-    G_1["person/1"]["person/2"][edge_id]["object"]["foo"] = "baz"
+    G_1["person/0"]["person/1"][edge_id]["object"]["foo"] = "baz"
     assert db.document(edge_id)["object"]["foo"] == "baz"
 
-    del G_1["person/1"]["person/2"][edge_id]["object"]["foo"]
-    assert "_rev" not in G_1["person/1"]["person/2"][edge_id]["object"]
-    assert isinstance(G_1["person/1"]["person/2"][edge_id]["object"], EdgeAttrDict)
+    del G_1["person/0"]["person/1"][edge_id]["object"]["foo"]
+    assert "_rev" not in G_1["person/0"]["person/1"][edge_id]["object"]
+    assert isinstance(G_1["person/0"]["person/1"][edge_id]["object"], EdgeAttrDict)
     assert "foo" not in db.document(edge_id)["object"]
 
-    G_1["person/1"]["person/2"][edge_id]["object"].update(
+    G_1["person/0"]["person/1"][edge_id]["object"].update(
         {"sub_object": {"foo": "bar"}}
     )
-    assert "_rev" not in G_1["person/1"]["person/2"][edge_id]["object"]["sub_object"]
+    assert "_rev" not in G_1["person/0"]["person/1"][edge_id]["object"]["sub_object"]
     assert isinstance(
-        G_1["person/1"]["person/2"][edge_id]["object"]["sub_object"], EdgeAttrDict
+        G_1["person/0"]["person/1"][edge_id]["object"]["sub_object"], EdgeAttrDict
     )
     assert db.document(edge_id)["object"]["sub_object"]["foo"] == "bar"
 
     G_1.clear()
 
-    assert G_1["person/1"]["person/2"][edge_id]["object"]["sub_object"]["foo"] == "bar"
-    G_1["person/1"]["person/2"][edge_id]["object"]["sub_object"]["foo"] = "baz"
-    assert "_rev" not in G_1["person/1"]["person/2"][edge_id]["object"]["sub_object"]
+    assert G_1["person/0"]["person/1"][edge_id]["object"]["sub_object"]["foo"] == "bar"
+    G_1["person/0"]["person/1"][edge_id]["object"]["sub_object"]["foo"] = "baz"
+    assert "_rev" not in G_1["person/0"]["person/1"][edge_id]["object"]["sub_object"]
     assert db.document(edge_id)["object"]["sub_object"]["foo"] == "baz"
 
 
@@ -1332,31 +1332,31 @@ def test_multidigraph_edges_crud(load_karate_graph: Any) -> None:
         assert "bad_key" not in G_1.adj[src][dst][0]
         assert w == "boom!"
 
-    for k, edge_key_dict in G_1.adj["person/1"].items():
+    for k, edge_key_dict in G_1.adj["person/0"].items():
         assert db.has_document(k)
         assert db.has_document(edge_key_dict[0]["_id"])
 
-    G_1.add_edge("person/1", "person/1", foo="bar", _edge_type="knows")
-    edge_id = G_1.adj["person/1"]["person/1"][0]["_id"]
+    G_1.add_edge("person/0", "person/0", foo="bar", _edge_type="knows")
+    edge_id = G_1.adj["person/0"]["person/0"][0]["_id"]
     doc = db.document(edge_id)
     assert doc["foo"] == "bar"
-    assert G_1.adj["person/1"]["person/1"][0]["foo"] == "bar"
+    assert G_1.adj["person/0"]["person/0"][0]["foo"] == "bar"
 
-    del G_1.adj["person/1"]["person/1"][0]["foo"]
+    del G_1.adj["person/0"]["person/0"][0]["foo"]
     doc = db.document(edge_id)
     assert "foo" not in doc
 
-    G_1.adj["person/1"]["person/1"][0].update({"bar": "foo"})
+    G_1.adj["person/0"]["person/0"][0].update({"bar": "foo"})
     doc = db.document(edge_id)
     del doc["_rev"]
     assert doc["bar"] == "foo"
 
-    assert len(G_1.adj["person/1"]["person/1"][0]) == len(doc)
-    adj_count = len(G_1.adj["person/1"])
-    G_1.remove_edge("person/1", "person/1")
-    assert len(G_1.adj["person/1"]) == adj_count - 1
+    assert len(G_1.adj["person/0"]["person/0"][0]) == len(doc)
+    adj_count = len(G_1.adj["person/0"])
+    G_1.remove_edge("person/0", "person/0")
+    assert len(G_1.adj["person/0"]) == adj_count - 1
     assert not db.has_document(edge_id)
-    assert "person/1" in G_1
+    assert "person/0" in G_1
 
     assert not db.has_document("person/new_node_1")
     col_count = db.collection("knows").count()
@@ -1442,49 +1442,49 @@ def test_multidigraph_edges_crud(load_karate_graph: Any) -> None:
     assert "new_node_2" in G_1.adj["new_node_1"]
     assert "new_node_3" not in G_1.adj["new_node_1"]
 
-    edge_id = "knows/1"
-    assert "person/1" not in G_1["person/2"]
+    edge_id = "knows/0"
+    assert "person/0" not in G_1["person/1"]
     assert (
-        G_1.succ["person/1"]["person/2"][edge_id]
-        == G_1.pred["person/2"]["person/1"][edge_id]
+        G_1.succ["person/0"]["person/1"][edge_id]
+        == G_1.pred["person/1"]["person/0"][edge_id]
     )
     new_weight = 1000
-    G_1["person/1"]["person/2"][edge_id]["weight"] = new_weight
-    assert G_1.succ["person/1"]["person/2"][edge_id]["weight"] == new_weight
-    assert G_1.pred["person/2"]["person/1"][edge_id]["weight"] == new_weight
+    G_1["person/0"]["person/1"][edge_id]["weight"] = new_weight
+    assert G_1.succ["person/0"]["person/1"][edge_id]["weight"] == new_weight
+    assert G_1.pred["person/1"]["person/0"][edge_id]["weight"] == new_weight
     G_1.clear()
-    assert G_1.succ["person/1"]["person/2"][edge_id]["weight"] == new_weight
+    assert G_1.succ["person/0"]["person/1"][edge_id]["weight"] == new_weight
     G_1.clear()
-    assert G_1.pred["person/2"]["person/1"][edge_id]["weight"] == new_weight
+    assert G_1.pred["person/1"]["person/0"][edge_id]["weight"] == new_weight
 
-    edge_id = G_1["person/1"]["person/2"][edge_id]["_id"]
-    G_1["person/1"]["person/2"][edge_id]["object"] = {"foo": "bar", "bar": "foo"}
-    assert "_rev" not in G_1["person/1"]["person/2"][edge_id]["object"]
-    assert isinstance(G_1["person/1"]["person/2"][edge_id]["object"], EdgeAttrDict)
+    edge_id = G_1["person/0"]["person/1"][edge_id]["_id"]
+    G_1["person/0"]["person/1"][edge_id]["object"] = {"foo": "bar", "bar": "foo"}
+    assert "_rev" not in G_1["person/0"]["person/1"][edge_id]["object"]
+    assert isinstance(G_1["person/0"]["person/1"][edge_id]["object"], EdgeAttrDict)
     assert db.document(edge_id)["object"] == {"foo": "bar", "bar": "foo"}
 
-    G_1["person/1"]["person/2"][edge_id]["object"]["foo"] = "baz"
+    G_1["person/0"]["person/1"][edge_id]["object"]["foo"] = "baz"
     assert db.document(edge_id)["object"]["foo"] == "baz"
 
-    del G_1["person/1"]["person/2"][edge_id]["object"]["foo"]
-    assert "_rev" not in G_1["person/1"]["person/2"][edge_id]["object"]
-    assert isinstance(G_1["person/1"]["person/2"][edge_id]["object"], EdgeAttrDict)
+    del G_1["person/0"]["person/1"][edge_id]["object"]["foo"]
+    assert "_rev" not in G_1["person/0"]["person/1"][edge_id]["object"]
+    assert isinstance(G_1["person/0"]["person/1"][edge_id]["object"], EdgeAttrDict)
     assert "foo" not in db.document(edge_id)["object"]
 
-    G_1["person/1"]["person/2"][edge_id]["object"].update(
+    G_1["person/0"]["person/1"][edge_id]["object"].update(
         {"sub_object": {"foo": "bar"}}
     )
-    assert "_rev" not in G_1["person/1"]["person/2"][edge_id]["object"]["sub_object"]
+    assert "_rev" not in G_1["person/0"]["person/1"][edge_id]["object"]["sub_object"]
     assert isinstance(
-        G_1["person/1"]["person/2"][edge_id]["object"]["sub_object"], EdgeAttrDict
+        G_1["person/0"]["person/1"][edge_id]["object"]["sub_object"], EdgeAttrDict
     )
     assert db.document(edge_id)["object"]["sub_object"]["foo"] == "bar"
 
     G_1.clear()
 
-    assert G_1["person/1"]["person/2"][edge_id]["object"]["sub_object"]["foo"] == "bar"
-    G_1["person/1"]["person/2"][edge_id]["object"]["sub_object"]["foo"] = "baz"
-    assert "_rev" not in G_1["person/1"]["person/2"][edge_id]["object"]["sub_object"]
+    assert G_1["person/0"]["person/1"][edge_id]["object"]["sub_object"]["foo"] == "bar"
+    G_1["person/0"]["person/1"][edge_id]["object"]["sub_object"]["foo"] = "baz"
+    assert "_rev" not in G_1["person/0"]["person/1"][edge_id]["object"]["sub_object"]
     assert db.document(edge_id)["object"]["sub_object"]["foo"] == "baz"
 
 
@@ -1686,38 +1686,38 @@ def test_readme(load_karate_graph: Any) -> None:
     G.nodes(data="club", default="unknown")
     G.edges(data="weight", default=1000)
 
-    G.nodes["person/1"]
-    G.adj["person/1"]
-    G.edges[("person/1", "person/3")]
+    G.nodes["person/0"]
+    G.adj["person/0"]
+    G.edges[("person/0", "person/2")]
 
-    assert G.nodes["1"] == G.nodes["person/1"] == G.nodes[1]
+    assert G.nodes["0"] == G.nodes["person/0"] == G.nodes[0]
 
-    G.nodes["person/1"]["name"] = "John Doe"
-    G.nodes["person/1"].update({"age": 40})
-    del G.nodes["person/1"]["name"]
+    G.nodes["person/0"]["name"] = "John Doe"
+    G.nodes["person/0"].update({"age": 40})
+    del G.nodes["person/0"]["name"]
 
-    G.adj["person/1"]["person/3"]["weight"] = 2
-    G.adj["person/1"]["person/3"].update({"weight": 3})
-    del G.adj["person/1"]["person/3"]["weight"]
+    G.adj["person/0"]["person/2"]["weight"] = 2
+    G.adj["person/0"]["person/2"].update({"weight": 3})
+    del G.adj["person/0"]["person/2"]["weight"]
 
-    G.edges[("person/1", "person/3")]["weight"] = 0.5
-    assert G.adj["person/1"]["person/3"]["weight"] == 0.5
+    G.edges[("person/0", "person/2")]["weight"] = 0.5
+    assert G.adj["person/0"]["person/2"]["weight"] == 0.5
 
     G.add_node("person/35", name="Jane Doe")
     G.add_nodes_from(
         [("person/36", {"name": "Jack Doe"}), ("person/37", {"name": "Jill Doe"})]
     )
-    G.add_edge("person/1", "person/35", weight=1.5, _edge_type="knows")
+    G.add_edge("person/0", "person/35", weight=1.5, _edge_type="knows")
     G.add_edges_from(
         [
-            ("person/1", "person/36", {"weight": 2}),
-            ("person/1", "person/37", {"weight": 3}),
+            ("person/0", "person/36", {"weight": 2}),
+            ("person/0", "person/37", {"weight": 3}),
         ],
         _edge_type="knows",
     )
 
-    G.remove_edge("person/1", "person/35")
-    G.remove_edges_from([("person/1", "person/36"), ("person/1", "person/37")])
+    G.remove_edge("person/0", "person/35")
+    G.remove_edges_from([("person/0", "person/36"), ("person/0", "person/37")])
     G.remove_node("person/35")
     G.remove_nodes_from(["person/36", "person/37"])
 

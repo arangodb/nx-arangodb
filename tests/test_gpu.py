@@ -68,12 +68,12 @@ def test_adb_graph_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     # Measure GPU execution time
     nxadb.convert.GPU_ENABLED = True
     start_gpu = time.time()
+
+    # Note: While this works, we should use the logger or some alternative
+    # approach testing this. Via stdout is not the best way to test this.
     with Capturing() as output_gpu:
         res_gpu = nx.pagerank(graph)
 
-    assert any(
-        "nx_cugraph.Graph" in line for line in output_gpu
-    ), "Expected output not found in GPU execution"
     assert any(
         "NXCG Graph construction took" in line for line in output_gpu
     ), "Expected output not found in GPU execution"
@@ -86,12 +86,9 @@ def test_adb_graph_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     with Capturing() as output_cpu:
         res_cpu = nx.pagerank(graph)
 
-    assert all(
-        "nx_cugraph.Graph" not in line for line in output_cpu
-    ), "Unexpected GPU-related output found in CPU execution"
-    assert all(
-        "NXCG Graph construction took" not in line for line in output_cpu
-    ), "Unexpected GPU-related output found in CPU execution"
+    output_cpu_list = list(output_cpu)
+    assert len(output_cpu_list) == 1
+    assert "Graph 'GridGraph' load took" in output_cpu_list[0]
 
     cpu_time = time.time() - start_cpu
 

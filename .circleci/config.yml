@@ -99,11 +99,11 @@ jobs:
             ./starter.sh
 
       - run:
-        name: Setup Python
-        command: |
-          pyenv --version
-          pyenv install -f << parameters.python_version >>
-          pyenv global << parameters.python_version >>
+          name: Setup Python
+          command: |
+            pyenv --version
+            pyenv install -f << parameters.python_version >>
+            pyenv global << parameters.python_version >>
 
       - run:
           name: Setup pip

@@ -8,7 +8,7 @@ import pytest
 
 import nx_arangodb as nxadb
 
-from .conftest import create_grid_graph
+from tests.conftest import create_grid_graph
 
 
 # Taken from:
@@ -91,7 +91,6 @@ def test_adb_graph_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     assert "Graph 'GridGraph' load took" in output_cpu_list[0]
 
     cpu_time = time.time() - start_cpu
-    print(gpu_time, cpu_time)
 
     assert gpu_time < cpu_time, "GPU execution should be faster than CPU execution"
     assert_pagerank(res_gpu, res_cpu)

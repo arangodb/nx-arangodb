@@ -20,7 +20,7 @@ from nx_arangodb.classes.dict.adj import (
 from nx_arangodb.classes.dict.graph import GraphDict
 from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 
-from .conftest import db
+from tests.conftest import db
 
 GRAPH_NAME = "test_graph"
 

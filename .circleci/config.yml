@@ -78,7 +78,7 @@ jobs:
 
       - run:
           name: Run local tests
-          command: pytest tests/*.py
+          command: pytest tests/cpu/*.py
 
       - run:
           name: Run NetworkX tests
@@ -121,7 +121,7 @@ jobs:
 
       - run:
           name: Run local gpu tests
-          command: pytest tests/test_gpu.py
+          command: pytest tests/gpu/test_gpu.py
 
 workflows:
   version: 2
@@ -133,6 +133,9 @@ workflows:
             parameters:
               python_version: ["3.10", "3.11", "3.12.2"]
       - test-gpu:
+          requires:
+            - lint
+            - test
           matrix:
             parameters:
               python_version: ["3.10", "3.11", "3.12.2"]

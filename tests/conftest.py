@@ -117,7 +117,9 @@ def create_grid_graph(graph_cls: type[nxadb.Graph]) -> nxadb.Graph:
         return graph_cls(name="GridGraph")
 
     grid_graph = nx.grid_graph(dim=(500, 500))
-    return graph_cls(incoming_graph_data=grid_graph, name="GridGraph")
+    return graph_cls(
+        incoming_graph_data=grid_graph, name="GridGraph", write_async=False
+    )
 
 
 # Taken from:

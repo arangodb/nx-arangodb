@@ -55,6 +55,7 @@ class Graph(nx.Graph):
         read_parallelism: int = 10,
         read_batch_size: int = 100000,
         write_batch_size: int = 50000,
+        write_async: bool = True,
         symmetrize_edges: bool = False,
         use_experimental_views: bool = False,
         *args: Any,
@@ -166,7 +167,7 @@ class Graph(nx.Graph):
                     incoming_graph_data,
                     edge_definitions=edge_definitions,
                     batch_size=self.write_batch_size,
-                    use_async=True,
+                    use_async=write_async,
                 )
 
             else:

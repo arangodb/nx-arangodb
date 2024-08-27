@@ -44,7 +44,8 @@ def test_adb_graph_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     res_cpu = None
 
     # Measure GPU execution time
-    nxadb.convert.GPU_ENABLED = True
+    assert nxadb.convert.GPU_AVAILABLE is True
+    assert nx.config.backends.arangodb.use_gpu is True
     start_gpu = time.time()
 
     # Note: While this works, we should use the logger or some alternative
@@ -59,7 +60,7 @@ def test_adb_graph_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     gpu_time = time.time() - start_gpu
 
     # Disable GPU and measure CPU execution time
-    nxadb.convert.GPU_ENABLED = False
+    nx.config.backends.arangodb.use_gpu = False
     start_cpu = time.time()
     with Capturing() as output_cpu:
         res_cpu = nx.pagerank(graph)

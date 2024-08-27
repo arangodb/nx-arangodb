@@ -1,5 +1,7 @@
 import logging
 import os
+import sys
+from io import StringIO
 from typing import Any
 
 import networkx as nx
@@ -23,6 +25,9 @@ def pytest_addoption(parser: Any) -> None:
     parser.addoption("--dbName", action="store", default="_system")
     parser.addoption("--username", action="store", default="root")
     parser.addoption("--password", action="store", default="test")
+    parser.addoption(
+        "--run-gpu-tests", action="store_true", default=False, help="Run GPU tests"
+    )
 
 
 def pytest_configure(config: Any) -> None:
@@ -49,6 +54,9 @@ def pytest_configure(config: Any) -> None:
     os.environ["DATABASE_USERNAME"] = con["username"]
     os.environ["DATABASE_PASSWORD"] = con["password"]
     os.environ["DATABASE_NAME"] = con["dbName"]
+
+    global run_gpu_tests
+    run_gpu_tests = config.getoption("--run-gpu-tests")
 
 
 @pytest.fixture(scope="function")
@@ -170,3 +178,17 @@ def assert_k_components(
     assert d2
     assert d1.keys() == d2.keys(), "Dictionaries have different keys"
     assert d1 == d2
+
+
+# Taken from:
+# https://stackoverflow.com/questions/16571150/how-to-capture-stdout-output-from-a-python-function-call
+class Capturing(list[str]):
+    def __enter__(self):
+        self._stdout = sys.stdout
+        sys.stdout = self._stringio = StringIO()
+        return self
+
+    def __exit__(self, *args):
+        self.extend(self._stringio.getvalue().splitlines())
+        del self._stringio  # free up some memory
+        sys.stdout = self._stdout

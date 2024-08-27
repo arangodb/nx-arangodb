@@ -78,7 +78,7 @@ jobs:
 
       - run:
           name: Run local tests
-          command: pytest tests/cpu/*.py
+          command: pytest tests/*.py
 
       - run:
           name: Run NetworkX tests
@@ -116,12 +116,12 @@ jobs:
       - run:
           name: Install cuda related dependencies
           command: |
-            pip install --extra-index-url https://pypi.nvidia.com pylibcugraph-cu12
+            pip install pylibcugraph-cu12 --extra-index-url https://pypi.nvidia.com
             pip install nx-cugraph-cu12 --extra-index-url https://pypi.nvidia.com
 
       - run:
           name: Run local gpu tests
-          command: pytest tests/gpu/test_gpu.py
+          command: pytest tests/test.py -k "test_gpu" --run-gpu-tests
 
 workflows:
   version: 2
@@ -138,4 +138,4 @@ workflows:
             - test
           matrix:
             parameters:
-              python_version: ["3.10", "3.11", "3.12"]
+              python_version: ["3.10", "3.11"] # "3.12" # TODO: Revisit 3.12

@@ -1,7 +1,7 @@
+import time
 from typing import Any, Callable, Dict, Union
 
 import networkx as nx
-import phenolrs
 import pytest
 from arango import DocumentDeleteError
 from phenolrs.networkx.typings import (
@@ -15,12 +15,15 @@ import nx_arangodb as nxadb
 from nx_arangodb.classes.dict.adj import AdjListOuterDict, EdgeAttrDict, EdgeKeyDict
 from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 from tests.conftest import (
+    Capturing,
     assert_bc,
     assert_pagerank,
     assert_remote_dict,
+    create_grid_graph,
     create_line_graph,
     db,
     extract_arangodb_key,
+    run_gpu_tests,
 )
 
 G_NX = nx.karate_club_graph()
@@ -266,6 +269,57 @@ def test_shortest_path_remote_algorithm(load_karate_graph: Any) -> None:
     assert r_2 == r_4
     assert r_1 != r_2
     assert r_3 != r_4
+
+
+@pytest.mark.parametrize(
+    "graph_cls",
+    [
+        (nxadb.Graph),
+        (nxadb.DiGraph),
+        (nxadb.MultiGraph),
+        (nxadb.MultiDiGraph),
+    ],
+)
+def test_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
+    if not run_gpu_tests:
+        pytest.skip("GPU tests are disabled")
+
+    assert nxadb.convert.GPU_AVAILABLE is True
+    assert nx.config.backends.arangodb.use_gpu is True
+
+    graph = create_grid_graph(graph_cls)
+
+    res_gpu = None
+    res_cpu = None
+
+    # Measure GPU execution time
+    start_gpu = time.time()
+
+    # Note: While this works, we should use the logger or some alternative
+    # approach testing this. Via stdout is not the best way to test this.
+    with Capturing() as output_gpu:
+        res_gpu = nx.pagerank(graph)
+
+    assert any(
+        "NXCG Graph construction took" in line for line in output_gpu
+    ), "Expected output not found in GPU execution"
+
+    gpu_time = time.time() - start_gpu
+
+    # Disable GPU and measure CPU execution time
+    nx.config.backends.arangodb.use_gpu = False
+    start_cpu = time.time()
+    with Capturing() as output_cpu:
+        res_cpu = nx.pagerank(graph)
+
+    output_cpu_list = list(output_cpu)
+    assert len(output_cpu_list) == 1
+    assert "Graph 'GridGraph' load took" in output_cpu_list[0]
+
+    cpu_time = time.time() - start_cpu
+
+    assert gpu_time < cpu_time, "GPU execution should be faster than CPU execution"
+    assert_pagerank(res_gpu, res_cpu, 5)
 
 
 @pytest.mark.parametrize(

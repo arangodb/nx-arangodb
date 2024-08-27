@@ -58,6 +58,11 @@ dev = [
 gpu = [
     "nx-cugraph-cu12 @ https://pypi.nvidia.com"
 ]
+llm = [
+    "langchain~=0.2.14",
+    "langchain-openai~=0.1.22",
+    "langchain-community~=0.2.12"
+]
 
 [project.urls]
 Homepage = "https://github.com/aMahanna/nx-arangodb"

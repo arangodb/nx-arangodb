@@ -5,6 +5,7 @@ Used by the nx_arangodb Graph, DiGraph, MultiGraph, and MultiDiGraph classes.
 
 from __future__ import annotations
 
+from collections import UserDict
 from typing import Any, Callable, Generator, Optional, Tuple
 
 import networkx as nx
@@ -227,6 +228,9 @@ def keys_are_strings(func: Callable[..., Any]) -> Any:
         items: Any
         if isinstance(data, dict):
             items = data.items()
+        # NOTE: Would this even work? What are the implications?
+        # elif isinstance(data, UserDict):
+        #     items = data.data.items()
         elif isinstance(data, zip):
             items = list(data)
         else:

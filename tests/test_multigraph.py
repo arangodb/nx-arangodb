@@ -252,8 +252,7 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         # build K3
         ed1, ed2, ed3 = ({0: {}}, {0: {}}, {0: {}})
         self.k3adj = {0: {1: ed1, 2: ed2}, 1: {0: ed1, 2: ed3}, 2: {0: ed2, 1: ed3}}
-        self.k3edges = [(0, 1), (0, 2), (1, 2)]
-        self.k3nodes = [0, 1, 2]
+        self.k3nodes = ["test_graph_node/0", "test_graph_node/1", "test_graph_node/2"]
         self.K3 = self.Graph()
         self.K3._adj = self.k3adj
         self.K3._node = {}
@@ -292,28 +291,76 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         keydict = {0: edata0, 1: edata1}
         dododod = {"a": {"b": keydict}}
 
-        G = self.EmptyGraph(dododod, multigraph_input=True)
-        edge_a_b_0 = G.adj["a"]["b"][0]["_id"]
-        edge_a_b_1 = G.adj["a"]["b"][1]["_id"]
+        for multigraph_input in [True, None]:
+            G = self.EmptyGraph(dododod, multigraph_input=multigraph_input)
+            assert G.number_of_edges() == 2
+            edge_a_b_0 = G.adj["a"]["b"][0]["_id"]
+            edge_a_b_1 = G.adj["a"]["b"][1]["_id"]
+            assert G["a"]["b"][0]["w"] == edata0["w"]
+            assert G["a"]["b"][0]["s"] == edata0["s"]
+            assert G["a"]["b"][1]["w"] == edata1["w"]
+            assert G["a"]["b"][1]["s"] == edata1["s"]
 
-        # TODO: Why is a and b reversed?
-        multiple_edge = [
-            ("test_graph_node/b", "test_graph_node/a", edge_a_b_0, get_doc(edge_a_b_0)),
-            ("test_graph_node/b", "test_graph_node/a", edge_a_b_1, get_doc(edge_a_b_1)),
-        ]
-        single_edge = [
-            ("test_graph_node/1", "test_graph_node/b", edge_a_b_0, get_doc(edge_a_b_0))
-        ]
+            # TODO: Figure out why it's either (a, b) or (b, a)...
+            multiple_edge_a_b = [
+                (
+                    "test_graph_node/a",
+                    "test_graph_node/b",
+                    edge_a_b_0,
+                    get_doc(edge_a_b_0),
+                ),
+                (
+                    "test_graph_node/a",
+                    "test_graph_node/b",
+                    edge_a_b_1,
+                    get_doc(edge_a_b_1),
+                ),
+            ]
 
-        assert set(G.edges(keys=True, data=True)) == multiple_edge
-        G = self.EmptyGraph(dododod, multigraph_input=None)
-        assert list(G.edges(keys=True, data=True)) == multiple_edge
+            multiple_edge_b_a = [
+                (
+                    "test_graph_node/b",
+                    "test_graph_node/a",
+                    edge_a_b_0,
+                    get_doc(edge_a_b_0),
+                ),
+                (
+                    "test_graph_node/b",
+                    "test_graph_node/a",
+                    edge_a_b_1,
+                    get_doc(edge_a_b_1),
+                ),
+            ]
+
+            edges = list(G.edges(keys=True, data=True))
+            for edge in edges:
+                # TODO: Need to revisit. I don't like this...
+                assert edge in multiple_edge_a_b or edge in multiple_edge_b_a
+
         G = self.EmptyGraph(dododod, multigraph_input=False)
-        assert list(G.edges(keys=True, data=True)) == single_edge
+        assert G.number_of_edges() == 1
+        edge_a_b_0 = G.adj["a"]["b"][0]["_id"]
+        single_edge_a_b = (
+            "test_graph_node/a",
+            "test_graph_node/b",
+            edge_a_b_0,
+            get_doc(edge_a_b_0),
+        )
+        single_edge_b_a = (
+            "test_graph_node/b",
+            "test_graph_node/a",
+            edge_a_b_0,
+            get_doc(edge_a_b_0),
+        )
+        edges = list(G.edges(keys=True, data=True))
+        assert len(edges) == 1
+        # TODO: Need to revisit. I don't like this...
+        assert edges[0] == single_edge_a_b or edges[0] == single_edge_b_a
 
         # test round-trip to_dict_of_dict and MultiGraph constructor
         G = self.EmptyGraph(dododod, multigraph_input=True)
-        H = self.EmptyGraph(nx.to_dict_of_dicts(G))
+        dod = nx.to_dict_of_dicts(G)  # NOTE: This is currently failing...
+        H = self.EmptyGraph(dod)
         assert nx.is_isomorphic(G, H) is True  # test that default is True
         for mgi in [True, False]:
             H = self.EmptyGraph(nx.to_dict_of_dicts(G), multigraph_input=mgi)
@@ -356,9 +403,11 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
 
         # test constructor without to_networkx_graph for mgi=None
         G = self.EmptyGraph(dodod1, multigraph_input=None)
-        assert G.number_of_edges() == 1
-        assert G["a"]["b"][0]["traits"] == edata["traits"]
-        assert G["a"]["b"][0]["graphics"] == edata["graphics"]
+        assert G.number_of_edges() == 2
+        assert G["a"]["b"][0]["w"] == etraits["w"]
+        assert G["a"]["b"][0]["s"] == etraits["s"]
+        assert G["a"]["b"][1]["color"] == egraphics["color"]
+        assert G["a"]["b"][1]["shape"] == egraphics["shape"]
 
         G = self.EmptyGraph(dodod2, multigraph_input=None)
         assert G.number_of_edges() == 1

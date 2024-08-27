@@ -578,7 +578,7 @@ class BaseAttrGraphTester(BaseGraphTester):
 
         G.remove_edges_from([(1, 2), (3, 4)])
         G.add_edge(1, 2, data=7, spam="bar", bar="foo")
-        if G.is_multigraph:
+        if G.is_multigraph():
             edge_1_2 = get_doc(G.adj[1][2][0]["_id"])
         else:
             edge_1_2 = get_doc(G.adj[1][2]["_id"])
@@ -720,8 +720,14 @@ class BaseAttrGraphTester(BaseGraphTester):
         G = self.EmptyGraph()
         G.add_edge(0, 0)
         G.add_edge(1, 1, weight=2)
-        edge_0_0 = get_doc(G.adj[0][0]["_id"])
-        edge_1_1 = get_doc(G.adj[1][1]["_id"])
+
+        if G.is_multigraph():
+            edge_0_0 = get_doc(G[0][0][0]["_id"])
+            edge_1_1 = get_doc(G[1][1][0]["_id"])
+        else:
+            edge_0_0 = get_doc(G[0][0]["_id"])
+            edge_1_1 = get_doc(G[1][1]["_id"])
+
         assert "weight" not in edge_0_0
         assert edge_1_1["weight"] == 2
         assert edges_equal(
@@ -748,7 +754,11 @@ class TestGraph(BaseAttrGraphTester):
         # build dict-of-dict-of-dict K3
         ed1, ed2, ed3 = ({}, {}, {})
         self.k3adj = {0: {1: ed1, 2: ed2}, 1: {0: ed1, 2: ed3}, 2: {0: ed2, 1: ed3}}
-        self.k3edges = [(0, 1), (0, 2), (1, 2)]
+        self.k3edges = [
+            ("test_graph_node/0", "test_graph_node/1"),
+            ("test_graph_node/0", "test_graph_node/2"),
+            ("test_graph_node/1", "test_graph_node/2"),
+        ]
         self.k3nodes = ["test_graph_node/0", "test_graph_node/1", "test_graph_node/2"]
         self.K3 = self.Graph()
         self.K3._adj = self.k3adj
@@ -1084,7 +1094,11 @@ class TestGraph(BaseAttrGraphTester):
         nlist = [(G.nodes[i]["_id"], G.nodes[i]) for i in range(0, 8)]
         assert sorted(G.nodes.data()) == nlist
         assert G[4][5]
-        assert G[6][7]["weight"] == 2
+
+        if G.is_multigraph():
+            assert G[6][7][0]["weight"] == 2
+        else:
+            assert G[6][7]["weight"] == 2
 
         if G.is_directed():
             for src, dst in G.edges():
@@ -1102,7 +1116,10 @@ class TestGraph(BaseAttrGraphTester):
         nlist = [(G.nodes[i]["_id"], G.nodes[i]) for i in range(0, 8)]
         assert sorted(G.nodes.data()) == nlist
         assert G[4][5]
-        assert G[6][7]["weight"] == 2
+        if G.is_multigraph():
+            assert G[6][7][0]["weight"] == 2
+        else:
+            assert G[6][7]["weight"] == 2
 
         if G.is_directed():
             for src, dst in G.edges():
@@ -1136,7 +1153,9 @@ class TestGraph(BaseAttrGraphTester):
         H.update(edges=[(3, 4)])
         # NOTE: We can't guarantee the order of the edges here. Should revisit...
         H_edges_data = H.edges.data()
-        edge = get_doc(H[3][4]["_id"])
+        edge = (
+            get_doc(H[3][4][0]["_id"]) if G.is_multigraph() else get_doc(H[3][4]["_id"])
+        )
         assert H_edges_data == [("test_graph_node/3", "test_graph_node/4", edge)] or [
             ("test_graph_node/4", "test_graph_node/3", edge)
         ]

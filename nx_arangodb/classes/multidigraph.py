@@ -57,13 +57,6 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
             **kwargs,
         )
 
-        if incoming_graph_data is not None and not self._loaded_incoming_graph_data:
-            nx.convert.to_networkx_graph(
-                incoming_graph_data,
-                create_using=self,
-                multigraph_input=multigraph_input is True,
-            )
-
     #######################
     # Init helper methods #
     #######################

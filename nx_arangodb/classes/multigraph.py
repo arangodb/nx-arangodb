@@ -62,16 +62,21 @@ class MultiGraph(Graph, nx.MultiGraph):
             self.has_edge = self.has_edge_override
             self.copy = self.copy_override
 
-        if (
-            not self.is_directed()
-            and incoming_graph_data is not None
-            and not self._loaded_incoming_graph_data
-        ):
-            nx.convert.to_networkx_graph(
-                incoming_graph_data,
-                create_using=self,
-                multigraph_input=multigraph_input is True,
-            )
+        if incoming_graph_data is not None and not self._loaded_incoming_graph_data:
+            # Taken from networkx.MultiGraph.__init__
+            if isinstance(incoming_graph_data, dict) and multigraph_input is not False:
+                try:
+                    nx.convert.from_dict_of_dicts(
+                        incoming_graph_data, create_using=self, multigraph_input=True
+                    )
+                except Exception:
+                    if multigraph_input is True:
+                        m = "multigraph_input=True but conversion failed"
+                        raise nx.NetworkXError(m)
+
+                    nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)
+            else:
+                nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)
 
     #######################
     # Init helper methods #

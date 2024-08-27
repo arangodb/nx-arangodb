@@ -369,7 +369,7 @@ def test_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     cpu_time = time.time() - start_cpu
 
     assert gpu_time < cpu_time, "GPU execution should be faster than CPU execution"
-    assert_pagerank(res_gpu, res_cpu, 5)
+    assert_pagerank(res_gpu, res_cpu, 10)
 
 
 @pytest.mark.parametrize(

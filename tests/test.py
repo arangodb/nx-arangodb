@@ -334,7 +334,6 @@ def test_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     if not run_gpu_tests:
         pytest.skip("GPU tests are disabled")
 
-
     graph = create_grid_graph(graph_cls)
 
     assert nxadb.convert.GPU_AVAILABLE is True

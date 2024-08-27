@@ -11,8 +11,6 @@ from arango import ArangoClient
 from arango.database import StandardDatabase
 
 import nx_arangodb as nxadb
-from nx_arangodb.classes.dict.adj import AdjListOuterDict
-from nx_arangodb.classes.dict.node import NodeDict
 from nx_arangodb.logger import logger
 
 logger.setLevel(logging.INFO)
@@ -120,65 +118,6 @@ def create_grid_graph(graph_cls: type[nxadb.Graph]) -> nxadb.Graph:
 
     grid_graph = nx.grid_graph(dim=(500, 500))
     return graph_cls(incoming_graph_data=grid_graph, name="GridGraph")
-
-
-def assert_remote_dict(G: nxadb.Graph) -> None:
-    assert isinstance(G._node, NodeDict)
-    assert isinstance(G._adj, AdjListOuterDict)
-
-
-def extract_arangodb_key(adb_id: str) -> str:
-    return adb_id.split("/")[1]
-
-
-def assert_same_dict_values(
-    d1: dict[str | int, float], d2: dict[str | int, float], digit: int
-) -> None:
-    if type(next(iter(d1.keys()))) == int:
-        d1 = {f"person/{k}": v for k, v in d1.items()}
-
-    if type(next(iter(d2.keys()))) == int:
-        d2 = {f"person/{k}": v for k, v in d2.items()}
-
-    d1_keys = set(d1.keys())
-    d2_keys = set(d2.keys())
-    difference = d1_keys ^ d2_keys
-    assert difference == set(), "Dictionaries have different keys"
-
-    for key in d1:
-        m = f"Values for key '{key}' are not equal up to digit {digit}"
-        assert round(d1[key], digit) == round(d2[key], digit), m
-
-
-def assert_bc(d1: dict[str | int, float], d2: dict[str | int, float]) -> None:
-    assert d1
-    assert d2
-    assert_same_dict_values(d1, d2, 14)
-
-
-def assert_pagerank(
-    d1: dict[str | int, float], d2: dict[str | int, float], digit: int = 15
-) -> None:
-    assert d1
-    assert d2
-    assert_same_dict_values(d1, d2, digit)
-
-
-def assert_louvain(l1: list[set[Any]], l2: list[set[Any]]) -> None:
-    # TODO: Implement some kind of comparison
-    # Reason: Louvain returns different results on different runs
-    assert l1
-    assert l2
-    pass
-
-
-def assert_k_components(
-    d1: dict[int, list[set[Any]]], d2: dict[int, list[set[Any]]]
-) -> None:
-    assert d1
-    assert d2
-    assert d1.keys() == d2.keys(), "Dictionaries have different keys"
-    assert d1 == d2
 
 
 # Taken from:

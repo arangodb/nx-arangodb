@@ -18,6 +18,7 @@ from nx_arangodb.logger import logger
 logger.setLevel(logging.INFO)
 
 db: StandardDatabase
+run_gpu_tests: bool
 
 
 def pytest_addoption(parser: Any) -> None:

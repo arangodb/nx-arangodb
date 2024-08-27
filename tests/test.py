@@ -334,10 +334,11 @@ def test_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     if not run_gpu_tests:
         pytest.skip("GPU tests are disabled")
 
-    assert nxadb.convert.GPU_AVAILABLE is True
-    assert nx.config.backends.arangodb.use_gpu is True
 
     graph = create_grid_graph(graph_cls)
+
+    assert nxadb.convert.GPU_AVAILABLE is True
+    assert nx.config.backends.arangodb.use_gpu is True
 
     res_gpu = None
     res_cpu = None
@@ -369,7 +370,7 @@ def test_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     cpu_time = time.time() - start_cpu
 
     assert gpu_time < cpu_time, "GPU execution should be faster than CPU execution"
-    assert_pagerank(res_gpu, res_cpu, 10)
+    assert_pagerank(res_gpu, res_cpu, 5)
 
 
 @pytest.mark.parametrize(

@@ -209,7 +209,7 @@ class Graph(nx.Graph):
         config.read_parallelism = self.read_parallelism
         config.read_batch_size = self.read_batch_size
         config.write_batch_size = self.write_batch_size
-        config.use_gpu = nxadb.convert.GPU_AVAILABLE
+        config.use_gpu = True # Only used by default if nx-cugraph is available
 
     def _set_factory_methods(self) -> None:
         """Set the factory methods for the graph, _node, and _adj dictionaries.

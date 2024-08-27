@@ -66,8 +66,10 @@ class Graph(nx.Graph):
     ):
         self._db = None
         self.__name = None
-        self._graph_exists_in_db = False
         self.__use_experimental_views = use_experimental_views
+
+        self._graph_exists_in_db = False
+        self._loaded_incoming_graph_data = False
 
         self._set_db(db)
         if self._db is not None:
@@ -99,10 +101,9 @@ class Graph(nx.Graph):
         #         m = "Must set **graph_name** if passing **incoming_graph_data**"
         #         raise ValueError(m)
 
-        loaded_incoming_graph_data = False
         if self._graph_exists_in_db:
             if incoming_graph_data is not None:
-                m = "Cannot pass both **incoming_graph_data** and **graph_name** yet if the already graph exists"  # noqa: E501
+                m = "Cannot pass both **incoming_graph_data** and **name** yet if the already graph exists"  # noqa: E501
                 raise NotImplementedError(m)
 
             if edge_type_func is not None:
@@ -174,7 +175,7 @@ class Graph(nx.Graph):
                     use_async=True,
                 )
 
-                loaded_incoming_graph_data = True
+                self._loaded_incoming_graph_data = True
 
             else:
                 self.adb_graph = self.db.create_graph(
@@ -200,9 +201,6 @@ class Graph(nx.Graph):
             self._succ.traversal_direction = TraversalDirection.OUTBOUND
             self._pred.traversal_direction = TraversalDirection.INBOUND
 
-        if incoming_graph_data is not None and not loaded_incoming_graph_data:
-            nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)
-
         if self.graph_exists_in_db:
             self.copy = self.copy_override
             self.subgraph = self.subgraph_override
@@ -211,6 +209,14 @@ class Graph(nx.Graph):
             self.add_node = self.add_node_override
             self.number_of_edges = self.number_of_edges_override
             self.nbunch_iter = self.nbunch_iter_override
+
+        if (
+            not self.is_directed()
+            and not self.is_multigraph()
+            and incoming_graph_data is not None
+            and not self._loaded_incoming_graph_data
+        ):
+            nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)
 
     #######################
     # Init helper methods #
@@ -341,23 +347,23 @@ class Graph(nx.Graph):
             self._db_name, self._username, self._password, verify=True
         )
 
-    def _set_graph_name(self, graph_name: str | None = None) -> None:
+    def _set_graph_name(self, name: str | None = None) -> None:
         if self._db is None:
             m = "Cannot set graph name without setting the database first"
             raise DatabaseNotSet(m)
 
-        if graph_name is None:
+        if name is None:
             self._graph_exists_in_db = False
-            logger.warning(f"**graph_name** not set for {self.__class__.__name__}")
+            logger.warning(f"**name** not set for {self.__class__.__name__}")
             return
 
-        if not isinstance(graph_name, str):
-            raise TypeError("**graph_name** must be a string")
+        if not isinstance(name, str):
+            raise TypeError("**name** must be a string")
 
-        self.__name = graph_name
-        self._graph_exists_in_db = self.db.has_graph(graph_name)
+        self.__name = name
+        self._graph_exists_in_db = self.db.has_graph(name)
 
-        logger.info(f"Graph '{graph_name}' exists: {self._graph_exists_in_db}")
+        logger.info(f"Graph '{name}' exists: {self._graph_exists_in_db}")
 
     ####################
     # ArangoDB Methods #

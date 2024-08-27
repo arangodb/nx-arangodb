@@ -24,6 +24,7 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
     def __init__(
         self,
         incoming_graph_data: Any = None,
+        multigraph_input: bool | None = None,
         name: str | None = None,
         default_node_type: str | None = None,
         edge_type_key: str = "_edge_type",
@@ -40,6 +41,7 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
     ):
         super().__init__(
             incoming_graph_data,
+            multigraph_input,
             name,
             default_node_type,
             edge_type_key,
@@ -54,6 +56,13 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
             *args,
             **kwargs,
         )
+
+        if incoming_graph_data is not None and not self._loaded_incoming_graph_data:
+            nx.convert.to_networkx_graph(
+                incoming_graph_data,
+                create_using=self,
+                multigraph_input=multigraph_input is True,
+            )
 
     #######################
     # Init helper methods #

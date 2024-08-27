@@ -926,12 +926,24 @@ class TestGraph(BaseAttrGraphTester):
 
     def test_remove_nodes_from(self):
         G = self.Graph()
+        assert 0 in G.nodes
+        assert "0" in G.nodes
+        assert "test_graph_node/0" in G.nodes
+        assert 1 in G.nodes
         assert 0 in G.adj
+        assert "0" in G.adj
+        assert "test_graph_node/0" in G.adj
         assert 1 in G.adj
         G.remove_nodes_from([0, 1])
+        assert 0 not in G.nodes
+        assert "1" not in G.nodes
+        assert "test_graph_node/0" not in G.nodes
+        assert 1 not in G.nodes
         assert 0 not in G.adj
+        assert "0" not in G.adj
+        assert "test_graph_node/0" not in G.adj
         assert 1 not in G.adj
-        assert len(G.adj) == 1
+        assert len(G.adj) == len(G.nodes) == G.number_of_nodes() == 1
         G.remove_nodes_from([-1])  # silent fail
 
     def test_add_edge(self):

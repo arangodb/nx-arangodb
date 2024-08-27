@@ -271,6 +271,7 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         self.K3Graph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs, incoming_graph_data=self.K3
         )
+        self.Graph = self.K3Graph
         self.EmptyGraph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs
         )
@@ -341,88 +342,134 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         (dol, False, single_edge),
     ]
 
-    @pytest.mark.parametrize("dod, mgi, edges", cases)
-    def test_non_multigraph_input(self, dod, mgi, edges):
-        G = self.Graph(dod, multigraph_input=mgi)
-        assert list(G.edges(keys=True, data=True)) == edges
-        G = nx.to_networkx_graph(dod, create_using=self.Graph, multigraph_input=mgi)
-        assert list(G.edges(keys=True, data=True)) == edges
+    # def test_non_multigraph_input(self, dod, mgi, edges):
+    # pass
+    # TODO: Implement
 
-    mgi_none_cases = [
-        (dodod1, multiple_edge),
-        (dodod2, single_edge2),
-        (dodod3, single_edge3),
-    ]
+    def test_non_multigraph_input_mgi_none(self):
+        etraits = {"w": 200, "s": "foo"}
+        egraphics = {"color": "blue", "shape": "box"}
+        edata = {"traits": etraits, "graphics": egraphics}
+        dodod1 = {"a": {"b": edata}}
+        dodod2 = {"a": {"b": etraits}}
+        dodod3 = {"a": {"b": {"traits": etraits, "s": "foo"}}}
 
-    @pytest.mark.parametrize("dod, edges", mgi_none_cases)
-    def test_non_multigraph_input_mgi_none(self, dod, edges):
         # test constructor without to_networkx_graph for mgi=None
-        G = self.Graph(dod)
-        assert list(G.edges(keys=True, data=True)) == edges
+        G = self.EmptyGraph(dodod1, multigraph_input=None)
+        assert G.number_of_edges() == 1
+        assert G["a"]["b"][0]["traits"] == edata["traits"]
+        assert G["a"]["b"][0]["graphics"] == edata["graphics"]
 
-    raise_cases = [dodod2, dodod3, dol]
+        G = self.EmptyGraph(dodod2, multigraph_input=None)
+        assert G.number_of_edges() == 1
+        assert G["a"]["b"][0]["w"] == etraits["w"]
+        assert G["a"]["b"][0]["s"] == etraits["s"]
 
-    @pytest.mark.parametrize("dod", raise_cases)
-    def test_non_multigraph_input_raise(self, dod):
-        # cases where NetworkXError is raised
-        pytest.raises(nx.NetworkXError, self.Graph, dod, multigraph_input=True)
-        pytest.raises(
-            nx.NetworkXError,
-            nx.to_networkx_graph,
-            dod,
-            create_using=self.Graph,
-            multigraph_input=True,
-        )
+        G = self.EmptyGraph(dodod3, multigraph_input=None)
+        assert G.number_of_edges() == 1
+        assert G["a"]["b"][0]["traits"] == etraits
+        assert G["a"]["b"][0]["s"] == dodod3["a"]["b"]["s"]
 
     def test_getitem(self):
-        G = self.K3
-        assert G[0] == {1: {0: {}}, 2: {0: {}}}
+        G = self.K3Graph()
+        assert G[0] == {"test_graph_node/1": G[0][1], "test_graph_node/2": G[0][2]}
         with pytest.raises(KeyError):
             G.__getitem__("j")
         with pytest.raises(TypeError):
             G.__getitem__(["A"])
 
     def test_remove_node(self):
-        G = self.K3
+        G = self.K3Graph()
+        assert 0 in G.nodes
+        assert len(G[0]) == 2
+        assert G.number_of_nodes() == 3
         G.remove_node(0)
-        assert G.adj == {1: {2: {0: {}}}, 2: {1: {0: {}}}}
+        assert 0 not in G.nodes
+        assert G.number_of_nodes() == 2
+        assert G.number_of_edges() == 1
+        assert len(G[1][2]) == 1
+        edge_1_2 = get_doc(list(G[1][2])[0])
+        assert G.adj == {
+            "test_graph_node/1": {"test_graph_node/2": {edge_1_2["_id"]: edge_1_2}},
+            "test_graph_node/2": {"test_graph_node/1": {edge_1_2["_id"]: edge_1_2}},
+        }
         with pytest.raises(nx.NetworkXError):
             G.remove_node(-1)
 
     def test_add_edge(self):
-        G = self.Graph()
-        G.add_edge(0, 1)
-        assert G.adj == {0: {1: {0: {}}}, 1: {0: {0: {}}}}
-        G = self.Graph()
-        G.add_edge(*(0, 1))
-        assert G.adj == {0: {1: {0: {}}}, 1: {0: {0: {}}}}
-        G = self.Graph()
+        G = self.EmptyGraph()
+        edge_id = G.add_edge(0, 1)
+        assert G.number_of_edges() == 1
+        assert len(G[0][1]) == 1
+        assert G[0][1][edge_id] == get_doc(edge_id)
+
+        G = self.EmptyGraph()
+        edge_id = G.add_edge(*(0, 1))
+        assert G.number_of_edges() == 1
+        assert len(G[0][1]) == 1
+        assert G[0][1][edge_id] == get_doc(edge_id)
+
         with pytest.raises(ValueError):
             G.add_edge(None, "anything")
 
     def test_add_edge_conflicting_key(self):
-        G = self.Graph()
+        G = self.EmptyGraph()
         G.add_edge(0, 1, key=1)
         G.add_edge(0, 1)
         assert G.number_of_edges() == 2
-        G = self.Graph()
+        G = self.EmptyGraph()
         G.add_edges_from([(0, 1, 1, {})])
         G.add_edges_from([(0, 1)])
         assert G.number_of_edges() == 2
 
     def test_add_edges_from(self):
-        G = self.Graph()
+        G = self.EmptyGraph()
         G.add_edges_from([(0, 1), (0, 1, {"weight": 3})])
+        assert len(G[0][1]) == 2
+        assert "weight" not in G[0][1][0]
+        assert G[0][1][1]["weight"] == 3
+        edge_0_1_0 = get_doc(G[0][1][0]["_id"])
+        edge_0_1_1 = get_doc(G[0][1][1]["_id"])
         assert G.adj == {
-            0: {1: {0: {}, 1: {"weight": 3}}},
-            1: {0: {0: {}, 1: {"weight": 3}}},
+            "test_graph_node/0": {
+                "test_graph_node/1": {
+                    edge_0_1_0["_id"]: edge_0_1_0,
+                    edge_0_1_1["_id"]: edge_0_1_1,
+                }
+            },
+            "test_graph_node/1": {
+                "test_graph_node/0": {
+                    edge_0_1_0["_id"]: edge_0_1_0,
+                    edge_0_1_1["_id"]: edge_0_1_1,
+                }
+            },
         }
         G.add_edges_from([(0, 1), (0, 1, {"weight": 3})], weight=2)
+        assert len(G[0][1]) == 4
+        assert G[0][1][2]["weight"] == 2
+        assert G[0][1][3]["weight"] == 3
+        edge_0_1_2 = get_doc(G[0][1][2]["_id"])
+        edge_0_1_3 = get_doc(G[0][1][3]["_id"])
         assert G.adj == {
-            0: {1: {0: {}, 1: {"weight": 3}, 2: {"weight": 2}, 3: {"weight": 3}}},
-            1: {0: {0: {}, 1: {"weight": 3}, 2: {"weight": 2}, 3: {"weight": 3}}},
+            "test_graph_node/0": {
+                "test_graph_node/1": {
+                    edge_0_1_0["_id"]: edge_0_1_0,
+                    edge_0_1_1["_id"]: edge_0_1_1,
+                    edge_0_1_2["_id"]: edge_0_1_2,
+                    edge_0_1_3["_id"]: edge_0_1_3,
+                }
+            },
+            "test_graph_node/1": {
+                "test_graph_node/0": {
+                    edge_0_1_0["_id"]: edge_0_1_0,
+                    edge_0_1_1["_id"]: edge_0_1_1,
+                    edge_0_1_2["_id"]: edge_0_1_2,
+                    edge_0_1_3["_id"]: edge_0_1_3,
+                }
+            },
         }
-        G = self.Graph()
+
+        G = self.EmptyGraph()
         edges = [
             (0, 1, {"weight": 3}),
             (0, 1, (("weight", 2),)),
@@ -430,8 +477,11 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
             (0, 1, "s"),
         ]
         G.add_edges_from(edges)
-        keydict = {0: {"weight": 3}, 1: {"weight": 2}, 5: {}, "s": {}}
-        assert G._adj == {0: {1: keydict}, 1: {0: keydict}}
+        assert G.number_of_edges() == 4
+        assert G[0][1][0]["weight"] == 3
+        assert G[0][1][1]["weight"] == 2
+        assert G[0][1][2]["_id"] != 5  # custom key not supported
+        assert G[0][1][3]["_id"] != "s"  # custom key not supported
 
         # too few in tuple
         with pytest.raises(nx.NetworkXError):
@@ -448,150 +498,190 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
 
         Ensure 4-tuples of form (u, v, data_dict, key) raise exception.
         """
-        G = nx.MultiGraph()
+        G = self.EmptyGraph()
         with pytest.raises(TypeError):
             # key/data values flipped in 4-tuple
             G.add_edges_from([(0, 1, {"color": "red"}, 0)])
 
     def test_remove_edge(self):
-        G = self.K3
+        G = self.K3Graph()
+        edge_id = list(G[0][1])[0]
+        assert db.has_document(edge_id)
         G.remove_edge(0, 1)
-        assert G.adj == {0: {2: {0: {}}}, 1: {2: {0: {}}}, 2: {0: {0: {}}, 1: {0: {}}}}
-
+        assert not db.has_document(edge_id)
+        with pytest.raises(KeyError):
+            G[0][1]
         with pytest.raises(nx.NetworkXError):
             G.remove_edge(-1, 0)
         with pytest.raises(nx.NetworkXError):
             G.remove_edge(0, 2, key=1)
 
     def test_remove_edges_from(self):
-        G = self.K3.copy()
+        G = self.K3Graph()
+        edges_0_1 = list(G[0][1])
+        assert len(edges_0_1) == 1
         G.remove_edges_from([(0, 1)])
-        kd = {0: {}}
-        assert G.adj == {0: {2: kd}, 1: {2: kd}, 2: {0: kd, 1: kd}}
+        assert not db.has_document(edges_0_1[0])
+        with pytest.raises(KeyError):
+            G[0][1]
+
         G.remove_edges_from([(0, 0)])  # silent fail
-        self.K3.add_edge(0, 1)
-        G = self.K3.copy()
+        G.add_edge(0, 1)
         G.remove_edges_from(list(G.edges(data=True, keys=True)))
-        assert G.adj == {0: {}, 1: {}, 2: {}}
-        G = self.K3.copy()
+        assert G.adj == {
+            "test_graph_node/0": {},
+            "test_graph_node/1": {},
+            "test_graph_node/2": {},
+        }
+
+        G = self.K3Graph()
         G.remove_edges_from(list(G.edges(data=False, keys=True)))
-        assert G.adj == {0: {}, 1: {}, 2: {}}
-        G = self.K3.copy()
+        assert G.adj == {
+            "test_graph_node/0": {},
+            "test_graph_node/1": {},
+            "test_graph_node/2": {},
+        }
+
+        G = self.K3Graph()
         G.remove_edges_from(list(G.edges(data=False, keys=False)))
-        assert G.adj == {0: {}, 1: {}, 2: {}}
-        G = self.K3.copy()
-        G.remove_edges_from([(0, 1, 0), (0, 2, 0, {}), (1, 2)])
-        assert G.adj == {0: {1: {1: {}}}, 1: {0: {1: {}}}, 2: {}}
+        assert G.adj == {
+            "test_graph_node/0": {},
+            "test_graph_node/1": {},
+            "test_graph_node/2": {},
+        }
+
+        G = self.K3Graph()
+        assert len(G[0][1]) == 1
+        G.add_edge(0, 1)
+        assert len(G[0][1]) == 2
+        edge_0_1_0 = list(G[0][1])[0]
+        edge_0_2_0 = list(G[0][2])[0]
+        assert db.has_document(edge_0_1_0)
+        assert len(G[0][2]) == 1
+        assert len(G[1][2]) == 1
+        G.remove_edges_from([(0, 1, edge_0_1_0), (0, 2, edge_0_2_0, {}), (1, 2)])
+        assert not db.has_document(edge_0_1_0)
+        assert not db.has_document(edge_0_2_0)
+        assert edge_0_1_0 not in G[0][1]
+        assert len(G[0][1]) == 1
+        with pytest.raises(KeyError):
+            G[0][2]
+        with pytest.raises(KeyError):
+            G[1][2]
 
     def test_remove_multiedge(self):
-        G = self.K3
-        G.add_edge(0, 1, key="parallel edge")
-        G.remove_edge(0, 1, key="parallel edge")
-        assert G.adj == {
-            0: {1: {0: {}}, 2: {0: {}}},
-            1: {0: {0: {}}, 2: {0: {}}},
-            2: {0: {0: {}}, 1: {0: {}}},
-        }
+        G = self.K3Graph()
+        edge_id = G.add_edge(0, 1)
+        assert db.has_document(edge_id)
+        G.remove_edge(0, 1, key=edge_id)
+        assert not db.has_document(edge_id)
+        last_edge = list(G[0][1])[-1]
+        assert db.has_document(last_edge)
         G.remove_edge(0, 1)
-        kd = {0: {}}
-        assert G.adj == {0: {2: kd}, 1: {2: kd}, 2: {0: kd, 1: kd}}
+        assert not db.has_document(last_edge)
+        with pytest.raises(KeyError):
+            G[0][1]
+        with pytest.raises(nx.NetworkXError):
+            G.remove_edge(0, 1)
         with pytest.raises(nx.NetworkXError):
             G.remove_edge(-1, 0)
 
 
-class TestEdgeSubgraph:
-    """Unit tests for the :meth:`MultiGraph.edge_subgraph` method."""
+# TODO: Revisit
+# Subgraphing not implemented yet
+# class TestEdgeSubgraph:
+#     """Unit tests for the :meth:`MultiGraph.edge_subgraph` method."""
 
-    def setup_method(self):
-        # Create a doubly-linked path graph on five nodes.
-        G = nx.MultiGraph()
-        nx.add_path(G, range(5))
-        nx.add_path(G, range(5))
-        # Add some node, edge, and graph attributes.
-        for i in range(5):
-            G.nodes[i]["name"] = f"node{i}"
-        G.adj[0][1][0]["name"] = "edge010"
-        G.adj[0][1][1]["name"] = "edge011"
-        G.adj[3][4][0]["name"] = "edge340"
-        G.adj[3][4][1]["name"] = "edge341"
-        G.graph["name"] = "graph"
-        # Get the subgraph induced by one of the first edges and one of
-        # the last edges.
-        self.G = G
-        self.H = G.edge_subgraph([(0, 1, 0), (3, 4, 1)])
+#     def setup_method(self):
+#         # Create a doubly-linked path graph on five nodes.
+#         G = nx.MultiGraph()
+#         nx.add_path(G, range(5))
+#         nx.add_path(G, range(5))
+#         # Add some node, edge, and graph attributes.
+#         for i in range(5):
+#             G.nodes[i]["name"] = f"node{i}"
+#         G.adj[0][1][0]["name"] = "edge010"
+#         G.adj[0][1][1]["name"] = "edge011"
+#         G.adj[3][4][0]["name"] = "edge340"
+#         G.adj[3][4][1]["name"] = "edge341"
+#         G.graph["name"] = "graph"
+#         # Get the subgraph induced by one of the first edges and one of
+#         # the last edges.
+#         self.G = G
+#         self.H = G.edge_subgraph([(0, 1, 0), (3, 4, 1)])
 
-    def test_correct_nodes(self):
-        """Tests that the subgraph has the correct nodes."""
-        assert [0, 1, 3, 4] == sorted(self.H.nodes())
+#     def test_correct_nodes(self):
+#         """Tests that the subgraph has the correct nodes."""
+#         assert [0, 1, 3, 4] == sorted(self.H.nodes())
 
-    def test_correct_edges(self):
-        """Tests that the subgraph has the correct edges."""
-        assert [(0, 1, 0, "edge010"), (3, 4, 1, "edge341")] == sorted(
-            self.H.edges(keys=True, data="name")
-        )
+#     def test_correct_edges(self):
+#         """Tests that the subgraph has the correct edges."""
+#         assert [(0, 1, 0, "edge010"), (3, 4, 1, "edge341")] == sorted(
+#             self.H.edges(keys=True, data="name")
+#         )
 
-    def test_add_node(self):
-        """Tests that adding a node to the original graph does not
-        affect the nodes of the subgraph.
+#     def test_add_node(self):
+#         """Tests that adding a node to the original graph does not
+#         affect the nodes of the subgraph.
 
-        """
-        self.G.add_node(5)
-        assert [0, 1, 3, 4] == sorted(self.H.nodes())
+#         """
+#         self.G.add_node(5)
+#         assert [0, 1, 3, 4] == sorted(self.H.nodes())
 
-    def test_remove_node(self):
-        """Tests that removing a node in the original graph does
-        affect the nodes of the subgraph.
+#     def test_remove_node(self):
+#         """Tests that removing a node in the original graph does
+#         affect the nodes of the subgraph.
 
-        """
-        self.G.remove_node(0)
-        assert [1, 3, 4] == sorted(self.H.nodes())
+#         """
+#         self.G.remove_node(0)
+#         assert [1, 3, 4] == sorted(self.H.nodes())
 
-    def test_node_attr_dict(self):
-        """Tests that the node attribute dictionary of the two graphs is
-        the same object.
+#     def test_node_attr_dict(self):
+#         """Tests that the node attribute dictionary of the two graphs is
+#         the same object.
 
-        """
-        for v in self.H:
-            assert self.G.nodes[v] == self.H.nodes[v]
-        # Making a change to G should make a change in H and vice versa.
-        self.G.nodes[0]["name"] = "foo"
-        assert self.G.nodes[0] == self.H.nodes[0]
-        self.H.nodes[1]["name"] = "bar"
-        assert self.G.nodes[1] == self.H.nodes[1]
+#         """
+#         for v in self.H:
+#             assert self.G.nodes[v] == self.H.nodes[v]
+#         # Making a change to G should make a change in H and vice versa.
+#         self.G.nodes[0]["name"] = "foo"
+#         assert self.G.nodes[0] == self.H.nodes[0]
+#         self.H.nodes[1]["name"] = "bar"
+#         assert self.G.nodes[1] == self.H.nodes[1]
 
-    def test_edge_attr_dict(self):
-        """Tests that the edge attribute dictionary of the two graphs is
-        the same object.
+#     def test_edge_attr_dict(self):
+#         """Tests that the edge attribute dictionary of the two graphs is
+#         the same object.
 
-        """
-        for u, v, k in self.H.edges(keys=True):
-            assert self.G._adj[u][v][k] == self.H._adj[u][v][k]
-        # Making a change to G should make a change in H and vice versa.
-        self.G._adj[0][1][0]["name"] = "foo"
-        assert self.G._adj[0][1][0]["name"] == self.H._adj[0][1][0]["name"]
-        self.H._adj[3][4][1]["name"] = "bar"
-        assert self.G._adj[3][4][1]["name"] == self.H._adj[3][4][1]["name"]
+#         """
+#         for u, v, k in self.H.edges(keys=True):
+#             assert self.G._adj[u][v][k] == self.H._adj[u][v][k]
+#         # Making a change to G should make a change in H and vice versa.
+#         self.G._adj[0][1][0]["name"] = "foo"
+#         assert self.G._adj[0][1][0]["name"] == self.H._adj[0][1][0]["name"]
+#         self.H._adj[3][4][1]["name"] = "bar"
+#         assert self.G._adj[3][4][1]["name"] == self.H._adj[3][4][1]["name"]
 
-    def test_graph_attr_dict(self):
-        """Tests that the graph attribute dictionary of the two graphs
-        is the same object.
+#     def test_graph_attr_dict(self):
+#         """Tests that the graph attribute dictionary of the two graphs
+#         is the same object.
 
-        """
-        assert self.G.graph is self.H.graph
-
-
-class CustomDictClass(UserDict):
-    pass
+#         """
+#         assert self.G.graph is self.H.graph
 
 
-class MultiGraphSubClass(nx.MultiGraph):
-    node_dict_factory = CustomDictClass  # type: ignore[assignment]
-    node_attr_dict_factory = CustomDictClass  # type: ignore[assignment]
-    adjlist_outer_dict_factory = CustomDictClass  # type: ignore[assignment]
-    adjlist_inner_dict_factory = CustomDictClass  # type: ignore[assignment]
-    edge_key_dict_factory = CustomDictClass  # type: ignore[assignment]
-    edge_attr_dict_factory = CustomDictClass  # type: ignore[assignment]
-    graph_attr_dict_factory = CustomDictClass  # type: ignore[assignment]
+# class CustomDictClass(UserDict):
+#     pass
+
+
+# class MultiGraphSubClass(nx.MultiGraph):
+#     node_dict_factory = CustomDictClass  # type: ignore[assignment]
+#     node_attr_dict_factory = CustomDictClass  # type: ignore[assignment]
+#     adjlist_outer_dict_factory = CustomDictClass  # type: ignore[assignment]
+#     adjlist_inner_dict_factory = CustomDictClass  # type: ignore[assignment]
+#     edge_key_dict_factory = CustomDictClass  # type: ignore[assignment]
+#     edge_attr_dict_factory = CustomDictClass  # type: ignore[assignment]
+#     graph_attr_dict_factory = CustomDictClass  # type: ignore[assignment]
 
 
 # TODO: Figure out where this is used

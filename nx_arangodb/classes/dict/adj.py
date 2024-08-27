@@ -571,10 +571,12 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         self.data[edge_id] = edge_attr_dict
         del self.data[str(key)]
 
-    @key_is_string
     @logger_debug
     def __delitem__(self, key: str) -> None:
         """del G._adj['node/1']['node/2']['edge/1']"""
+        if isinstance(key, int):
+            key = self.__process_int_edge_key(key)
+
         self.data.pop(key, None)
 
         if self.__get_mirrored_edge_attr(key):
@@ -609,7 +611,7 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
 
     def popitem(self) -> tuple[str, dict[str, Any]]:  # type: ignore
         """G._adj['node/1']['node/2'].popitem()"""
-        last_key = list(self.data.keys())[-1]
+        last_key = list(self.keys())[-1]
         edge_attr_dict = self.data[last_key]
 
         assert hasattr(edge_attr_dict, "to_dict")

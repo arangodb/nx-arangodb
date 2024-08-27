@@ -25,6 +25,7 @@ class MultiGraph(Graph, nx.MultiGraph):
     def __init__(
         self,
         incoming_graph_data: Any = None,
+        multigraph_input: bool | None = None,
         name: str | None = None,
         default_node_type: str | None = None,
         edge_type_key: str = "_edge_type",
@@ -59,6 +60,18 @@ class MultiGraph(Graph, nx.MultiGraph):
         if self.graph_exists_in_db:
             self.add_edge = self.add_edge_override
             self.has_edge = self.has_edge_override
+            self.copy = self.copy_override
+
+        if (
+            not self.is_directed()
+            and incoming_graph_data is not None
+            and not self._loaded_incoming_graph_data
+        ):
+            nx.convert.to_networkx_graph(
+                incoming_graph_data,
+                create_using=self,
+                multigraph_input=multigraph_input is True,
+            )
 
     #######################
     # Init helper methods #
@@ -131,3 +144,9 @@ class MultiGraph(Graph, nx.MultiGraph):
                 return key in self._adj[u][v]
         except KeyError:
             return False
+
+    def copy_override(self, *args, **kwargs):
+        logger.warning("Note that copying a graph loses the connection to the database")
+        G = super().copy(*args, **kwargs)
+        G.edge_key_dict_factory = nx.MultiGraph.edge_key_dict_factory
+        return G

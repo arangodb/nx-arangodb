@@ -63,6 +63,13 @@ class DiGraph(Graph, nx.DiGraph):
             self.add_node = self.add_node_override
             self.remove_node = self.remove_node_override
 
+        if (
+            not self.is_multigraph()
+            and incoming_graph_data is not None
+            and not self._loaded_incoming_graph_data
+        ):
+            nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)
+
     #######################
     # nx.DiGraph Overides #
     #######################

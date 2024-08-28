@@ -100,7 +100,6 @@ class Graph(nx.Graph):
         #         m = "Must set **graph_name** if passing **incoming_graph_data**"
         #         raise ValueError(m)
 
-        loaded_incoming_graph_data = False
         if self._graph_exists_in_db:
             if incoming_graph_data is not None:
                 m = "Cannot pass both **incoming_graph_data** and **name** yet if the already graph exists"  # noqa: E501

@@ -27,6 +27,8 @@ from .dict import (
     node_attr_dict_factory,
     node_dict_factory,
 )
+from .dict.adj import AdjListOuterDict
+from .enum import TraversalDirection
 from .function import get_node_id
 from .reportviews import CustomEdgeView, CustomNodeView
 
@@ -96,6 +98,7 @@ class Graph(nx.Graph):
         #         m = "Must set **graph_name** if passing **incoming_graph_data**"
         #         raise ValueError(m)
 
+        loaded_incoming_graph_data = False
         if self._graph_exists_in_db:
             if incoming_graph_data is not None:
                 m = "Cannot pass both **incoming_graph_data** and **graph_name** yet if the already graph exists"  # noqa: E501
@@ -170,28 +173,43 @@ class Graph(nx.Graph):
                     use_async=write_async,
                 )
 
+                loaded_incoming_graph_data = True
+
             else:
                 self.adb_graph = self.db.create_graph(
                     self.__name,
                     edge_definitions=edge_definitions,
                 )
 
-                # Let the parent class handle the incoming graph data
-                # if it is not a networkx.Graph object
-                kwargs["incoming_graph_data"] = incoming_graph_data
-
             self._set_factory_methods()
             self._set_arangodb_backend_config()
             logger.info(f"Graph '{name}' created.")
             self._graph_exists_in_db = True
 
-        else:
-            kwargs["incoming_graph_data"] = incoming_graph_data
-
-        if name is not None:
-            kwargs["name"] = name
+        if self.__name is not None:
+            kwargs["name"] = self.__name
 
         super().__init__(*args, **kwargs)
+
+        if self.is_directed() and self.graph_exists_in_db:
+            assert isinstance(self._succ, AdjListOuterDict)
+            assert isinstance(self._pred, AdjListOuterDict)
+            self._succ.mirror = self._pred
+            self._pred.mirror = self._succ
+            self._succ.traversal_direction = TraversalDirection.OUTBOUND
+            self._pred.traversal_direction = TraversalDirection.INBOUND
+
+        if incoming_graph_data is not None and not loaded_incoming_graph_data:
+            nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)
+
+        if self.graph_exists_in_db:
+            self.copy = self.copy_override
+            self.subgraph = self.subgraph_override
+            self.clear = self.clear_override
+            self.clear_edges = self.clear_edges_override
+            self.add_node = self.add_node_override
+            self.number_of_edges = self.number_of_edges_override
+            self.nbunch_iter = self.nbunch_iter_override
 
     #######################
     # Init helper methods #
@@ -345,6 +363,9 @@ class Graph(nx.Graph):
     # ArangoDB Methods #
     ####################
 
+    def clear_nxcg_cache(self):
+        self.nxcg_graph = None
+
     def aql(self, query: str, bind_vars: dict[str, Any] = {}, **kwargs: Any) -> Cursor:
         return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
 
@@ -355,7 +376,7 @@ class Graph(nx.Graph):
     # NOTE: OUT OF SERVICE
     # def chat(self, prompt: str) -> str:
     #     if self.__qa_chain is None:
-    #         if not self.__graph_exists_in_db:
+    #         if not self.graph_exists_in_db:
     #             return "Could not initialize QA chain: Graph does not exist"
 
     #         # try:
@@ -380,30 +401,6 @@ class Graph(nx.Graph):
     #####################
     # nx.Graph Overides #
     #####################
-
-    def copy(self, *args, **kwargs):
-        logger.warning("Note that copying a graph loses the connection to the database")
-        G = super().copy(*args, **kwargs)
-        G.node_dict_factory = nx.Graph.node_dict_factory
-        G.node_attr_dict_factory = nx.Graph.node_attr_dict_factory
-        G.edge_attr_dict_factory = nx.Graph.edge_attr_dict_factory
-        G.adjlist_inner_dict_factory = nx.Graph.adjlist_inner_dict_factory
-        G.adjlist_outer_dict_factory = nx.Graph.adjlist_outer_dict_factory
-        return G
-
-    def subgraph(self, nbunch):
-        raise NotImplementedError("Subgraphing is not yet implemented")
-
-    def clear(self):
-        logger.info("Note that clearing only erases the local cache")
-        super().clear()
-
-    def clear_edges(self):
-        logger.info("Note that clearing edges ony erases the edges in the local cache")
-        super().clear_edges()
-
-    def clear_nxcg_cache(self):
-        self.nxcg_graph = None
 
     @cached_property
     def nodes(self):
@@ -437,7 +434,30 @@ class Graph(nx.Graph):
 
         return super().edges
 
-    def add_node(self, node_for_adding, **attr):
+    def copy_override(self, *args, **kwargs):
+        logger.warning("Note that copying a graph loses the connection to the database")
+        G = super().copy(*args, **kwargs)
+        G.node_dict_factory = nx.Graph.node_dict_factory
+        G.node_attr_dict_factory = nx.Graph.node_attr_dict_factory
+        G.edge_attr_dict_factory = nx.Graph.edge_attr_dict_factory
+        G.adjlist_inner_dict_factory = nx.Graph.adjlist_inner_dict_factory
+        G.adjlist_outer_dict_factory = nx.Graph.adjlist_outer_dict_factory
+        return G
+
+    def subgraph_override(self, nbunch):
+        raise NotImplementedError("Subgraphing is not yet implemented")
+
+    def clear_override(self):
+        logger.info("Note that clearing only erases the local cache")
+        super().clear()
+
+    def clear_edges_override(self):
+        logger.info("Note that clearing edges ony erases the edges in the local cache")
+        for nbr_dict in self._adj.data.values():
+            nbr_dict.clear()
+        nx._clear_cache(self)
+
+    def add_node_override(self, node_for_adding, **attr):
         if node_for_adding not in self._node:
             if node_for_adding is None:
                 raise ValueError("None cannot be a node")
@@ -467,10 +487,7 @@ class Graph(nx.Graph):
 
         nx._clear_cache(self)
 
-    def number_of_edges(self, u=None, v=None):
-        if not self.graph_exists_in_db:
-            return super().number_of_edges(u, v)
-
+    def number_of_edges_override(self, u=None, v=None):
         if u is not None:
             return super().number_of_edges(u, v)
 
@@ -494,10 +511,7 @@ class Graph(nx.Graph):
         # It is more efficient to count the number of edges in the edge collections
         # compared to relying on the DegreeView.
 
-    def nbunch_iter(self, nbunch=None):
-        if not self._graph_exists_in_db:
-            return super().nbunch_iter(nbunch)
-
+    def nbunch_iter_override(self, nbunch=None):
         if nbunch is None:
             bunch = iter(self._adj)
         elif nbunch in self:
@@ -508,12 +522,13 @@ class Graph(nx.Graph):
             # Old: Nothing
 
             # New:
-            if isinstance(nbunch, int):
+            if isinstance(nbunch, (str, int)):
                 nbunch = get_node_id(str(nbunch), self.default_node_type)
 
             # Reason:
             # ArangoDB only uses strings as node IDs. Therefore, we need to convert
-            # the integer node ID to a string before using it in an iterator.
+            # the non-prefixed node ID to an ArangoDB ID before
+            # using it in an iterator.
 
             bunch = iter([nbunch])
         else:
@@ -528,13 +543,15 @@ class Graph(nx.Graph):
                         # Old: Nothing
 
                         # New:
-                        if isinstance(n, int):
+                        if isinstance(n, (str, int)):
                             n = get_node_id(str(n), self.default_node_type)
 
                         # Reason:
                         # ArangoDB only uses strings as node IDs. Therefore,
-                        # we need to convert the integer node ID to a
-                        # string before using it in an iterator.
+                        # we need to convert non-prefixed node IDs to an
+                        # ArangoDB ID before using it in an iterator.
+
+                        ######################
 
                         if n in adj:
                             yield n

@@ -5,9 +5,11 @@ from arango.database import StandardDatabase
 
 import nx_arangodb as nxadb
 from nx_arangodb.classes.graph import Graph
+from nx_arangodb.logger import logger
 
 from .dict.adj import AdjListOuterDict
 from .enum import TraversalDirection
+from .function import get_node_id
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.DiGraph)  # type: ignore
 
@@ -59,12 +61,9 @@ class DiGraph(Graph, nx.DiGraph):
         )
 
         if self.graph_exists_in_db:
-            assert isinstance(self._succ, AdjListOuterDict)
-            assert isinstance(self._pred, AdjListOuterDict)
-            self._succ.mirror = self._pred
-            self._pred.mirror = self._succ
-            self._succ.traversal_direction = TraversalDirection.OUTBOUND
-            self._pred.traversal_direction = TraversalDirection.INBOUND
+            self.clear_edges = self.clear_edges_override
+            self.add_node = self.add_node_override
+            self.remove_node = self.remove_node_override
 
     #######################
     # nx.DiGraph Overides #
@@ -80,7 +79,14 @@ class DiGraph(Graph, nx.DiGraph):
     # def out_edges(self):
     # pass
 
-    def add_node(self, node_for_adding, **attr):
+    def clear_edges_override(self):
+        logger.info("Note that clearing edges ony erases the edges in the local cache")
+        for predecessor_dict in self._pred.data.values():
+            predecessor_dict.clear()
+
+        super().clear_edges()
+
+    def add_node_override(self, node_for_adding, **attr):
         if node_for_adding not in self._succ:
             if node_for_adding is None:
                 raise ValueError("None cannot be a node")
@@ -111,7 +117,10 @@ class DiGraph(Graph, nx.DiGraph):
 
         nx._clear_cache(self)
 
-    def remove_node(self, n):
+    def remove_node_override(self, n):
+        if isinstance(n, (str, int)):
+            n = get_node_id(str(n), self.default_node_type)
+
         try:
 
             ######################
@@ -138,6 +147,22 @@ class DiGraph(Graph, nx.DiGraph):
             del self._pred[u][n]  # remove all edges n-u in digraph
         del self._succ[n]  # remove node from succ
         for u in nbrs_pred:
+            ######################
+            # NOTE: Monkey patch #
+            ######################
+
+            # Old: Nothing
+
+            # New:
+            if u == n:
+                continue  # skip self loops
+
+            # Reason: We need to skip self loops, as they are
+            # already taken care of in the previous step. This
+            # avoids getting a KeyError on the next line.
+
+            ###########################
+
             del self._succ[u][n]  # remove all edges n-u in digraph
         del self._pred[n]  # remove node from pred
         nx._clear_cache(self)

@@ -779,21 +779,33 @@ class TestGraph(BaseAttrGraphTester):
     def test_adjacency(self):
         G = self.Graph()
         edge_0_1 = get_doc(G.adj[0][1]["_id"])
+        edge_1_0 = get_doc(G.adj[1][0]["_id"])
         edge_0_2 = get_doc(G.adj[0][2]["_id"])
-        edge_1_2 = get_doc(G.adj[1][2]["_id"])
         edge_2_0 = get_doc(G.adj[2][0]["_id"])
+        edge_1_2 = get_doc(G.adj[1][2]["_id"])
+        edge_2_1 = get_doc(G.adj[2][1]["_id"])
+
+        if G.is_directed():
+            assert edge_0_1 != edge_1_0
+            assert edge_0_2 != edge_2_0
+            assert edge_1_2 != edge_2_1
+        else:
+            assert edge_0_1 == edge_1_0
+            assert edge_0_2 == edge_2_0
+            assert edge_1_2 == edge_2_1
+
         assert dict(G.adjacency()) == {
             "test_graph_node/0": {
                 "test_graph_node/1": edge_0_1,
                 "test_graph_node/2": edge_0_2,
             },
             "test_graph_node/1": {
-                "test_graph_node/0": edge_0_1,
+                "test_graph_node/0": edge_1_0,
                 "test_graph_node/2": edge_1_2,
             },
             "test_graph_node/2": {
                 "test_graph_node/0": edge_2_0,
-                "test_graph_node/1": edge_1_2,
+                "test_graph_node/1": edge_2_1,
             },
         }
 

@@ -18,6 +18,9 @@ from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 from .conftest import Capturing, create_grid_graph, create_line_graph, db, run_gpu_tests
 
 G_NX = nx.karate_club_graph()
+G_NX_digraph = nx.DiGraph(G_NX)
+G_NX_multigraph = nx.MultiGraph(G_NX)
+G_NX_multidigraph = nx.MultiDiGraph(G_NX)
 
 
 def assert_remote_dict(G: nxadb.Graph) -> None:
@@ -1829,6 +1832,61 @@ def test_incoming_graph_data_not_nx_graph(
     assert (
         len(G.edges)
         == len(G_NX.edges)
+        == db.collection(edge_col).count()
+        == G.number_of_edges()
+    )
+    assert has_club == ("club" in G.nodes["0"])
+    assert has_weight == ("weight" in G.adj["0"]["1"])
+
+
+@pytest.mark.parametrize(
+    "data_type, incoming_graph_data, has_club, has_weight",
+    [
+        ("dict of dicts", G_NX_digraph._adj, False, True),
+        (
+            "dict of lists",
+            {k: list(v) for k, v in G_NX_digraph._adj.items()},
+            False,
+            False,
+        ),
+        ("container of edges", list(G_NX_digraph.edges), False, False),
+        ("iterator of edges", iter(G_NX_digraph.edges), False, False),
+        ("generator of edges", (e for e in G_NX_digraph.edges), False, False),
+        ("2D numpy array", nx.to_numpy_array(G_NX_digraph), False, True),
+        (
+            "scipy sparse array",
+            nx.to_scipy_sparse_array(G_NX_digraph),
+            False,
+            True,
+        ),
+        ("Pandas EdgeList", nx.to_pandas_edgelist(G_NX_digraph), False, True),
+        ("Pandas Adjacency", nx.to_pandas_adjacency(G_NX_digraph), False, True),
+    ],
+)
+def test_incoming_graph_data_not_nx_graph_digraph(
+    data_type: str, incoming_graph_data: Any, has_club: bool, has_weight: bool
+) -> None:
+    # See nx.convert.to_networkx_graph for the official supported types
+    name = "KarateGraph"
+    db.delete_graph(name, drop_collections=True, ignore_missing=True)
+
+    G = nxadb.DiGraph(incoming_graph_data=incoming_graph_data, name=name)
+
+    assert (
+        len(G.adj)
+        == len(G_NX_digraph.adj)
+        == db.collection(G.default_node_type).count()
+    )
+    assert (
+        len(G.nodes)
+        == len(G_NX_digraph.nodes)
+        == db.collection(G.default_node_type).count()
+        == G.number_of_nodes()
+    )
+    edge_col = G.edge_type_func(G.default_node_type, G.default_node_type)
+    assert (
+        len(G.edges)
+        == len(G_NX_digraph.edges)
         == db.collection(edge_col).count()
         == G.number_of_edges()
     )

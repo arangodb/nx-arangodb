@@ -34,6 +34,7 @@ class MultiGraph(Graph, nx.MultiGraph):
         read_parallelism: int = 10,
         read_batch_size: int = 100000,
         write_batch_size: int = 50000,
+        write_async: bool = True,
         symmetrize_edges: bool = False,
         use_experimental_views: bool = False,
         *args: Any,
@@ -50,11 +51,15 @@ class MultiGraph(Graph, nx.MultiGraph):
             read_parallelism,
             read_batch_size,
             write_batch_size,
+            write_async,
             symmetrize_edges,
             use_experimental_views,
             *args,
             **kwargs,
         )
+
+        if self.graph_exists_in_db:
+            self.add_edge = self.add_edge_override
 
     #######################
     # Init helper methods #
@@ -74,10 +79,7 @@ class MultiGraph(Graph, nx.MultiGraph):
     # nx.MultiGraph Overides #
     ##########################
 
-    def add_edge(self, u_for_edge, v_for_edge, key=None, **attr):
-        if not self.graph_exists_in_db:
-            return super().add_edge(u_for_edge, v_for_edge, key=key, **attr)
-
+    def add_edge_override(self, u_for_edge, v_for_edge, key=None, **attr):
         if key is not None:
             m = "ArangoDB MultiGraph does not support custom edge keys yet."
             logger.warning(m)

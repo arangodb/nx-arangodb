@@ -16,11 +16,11 @@ try:
     import numpy as np
     import nx_cugraph as nxcg
 
-    GPU_ENABLED = True
-    logger.info("NetworkX-cuGraph is enabled.")
+    GPU_AVAILABLE = True
+    logger.info("NetworkX-cuGraph is available.")
 except Exception as e:
-    GPU_ENABLED = False
-    logger.info(f"NetworkX-cuGraph is disabled: {e}.")
+    GPU_AVAILABLE = False
+    logger.info(f"NetworkX-cuGraph is unavailable: {e}.")
 
 __all__ = [
     "_to_nx_graph",
@@ -58,7 +58,7 @@ def _to_nxadb_graph(
     raise TypeError(f"Expected nxadb.Graph or nx.Graph; got {type(G)}")
 
 
-if GPU_ENABLED:
+if GPU_AVAILABLE:
 
     def _to_nxcg_graph(G: Any, as_directed: bool = False) -> nxcg.Graph:
         logger.debug(f"_to_nxcg_graph for {G.__class__.__name__}")
@@ -161,7 +161,7 @@ def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
     return G_NX
 
 
-if GPU_ENABLED:
+if GPU_AVAILABLE:
 
     def nxadb_to_nxcg(G: nxadb.Graph, as_directed: bool = False) -> nxcg.Graph:
         if G.use_nxcg_cache and G.nxcg_graph is not None:

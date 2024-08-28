@@ -11,11 +11,9 @@ import nx_arangodb as nxadb
 from nx_arangodb.classes.dict.adj import EdgeAttrDict, EdgeKeyDict
 
 from .conftest import db
-from .test_graph import BaseAttrGraphTester
+from .test_graph import GRAPH_NAME, BaseAttrGraphTester
 from .test_graph import TestGraph as _TestGraph
 from .test_graph import get_doc
-
-GRAPH_NAME = "test_graph"
 
 
 class BaseMultiGraphTester(BaseAttrGraphTester):

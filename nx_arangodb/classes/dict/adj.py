@@ -775,19 +775,20 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
         self.__getitem_helper_db: Callable[[str, str], EdgeAttrDict | EdgeKeyDict]
         self.__setitem_helper: Callable[[EdgeAttrDict | EdgeKeyDict, str, str], None]
+        self.__delitem_helper: Callable[[str | list[str]], None]
         if self.is_multigraph:
             self.__contains_helper = self.__contains__multigraph
             self.__getitem_helper_db = self.__getitem__multigraph_db
             self.__getitem_helper_cache = self.__getitem__multigraph_cache
-            self.__setitem_helper = self.__setitem__multigraph  # type: ignore[assignment]
-            self.__delitem_helper = self.__delitem__multigraph
+            self.__setitem_helper = self.__setitem__multigraph  # type: ignore[assignment]  # noqa
+            self.__delitem_helper = self.__delitem__multigraph  # type: ignore[assignment]  # noqa
             self.__fetch_all_helper = self.__fetch_all_multigraph
         else:
             self.__contains_helper = self.__contains__graph
             self.__getitem_helper_db = self.__getitem__graph_db
             self.__getitem_helper_cache = self.__getitem__graph_cache
-            self.__setitem_helper = self.__setitem__graph  # type: ignore[assignment]  # noqa
-            self.__delitem_helper = self.__delitem__graph
+            self.__setitem_helper = self.__setitem__graph  # type: ignore[assignment]
+            self.__delitem_helper = self.__delitem__graph  # type: ignore[assignment]
             self.__fetch_all_helper = self.__fetch_all_graph
 
     @property
@@ -1104,20 +1105,25 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             dst_node_id,
             self.graph.name,
             direction=self.traversal_direction.name,
+            can_return_multiple=self.is_multigraph,
         )
 
         if not result:
             # TODO: Should we raise a KeyError instead?
             return
 
+        breakpoint()
         self.__delitem_helper(result)
 
-    @key_is_string
     def __delitem__graph(self, edge_id: str) -> None:
         """Helper function for __delitem__ in Graphs."""
-        self.graph.delete_edge(edge_id)
+        try:
+            breakpoint()
+            self.graph.delete_edge(edge_id)
+        except DocumentDeleteError as e:
+            m = f"Failed to delete edge '{edge_id}' from Graph: {e}."
+            raise KeyError(m)
 
-    @key_is_string
     def __delitem__multigraph(self, edge_ids: list[str]) -> None:
         """Helper function for __delitem__ in MultiGraphs."""
         # TODO: Consider separating **edge_ids** by edge collection,

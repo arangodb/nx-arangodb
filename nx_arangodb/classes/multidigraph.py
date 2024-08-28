@@ -59,6 +59,9 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
             **kwargs,
         )
 
+        if self.graph_exists_in_db:
+            self.reverse = self.reverse_override
+
     #######################
     # Init helper methods #
     #######################
@@ -66,3 +69,9 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
     ##########################
     # nx.MultiGraph Overides #
     ##########################
+
+    def reverse_override(self, copy: bool = True) -> Any:
+        if not copy:
+            raise NotImplementedError("In-place reverse is not supported yet.")
+
+        return super().reverse(copy=copy)

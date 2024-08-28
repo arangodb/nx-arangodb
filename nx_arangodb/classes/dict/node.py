@@ -28,7 +28,6 @@ from ..function import (
     key_is_string,
     keys_are_not_reserved,
     keys_are_strings,
-    logger_debug,
     separate_nodes_by_collections,
     upsert_collection_documents,
     vertex_get,
@@ -97,7 +96,6 @@ class NodeAttrDict(UserDict[str, Any]):
     :type graph: Graph
     """
 
-    @logger_debug
     def __init__(self, db: StandardDatabase, graph: Graph, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.data: dict[str, Any] = {}
@@ -119,7 +117,6 @@ class NodeAttrDict(UserDict[str, Any]):
         return self.data.copy()
 
     @key_is_string
-    @logger_debug
     def __contains__(self, key: str) -> bool:
         """'foo' in G._node['node/1']"""
         if key in self.data:
@@ -130,7 +127,6 @@ class NodeAttrDict(UserDict[str, Any]):
         return result
 
     @key_is_string
-    @logger_debug
     def __getitem__(self, key: str) -> Any:
         """G._node['node/1']['foo']"""
         if key in self.data:
@@ -150,7 +146,6 @@ class NodeAttrDict(UserDict[str, Any]):
     @key_is_string
     @key_is_not_reserved
     # @value_is_json_serializable # TODO?
-    @logger_debug
     def __setitem__(self, key: str, value: Any) -> None:
         """
         G._node['node/1']['foo'] = 'bar'
@@ -169,7 +164,6 @@ class NodeAttrDict(UserDict[str, Any]):
 
     @key_is_string
     @key_is_not_reserved
-    @logger_debug
     def __delitem__(self, key: str) -> None:
         """del G._node['node/1']['foo']"""
         assert self.node_id
@@ -180,7 +174,6 @@ class NodeAttrDict(UserDict[str, Any]):
     @keys_are_strings
     @keys_are_not_reserved
     # @values_are_json_serializable # TODO?
-    @logger_debug
     def update(self, attrs: Any) -> None:
         """G._node['node/1'].update({'foo': 'bar'})"""
         if not attrs:
@@ -212,7 +205,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
     :type default_node_type: str
     """
 
-    @logger_debug
     def __init__(
         self,
         db: StandardDatabase,
@@ -249,7 +241,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         return self.__repr__()
 
     @key_is_string
-    @logger_debug
     def __contains__(self, key: str) -> bool:
         """'node/1' in G._node"""
         node_id = get_node_id(key, self.default_node_type)
@@ -269,7 +260,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         return False
 
     @key_is_string
-    @logger_debug
     def __getitem__(self, key: str) -> NodeAttrDict:
         """G._node['node/1']"""
         node_id = get_node_id(key, self.default_node_type)
@@ -289,7 +279,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         raise KeyError(key)
 
     @key_is_string
-    @logger_debug
     def __setitem__(self, key: str, value: NodeAttrDict) -> None:
         """G._node['node/1'] = {'foo': 'bar'}
 
@@ -307,7 +296,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         self.data[node_id] = node_attr_dict
 
     @key_is_string
-    @logger_debug
     def __delitem__(self, key: str) -> None:
         """del g._node['node/1']"""
         node_id = get_node_id(key, self.default_node_type)
@@ -335,7 +323,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         self.data.pop(node_id, None)
 
-    @logger_debug
     def __len__(self) -> int:
         """len(g._node)"""
         return sum(
@@ -345,7 +332,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             ]
         )
 
-    @logger_debug
     def __iter__(self) -> Iterator[str]:
         """for k in g._node"""
         if not (self.FETCHED_ALL_IDS or self.FETCHED_ALL_DATA):
@@ -353,7 +339,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         yield from self.data.keys()
 
-    @logger_debug
     def keys(self) -> Any:
         """g._node.keys()"""
         if self.FETCHED_ALL_IDS:
@@ -367,7 +352,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
                     self.data[node_id] = empty_node_attr_dict
                     yield node_id
 
-    @logger_debug
     def clear(self) -> None:
         """g._node.clear()"""
         self.data.clear()
@@ -382,7 +366,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         return {key: value.copy() for key, value in self.data.items()}
 
     @keys_are_strings
-    @logger_debug
     def __update_local_nodes(self, nodes: Any) -> None:
         for node_id, node_data in nodes.items():
             node_attr_dict = self.node_attr_dict_factory()
@@ -392,7 +375,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             self.data[node_id] = node_attr_dict
 
     @keys_are_strings
-    @logger_debug
     def update(self, nodes: Any) -> None:
         """g._node.update({'node/1': {'foo': 'bar'}, 'node/2': {'baz': 'qux'}})"""
         separated_by_collection = separate_nodes_by_collections(
@@ -420,7 +402,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             logger.warning(m)
             raise ArangoDBBatchError(errors)
 
-    @logger_debug
     def values(self) -> Any:
         """g._node.values()"""
         if not self.FETCHED_ALL_DATA:
@@ -428,7 +409,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         yield from self.data.values()
 
-    @logger_debug
     def items(self, data: str | None = None, default: Any | None = None) -> Any:
         """g._node.items() or G._node.items(data='foo')"""
         if data is None:
@@ -440,7 +420,6 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             v_cols = list(self.graph.vertex_collections())
             yield from aql_fetch_data(self.db, v_cols, data, default)
 
-    @logger_debug
     def _fetch_all(self):
         self.clear()
 

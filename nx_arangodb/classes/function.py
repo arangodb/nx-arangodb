@@ -209,16 +209,6 @@ def key_is_adb_id_or_int(func: Callable[..., Any]) -> Any:
     return wrapper
 
 
-def logger_debug(func: Callable[..., Any]) -> Any:
-    """Decorator to log debug messages."""
-
-    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
-        logger.debug(f"{type(self)}.{func.__name__} - {args} - {kwargs}")
-        return func(self, *args, **kwargs)
-
-    return wrapper
-
-
 def keys_are_strings(func: Callable[..., Any]) -> Any:
     """Decorator to check if the keys are strings."""
 

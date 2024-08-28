@@ -16,7 +16,6 @@ from ..function import (
     json_serializable,
     key_is_not_reserved,
     key_is_string,
-    logger_debug,
 )
 
 #############
@@ -80,7 +79,6 @@ class GraphDict(UserDict[str, Any]):
     :type graph_name: str
     """
 
-    @logger_debug
     def __init__(self, db: StandardDatabase, graph: Graph, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.data: dict[str, Any] = {}
@@ -111,7 +109,6 @@ class GraphDict(UserDict[str, Any]):
         return graph_attr_dict
 
     @key_is_string
-    @logger_debug
     def __contains__(self, key: str) -> bool:
         """'foo' in G.graph"""
         if key in self.data:
@@ -120,7 +117,6 @@ class GraphDict(UserDict[str, Any]):
         return aql_doc_has_key(self.db, self.graph_id, key)
 
     @key_is_string
-    @logger_debug
     def __getitem__(self, key: str) -> Any:
         """G.graph['foo']"""
 
@@ -139,7 +135,6 @@ class GraphDict(UserDict[str, Any]):
 
     @key_is_string
     @key_is_not_reserved
-    @logger_debug
     def __setitem__(self, key: str, value: Any) -> None:
         """G.graph['foo'] = 'bar'"""
         if value is None:
@@ -152,15 +147,13 @@ class GraphDict(UserDict[str, Any]):
 
     @key_is_string
     @key_is_not_reserved
-    @logger_debug
     def __delitem__(self, key: str) -> None:
         """del G.graph['foo']"""
         self.data.pop(key, None)
         doc_update(self.db, self.graph_id, {key: None})
 
     # @values_are_json_serializable # TODO?
-    @logger_debug
-    def update(self, attrs: Any) -> None:
+    def update(self, attrs: Any) -> None:  # type: ignore
         """G.graph.update({'foo': 'bar'})"""
 
         if not attrs:
@@ -173,7 +166,6 @@ class GraphDict(UserDict[str, Any]):
         self.data.update(graph_attr_dict_data)
         doc_update(self.db, self.graph_id, attrs)
 
-    @logger_debug
     def clear(self) -> None:
         """G.graph.clear()"""
         self.data.clear()
@@ -194,7 +186,6 @@ class GraphAttrDict(UserDict[str, Any]):
     :type graph_id: str
     """
 
-    @logger_debug
     def __init__(
         self,
         db: StandardDatabase,
@@ -219,7 +210,6 @@ class GraphAttrDict(UserDict[str, Any]):
         raise NotImplementedError("Cannot clear GraphAttrDict")
 
     @key_is_string
-    @logger_debug
     def __contains__(self, key: str) -> bool:
         """'bar' in G.graph['foo']"""
         if key in self.data:
@@ -228,7 +218,6 @@ class GraphAttrDict(UserDict[str, Any]):
         return aql_doc_has_key(self.db, self.graph.name, key, self.parent_keys)
 
     @key_is_string
-    @logger_debug
     def __getitem__(self, key: str) -> Any:
         """G.graph['foo']['bar']"""
 
@@ -246,7 +235,6 @@ class GraphAttrDict(UserDict[str, Any]):
         return graph_attr_dict_value
 
     @key_is_string
-    @logger_debug
     def __setitem__(self, key, value):
         """
         G.graph['foo'] = 'bar'
@@ -263,15 +251,13 @@ class GraphAttrDict(UserDict[str, Any]):
         doc_update(self.db, self.graph_id, update_dict)
 
     @key_is_string
-    @logger_debug
     def __delitem__(self, key):
         """del G.graph['foo']['bar']"""
         self.data.pop(key, None)
         update_dict = get_update_dict(self.parent_keys, {key: None})
         doc_update(self.db, self.graph_id, update_dict)
 
-    @logger_debug
-    def update(self, attrs: Any) -> None:
+    def update(self, attrs: Any) -> None:  # type: ignore
         """G.graph['foo'].update({'bar': 'baz'})"""
         if not attrs:
             return

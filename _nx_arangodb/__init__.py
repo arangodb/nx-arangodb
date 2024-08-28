@@ -82,6 +82,7 @@ def get_info():
         "read_parallelism": None,
         "read_batch_size": None,
         "write_batch_size": None,
+        "use_gpu": True,
     }
 
     return d

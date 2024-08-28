@@ -12,6 +12,11 @@ executors:
     machine:
       image: ubuntu-2404:current
 
+  gpu-executor:
+    machine:
+      image: linux-cuda-12:default
+    resource_class: gpu.nvidia.small.multi
+
 jobs:
   lint:
     executor: python-executor
@@ -79,6 +84,45 @@ jobs:
           name: Run NetworkX tests
           command: ./run_nx_tests.sh
 
+  test-gpu:
+    parameters:
+      python_version:
+        type: string
+    executor: gpu-executor
+    steps:
+      - checkout
+
+      - run:
+          name: Set up ArangoDB
+          command: |
+            chmod +x starter.sh
+            ./starter.sh
+
+      - run:
+          name: Setup Python
+          command: |
+            pyenv --version
+            pyenv install -f << parameters.python_version >>
+            pyenv global << parameters.python_version >>
+
+      - run:
+          name: Setup pip
+          command: python -m pip install --upgrade pip setuptools wheel
+
+      - run:
+          name: Install packages
+          command: pip install .[dev]
+
+      - run:
+          name: Install cuda related dependencies
+          command: |
+            pip install pylibcugraph-cu12 --extra-index-url https://pypi.nvidia.com
+            pip install nx-cugraph-cu12 --extra-index-url https://pypi.nvidia.com
+
+      - run:
+          name: Run local gpu tests
+          command: pytest tests/test.py -k "test_gpu" --run-gpu-tests
+
 workflows:
   version: 2
   build:
@@ -88,3 +132,10 @@ workflows:
           matrix:
             parameters:
               python_version: ["3.10", "3.11", "3.12.2"]
+      - test-gpu:
+          requires:
+            - lint
+            - test
+          matrix:
+            parameters:
+              python_version: ["3.10", "3.11"] # "3.12" # TODO: Revisit 3.12

@@ -3,8 +3,6 @@ from functools import cached_property
 from typing import Any, Callable, ClassVar
 
 import networkx as nx
-import numpy as np
-import numpy.typing as npt
 from adbnx_adapter import ADBNX_Adapter
 from arango import ArangoClient
 from arango.cursor import Cursor
@@ -57,6 +55,7 @@ class Graph(nx.Graph):
         read_parallelism: int = 10,
         read_batch_size: int = 100000,
         write_batch_size: int = 50000,
+        write_async: bool = True,
         symmetrize_edges: bool = False,
         use_experimental_views: bool = False,
         *args: Any,
@@ -168,7 +167,7 @@ class Graph(nx.Graph):
                     incoming_graph_data,
                     edge_definitions=edge_definitions,
                     batch_size=self.write_batch_size,
-                    use_async=True,
+                    use_async=write_async,
                 )
 
             else:
@@ -211,6 +210,7 @@ class Graph(nx.Graph):
         config.read_parallelism = self.read_parallelism
         config.read_batch_size = self.read_batch_size
         config.write_batch_size = self.write_batch_size
+        config.use_gpu = True  # Only used by default if nx-cugraph is available
 
     def _set_factory_methods(self) -> None:
         """Set the factory methods for the graph, _node, and _adj dictionaries.

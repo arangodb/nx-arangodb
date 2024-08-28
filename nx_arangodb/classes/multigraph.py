@@ -71,9 +71,9 @@ class MultiGraph(Graph, nx.MultiGraph):
                     nx.convert.from_dict_of_dicts(
                         incoming_graph_data, create_using=self, multigraph_input=True
                     )
-                except Exception:
+                except Exception as err:
                     if multigraph_input is True:
-                        m = "multigraph_input=True but conversion failed"
+                        m = f"converting multigraph_input raised:\n{type(err)}: {err}"
                         raise nx.NetworkXError(m)
 
                     nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)

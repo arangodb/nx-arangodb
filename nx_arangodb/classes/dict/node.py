@@ -116,7 +116,6 @@ class NodeAttrDict(UserDict[str, Any]):
         raise NotImplementedError("Cannot clear NodeAttrDict")
 
     def copy(self) -> Any:
-        # TODO: REVISIT THIS
         return self.data.copy()
 
     @key_is_string
@@ -374,6 +373,13 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         self.data.clear()
         self.FETCHED_ALL_DATA = False
         self.FETCHED_ALL_IDS = False
+
+    def copy(self) -> Any:
+        """g._node.copy()"""
+        if not self.FETCHED_ALL_DATA:
+            self._fetch_all()
+
+        return {key: value.copy() for key, value in self.data.items()}
 
     @keys_are_strings
     @logger_debug

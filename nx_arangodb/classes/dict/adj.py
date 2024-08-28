@@ -194,7 +194,6 @@ class EdgeAttrDict(UserDict[str, Any]):
         raise NotImplementedError("Cannot clear EdgeAttrDict")
 
     def copy(self) -> Any:
-        # TODO: REVISIT THIS
         return self.data.copy()
 
     @key_is_string
@@ -599,6 +598,13 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         self.data.clear()
         self.FETCHED_ALL_DATA = False
         self.FETCHED_ALL_IDS = False
+
+    def copy(self) -> Any:
+        """G._adj['node/1']['node/2'].copy()"""
+        if not self.FETCHED_ALL_DATA:
+            self._fetch_all()
+
+        return {key: value.copy() for key, value in self.data.items()}
 
     @keys_are_strings
     @logger_debug
@@ -1203,6 +1209,13 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         self.FETCHED_ALL_DATA = False
         self.FETCHED_ALL_IDS = False
 
+    def copy(self) -> Any:
+        """G._adj['node/1'].copy()"""
+        if not self.FETCHED_ALL_DATA:
+            self._fetch_all()
+
+        return {key: value.copy() for key, value in self.data.items()}
+
     @keys_are_strings
     @logger_debug
     def update(self, edges: Any) -> None:
@@ -1564,6 +1577,13 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         self.FETCHED_ALL_DATA = False
         self.FETCHED_ALL_IDS = False
 
+    def copy(self) -> Any:
+        """g._adj.copy()"""
+        if not self.FETCHED_ALL_DATA:
+            self._fetch_all()
+
+        return {key: value.copy() for key, value in self.data.items()}
+
     @keys_are_strings
     @logger_debug
     def update(self, edges: Any) -> None:
@@ -1748,13 +1768,18 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             edge_collections_attributes=set(),  # not used
             load_all_vertex_attributes=False,
             load_all_edge_attributes=True,
-            is_directed=self.is_directed,
+            is_directed=True,
             is_multigraph=self.is_multigraph,
             symmetrize_edges_if_directed=self.symmetrize_edges_if_directed,
         )
 
-        if self.is_directed:
-            adj_dict = adj_dict["succ"]
+        # Even if the Graph is undirected,
+        # we can rely on a "directed load" to get the adjacency list.
+        # This prevents the adj_dict loop in __set_adj_elements()
+        # from setting the same edge twice in the adjacency list.
+        # We still get the benefit of propagating the edge to the "mirror"
+        # in the case of an undirected graph, via the `propagate_edge_func`.
+        adj_dict = adj_dict["succ"]
 
         self.__set_adj_elements(adj_dict, node_dict)
 

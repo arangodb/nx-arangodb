@@ -199,7 +199,7 @@ def key_is_adb_id_or_int(func: Callable[..., Any]) -> Any:
 
         elif isinstance(key, int):
             m = "Edge order is not guaranteed when using int as an edge key. It may raise a KeyError. Use at your own risk."  # noqa
-            logger.warning(m)
+            logger.debug(m)
 
         else:
             raise TypeError(f"{key} is not an ArangoDB Edge _id or integer.")

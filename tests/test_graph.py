@@ -1154,7 +1154,7 @@ class TestGraph(BaseAttrGraphTester):
         # NOTE: We can't guarantee the order of the edges here. Should revisit...
         H_edges_data = H.edges.data()
         edge = (
-            get_doc(H[3][4][0]["_id"]) if G.is_multigraph() else get_doc(H[3][4]["_id"])
+            get_doc(H[3][4][0]["_id"]) if H.is_multigraph() else get_doc(H[3][4]["_id"])
         )
         assert H_edges_data == [("test_graph_node/3", "test_graph_node/4", edge)] or [
             ("test_graph_node/4", "test_graph_node/3", edge)

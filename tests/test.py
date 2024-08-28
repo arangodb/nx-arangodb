@@ -1,7 +1,7 @@
+import time
 from typing import Any, Callable, Dict, Union
 
 import networkx as nx
-import phenolrs
 import pytest
 from arango import DocumentDeleteError
 from phenolrs.networkx.typings import (
@@ -15,7 +15,7 @@ import nx_arangodb as nxadb
 from nx_arangodb.classes.dict.adj import AdjListOuterDict, EdgeAttrDict, EdgeKeyDict
 from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 
-from .conftest import create_line_graph, db
+from .conftest import Capturing, create_grid_graph, create_line_graph, db, run_gpu_tests
 
 G_NX = nx.karate_club_graph()
 G_NX_digraph = nx.DiGraph(G_NX)
@@ -41,7 +41,11 @@ def assert_same_dict_values(
     if type(next(iter(d2.keys()))) == int:
         d2 = {f"person/{k}": v for k, v in d2.items()}
 
-    assert d1.keys() == d2.keys(), "Dictionaries have different keys"
+    d1_keys = set(d1.keys())
+    d2_keys = set(d2.keys())
+    difference = d1_keys ^ d2_keys
+    assert difference == set(), "Dictionaries have different keys"
+
     for key in d1:
         m = f"Values for key '{key}' are not equal up to digit {digit}"
         assert round(d1[key], digit) == round(d2[key], digit), m
@@ -53,10 +57,12 @@ def assert_bc(d1: dict[str | int, float], d2: dict[str | int, float]) -> None:
     assert_same_dict_values(d1, d2, 14)
 
 
-def assert_pagerank(d1: dict[str | int, float], d2: dict[str | int, float]) -> None:
+def assert_pagerank(
+    d1: dict[str | int, float], d2: dict[str | int, float], digit: int = 15
+) -> None:
     assert d1
     assert d2
-    assert_same_dict_values(d1, d2, 15)
+    assert_same_dict_values(d1, d2, digit)
 
 
 def assert_louvain(l1: list[set[Any]], l2: list[set[Any]]) -> None:
@@ -316,6 +322,57 @@ def test_shortest_path_remote_algorithm(load_karate_graph: Any) -> None:
     assert r_2 == r_4
     assert r_1 != r_2
     assert r_3 != r_4
+
+
+@pytest.mark.parametrize(
+    "graph_cls",
+    [
+        (nxadb.Graph),
+        (nxadb.DiGraph),
+        (nxadb.MultiGraph),
+        (nxadb.MultiDiGraph),
+    ],
+)
+def test_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
+    if not run_gpu_tests:
+        pytest.skip("GPU tests are disabled")
+
+    graph = create_grid_graph(graph_cls)
+
+    assert nxadb.convert.GPU_AVAILABLE is True
+    assert nx.config.backends.arangodb.use_gpu is True
+
+    res_gpu = None
+    res_cpu = None
+
+    # Measure GPU execution time
+    start_gpu = time.time()
+
+    # Note: While this works, we should use the logger or some alternative
+    # approach testing this. Via stdout is not the best way to test this.
+    with Capturing() as output_gpu:
+        res_gpu = nx.pagerank(graph)
+
+    assert any(
+        "NXCG Graph construction took" in line for line in output_gpu
+    ), "Expected output not found in GPU execution"
+
+    gpu_time = time.time() - start_gpu
+
+    # Disable GPU and measure CPU execution time
+    nx.config.backends.arangodb.use_gpu = False
+    start_cpu = time.time()
+    with Capturing() as output_cpu:
+        res_cpu = nx.pagerank(graph)
+
+    output_cpu_list = list(output_cpu)
+    assert len(output_cpu_list) == 1
+    assert "Graph 'GridGraph' load took" in output_cpu_list[0]
+
+    cpu_time = time.time() - start_cpu
+
+    assert gpu_time < cpu_time, "GPU execution should be faster than CPU execution"
+    assert_pagerank(res_gpu, res_cpu, 10)
 
 
 @pytest.mark.parametrize(

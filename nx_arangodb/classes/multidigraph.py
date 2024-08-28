@@ -71,7 +71,7 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
     ##########################
 
     def reverse_override(self, copy: bool = True) -> Any:
-        if not copy:
+        if copy is False:
             raise NotImplementedError("In-place reverse is not supported yet.")
 
-        return super().reverse(copy=copy)
+        return super().reverse(copy=True)

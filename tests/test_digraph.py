@@ -195,11 +195,26 @@ class BaseDiGraphTester(BaseGraphTester):
 
     def test_to_undirected_reciprocal(self):
         G = self.EmptyGraph()
+        assert G.number_of_edges() == 0
         G.add_edge(1, 2)
-        assert G.to_undirected().has_edge("test_graph_node/1", "test_graph_node/2")
-        assert not G.to_undirected(reciprocal=True).has_edge(1, 2)
-        G.add_edge(2, 1)
-        assert G.to_undirected(reciprocal=True).has_edge(
+        assert G.number_of_edges() == 1
+
+        G_undirected = G.to_undirected()
+        assert G_undirected.number_of_edges() == 1
+        assert G_undirected.has_edge("test_graph_node/1", "test_graph_node/2")
+        assert G_undirected.has_edge("test_graph_node/2", "test_graph_node/1")
+
+        G_undirected_reciprocal = G.to_undirected(reciprocal=True)
+        assert G_undirected_reciprocal.number_of_edges() == 1  # NOTE: This is failing
+        assert not G_undirected_reciprocal.has_edge(
+            "test_graph_node/1", "test_graph_node/2"
+        )
+
+        G.add_edge("test_graph_node/2", "test_graph_node/1")
+        assert G.number_of_edges() == 2
+        G_undirected_reciprocal = G.to_undirected(reciprocal=True)
+        assert G_undirected_reciprocal.number_of_edges() == 2
+        assert G_undirected_reciprocal.has_edge(
             "test_graph_node/1", "test_graph_node/2"
         )
 
@@ -219,21 +234,9 @@ class BaseDiGraphTester(BaseGraphTester):
 
     def test_reverse_nocopy(self):
         G = self.EmptyGraph(incoming_graph_data=[(0, 1), (1, 2)])
-        R = G.reverse(copy=False)
-        assert R[1][0]
-        assert R[2][1]
-        assert R._pred[0][1]
-        assert R._pred[1][2]
-        with pytest.raises(KeyError):
-            R[0][1]
-        with pytest.raises(KeyError):
-            R[1][2]
-        with pytest.raises(KeyError):
-            R._pred[1][0]
-        with pytest.raises(KeyError):
-            R._pred[2][1]
-        with pytest.raises(nx.NetworkXError):
-            R.remove_edge(1, 0)
+        with pytest.raises(NotImplementedError):
+            G.reverse(copy=False)
+        pytest.skip("NotImplementedError: In-place reverse is not supported yet.")
 
     def test_reverse_hashable(self):
         pytest.skip("Class-based nodes are not supported in ArangoDB.")

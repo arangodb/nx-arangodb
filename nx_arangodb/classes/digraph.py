@@ -88,10 +88,10 @@ class DiGraph(Graph, nx.DiGraph):
     # pass
 
     def reverse_override(self, copy: bool = True) -> Any:
-        if not copy:
+        if copy is False:
             raise NotImplementedError("In-place reverse is not supported yet.")
 
-        return super().reverse(copy=copy)
+        return super().reverse(copy=True)
 
     def clear_edges_override(self):
         logger.info("Note that clearing edges ony erases the edges in the local cache")

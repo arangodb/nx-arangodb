@@ -1112,13 +1112,11 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             # TODO: Should we raise a KeyError instead?
             return
 
-        breakpoint()
         self.__delitem_helper(result)
 
     def __delitem__graph(self, edge_id: str) -> None:
         """Helper function for __delitem__ in Graphs."""
         try:
-            breakpoint()
             self.graph.delete_edge(edge_id)
         except DocumentDeleteError as e:
             m = f"Failed to delete edge '{edge_id}' from Graph: {e}."
@@ -1647,7 +1645,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             dst_node_id: str,
             edge_key_or_attr_dict: EdgeKeyDict | EdgeAttrDict,
         ) -> None:
-            self.__set_adj_inner_dict(self.mirror, dst_node_id)
             self.mirror.data[dst_node_id].data[src_node_id] = edge_key_or_attr_dict
 
         def propagate_edge_directed_symmetric(
@@ -1657,7 +1654,6 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         ) -> None:
             propagate_edge_directed(src_node_id, dst_node_id, edge_key_or_attr_dict)
             propagate_edge_undirected(src_node_id, dst_node_id, edge_key_or_attr_dict)
-            self.__set_adj_inner_dict(self.mirror, src_node_id)
             self.mirror.data[src_node_id].data[dst_node_id] = edge_key_or_attr_dict
 
         propagate_edge_func = (
@@ -1670,37 +1666,46 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             )
         )
 
+        set_adj_inner_dict_mirror = (
+            self.mirror.__set_adj_inner_dict if self.is_directed else lambda *args: None
+        )
+
         if node_dict is not None:
             for node_id in node_dict.keys():
-                self.__set_adj_inner_dict(self, node_id)
+                self.__set_adj_inner_dict(node_id)
+                set_adj_inner_dict_mirror(node_id)
 
         for src_node_id, inner_dict in adj_dict.items():
             for dst_node_id, edge_or_edges in inner_dict.items():
 
-                self.__set_adj_inner_dict(self, src_node_id)
-                self.__set_adj_inner_dict(self, dst_node_id)
+                self.__set_adj_inner_dict(src_node_id)
+                self.__set_adj_inner_dict(dst_node_id)
+
+                set_adj_inner_dict_mirror(src_node_id)
+                set_adj_inner_dict_mirror(dst_node_id)
+
                 edge_attr_or_key_dict = set_edge_func(  # type: ignore[operator]
                     src_node_id, dst_node_id, edge_or_edges
                 )
 
                 propagate_edge_func(src_node_id, dst_node_id, edge_attr_or_key_dict)
 
-    def __set_adj_inner_dict(
-        self, adj_outer_dict: AdjListOuterDict, node_id: str
-    ) -> AdjListInnerDict:
-        if node_id in adj_outer_dict.data:
-            return adj_outer_dict.data[node_id]
+    def __set_adj_inner_dict(self, node_id: str) -> AdjListInnerDict:
+        if node_id in self.data:
+            return self.data[node_id]
 
         adj_inner_dict = self.adjlist_inner_dict_factory()
         adj_inner_dict.src_node_id = node_id
         adj_inner_dict.FETCHED_ALL_DATA = True
         adj_inner_dict.FETCHED_ALL_IDS = True
-        adj_outer_dict.data[node_id] = adj_inner_dict
+        self.data[node_id] = adj_inner_dict
 
         return adj_inner_dict
 
     def _fetch_all(self) -> None:
         self.clear()
+        if self.is_directed:
+            self.mirror.clear()
 
         (
             node_dict,

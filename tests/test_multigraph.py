@@ -275,7 +275,10 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
 
     def test_data_input(self):
         G = self.EmptyGraph({1: [2], 2: [1]})
-        assert G.number_of_edges() == 1
+        if G.is_directed():
+            assert G.number_of_edges() == 2
+        else:
+            assert G.number_of_edges() == 1
         assert G.number_of_nodes() == 2
         assert sorted(G.adj.items()) == [
             ("test_graph_node/1", G.adj[1]),
@@ -448,13 +451,24 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         G.remove_node(0)
         assert 0 not in G.nodes
         assert G.number_of_nodes() == 2
-        assert G.number_of_edges() == 1
         assert len(G[1][2]) == 1
+
         edge_1_2 = get_doc(list(G[1][2])[0])
-        assert G.adj == {
-            "test_graph_node/1": {"test_graph_node/2": {edge_1_2["_id"]: edge_1_2}},
-            "test_graph_node/2": {"test_graph_node/1": {edge_1_2["_id"]: edge_1_2}},
-        }
+        if G.is_directed():
+            edge_2_1 = get_doc(list(G[2][1])[0])
+            assert edge_2_1["_id"] != edge_1_2["_id"]
+            assert G.number_of_edges() == 2
+            assert G.adj == {
+                "test_graph_node/1": {"test_graph_node/2": {edge_1_2["_id"]: edge_1_2}},
+                "test_graph_node/2": {"test_graph_node/1": {edge_2_1["_id"]: edge_2_1}},
+            }
+        else:
+            assert G.adj == {
+                "test_graph_node/1": {"test_graph_node/2": {edge_1_2["_id"]: edge_1_2}},
+                "test_graph_node/2": {"test_graph_node/1": {edge_1_2["_id"]: edge_1_2}},
+            }
+            assert G.number_of_edges() == 1
+
         with pytest.raises(nx.NetworkXError):
             G.remove_node(-1)
 

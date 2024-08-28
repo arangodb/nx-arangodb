@@ -18,6 +18,37 @@ from .test_multigraph import TestMultiGraph as _TestMultiGraph
 
 
 class BaseMultiDiGraphTester(BaseMultiGraphTester):
+    def test_adjacency(self):
+        G = self.K3Graph()
+
+        edge_0_1_id = list(G[0][1])[0]
+        edge_0_1 = get_doc(edge_0_1_id)
+        edge_0_2_id = list(G[0][2])[0]
+        edge_0_2 = get_doc(edge_0_2_id)
+        edge_1_0_id = list(G[1][0])[0]
+        edge_1_0 = get_doc(edge_1_0_id)
+        edge_2_0_id = list(G[2][0])[0]
+        edge_2_0 = get_doc(edge_2_0_id)
+        edge_1_2_id = list(G[1][2])[0]
+        edge_1_2 = get_doc(edge_1_2_id)
+        edge_2_1_id = list(G[2][1])[0]
+        edge_2_1 = get_doc(edge_2_1_id)
+
+        assert dict(G.adjacency()) == {
+            "test_graph_node/0": {
+                "test_graph_node/1": {edge_0_1_id: edge_0_1},
+                "test_graph_node/2": {edge_0_2_id: edge_0_2},
+            },
+            "test_graph_node/1": {
+                "test_graph_node/0": {edge_1_0_id: edge_1_0},
+                "test_graph_node/2": {edge_1_2_id: edge_1_2},
+            },
+            "test_graph_node/2": {
+                "test_graph_node/0": {edge_2_0_id: edge_2_0},
+                "test_graph_node/1": {edge_2_1_id: edge_2_1},
+            },
+        }
+
     def get_edges_data(self, G):
         edges_data = []
         for src, dst, _ in G.edges:
@@ -331,16 +362,28 @@ class BaseMultiDiGraphTester(BaseMultiGraphTester):
         assert round(G.size(weight="weight"), 2) == 6.3
         assert round(G.size(weight="other"), 2) == 7.2
 
-    # TODO: Revisit. weird stuff..
     def test_to_undirected_reciprocal(self):
         G = self.EmptyGraph()
-        G.add_edge("test_graph_node/1", "test_graph_node/2")
-        assert G.to_undirected().has_edge("test_graph_node/1", "test_graph_node/2")
-        assert not G.to_undirected(reciprocal=True).has_edge(
+        assert G.number_of_edges() == 0
+        G.add_edge(1, 2)
+        assert G.number_of_edges() == 1
+
+        G_undirected = G.to_undirected()
+        assert G_undirected.number_of_edges() == 1
+        assert G_undirected.has_edge("test_graph_node/1", "test_graph_node/2")
+        assert G_undirected.has_edge("test_graph_node/2", "test_graph_node/1")
+
+        G_undirected_reciprocal = G.to_undirected(reciprocal=True)
+        assert G_undirected_reciprocal.number_of_edges() == 1  # NOTE: This is failing
+        assert not G_undirected_reciprocal.has_edge(
             "test_graph_node/1", "test_graph_node/2"
         )
+
         G.add_edge("test_graph_node/2", "test_graph_node/1")
-        assert G.to_undirected(reciprocal=True).has_edge(
+        assert G.number_of_edges() == 2
+        G_undirected_reciprocal = G.to_undirected(reciprocal=True)
+        assert G_undirected_reciprocal.number_of_edges() == 2
+        assert G_undirected_reciprocal.has_edge(
             "test_graph_node/1", "test_graph_node/2"
         )
 
@@ -437,37 +480,123 @@ class TestMultiDiGraph(BaseMultiDiGraphTester, _TestMultiGraph):
         ]
 
     def test_add_edge(self):
-        G = self.Graph()
-        G.add_edge(0, 1)
-        assert G._adj == {0: {1: {0: {}}}, 1: {}}
-        assert G._succ == {0: {1: {0: {}}}, 1: {}}
-        assert G._pred == {0: {}, 1: {0: {0: {}}}}
-        G = self.Graph()
-        G.add_edge(*(0, 1))
-        assert G._adj == {0: {1: {0: {}}}, 1: {}}
-        assert G._succ == {0: {1: {0: {}}}, 1: {}}
-        assert G._pred == {0: {}, 1: {0: {0: {}}}}
-        with pytest.raises(ValueError, match="None cannot be a node"):
+        G = self.EmptyGraph()
+        edge_id = G.add_edge(0, 1)
+        edge_doc = get_doc(edge_id)
+        assert G._adj == {
+            "test_graph_node/0": {"test_graph_node/1": {edge_id: edge_doc}},
+            "test_graph_node/1": {},
+        }
+        assert G._succ == {
+            "test_graph_node/0": {"test_graph_node/1": {edge_id: edge_doc}},
+            "test_graph_node/1": {},
+        }
+        assert G._pred == {
+            "test_graph_node/0": {},
+            "test_graph_node/1": {"test_graph_node/0": {edge_id: edge_doc}},
+        }
+        G = self.EmptyGraph()
+        edge_id = G.add_edge(*(0, 1))
+        edge_doc = get_doc(edge_id)
+        assert G._adj == {
+            "test_graph_node/0": {"test_graph_node/1": {edge_id: edge_doc}},
+            "test_graph_node/1": {},
+        }
+        assert G._succ == {
+            "test_graph_node/0": {"test_graph_node/1": {edge_id: edge_doc}},
+            "test_graph_node/1": {},
+        }
+        assert G._pred == {
+            "test_graph_node/0": {},
+            "test_graph_node/1": {"test_graph_node/0": {edge_id: edge_doc}},
+        }
+        with pytest.raises(ValueError, match="Key cannot be None"):
             G.add_edge(None, 3)
 
     def test_add_edges_from(self):
-        G = self.Graph()
+        G = self.EmptyGraph()
         G.add_edges_from([(0, 1), (0, 1, {"weight": 3})])
-        assert G._adj == {0: {1: {0: {}, 1: {"weight": 3}}}, 1: {}}
-        assert G._succ == {0: {1: {0: {}, 1: {"weight": 3}}}, 1: {}}
-        assert G._pred == {0: {}, 1: {0: {0: {}, 1: {"weight": 3}}}}
+        edge_0_1_0_id = G[0][1][0]["_id"]
+        edge_0_1_0 = get_doc(edge_0_1_0_id)
+        edge_0_1_1_id = G[0][1][1]["_id"]
+        edge_0_1_1 = get_doc(edge_0_1_1_id)
+        assert edge_0_1_1["weight"] == 3
+        assert G._adj == {
+            "test_graph_node/0": {
+                "test_graph_node/1": {
+                    edge_0_1_0_id: edge_0_1_0,
+                    edge_0_1_1_id: edge_0_1_1,
+                }
+            },
+            "test_graph_node/1": {},
+        }
+
+        assert G._succ == {
+            "test_graph_node/0": {
+                "test_graph_node/1": {
+                    edge_0_1_0_id: edge_0_1_0,
+                    edge_0_1_1_id: edge_0_1_1,
+                }
+            },
+            "test_graph_node/1": {},
+        }
+
+        assert G._pred == {
+            "test_graph_node/1": {
+                "test_graph_node/0": {
+                    edge_0_1_0_id: edge_0_1_0,
+                    edge_0_1_1_id: edge_0_1_1,
+                }
+            },
+            "test_graph_node/0": {},
+        }
 
         G.add_edges_from([(0, 1), (0, 1, {"weight": 3})], weight=2)
-        assert G._succ == {
-            0: {1: {0: {}, 1: {"weight": 3}, 2: {"weight": 2}, 3: {"weight": 3}}},
-            1: {},
-        }
-        assert G._pred == {
-            0: {},
-            1: {0: {0: {}, 1: {"weight": 3}, 2: {"weight": 2}, 3: {"weight": 3}}},
+        edge_0_1_2_id = G[0][1][2]["_id"]
+        edge_0_1_2 = get_doc(edge_0_1_2_id)
+        assert edge_0_1_2["weight"] == 2
+
+        edge_0_1_3_id = G[0][1][3]["_id"]
+        edge_0_1_3 = get_doc(edge_0_1_3_id)
+        assert edge_0_1_3["weight"] == 3
+
+        assert G._adj == {
+            "test_graph_node/0": {
+                "test_graph_node/1": {
+                    edge_0_1_0_id: edge_0_1_0,
+                    edge_0_1_1_id: edge_0_1_1,
+                    edge_0_1_2_id: edge_0_1_2,
+                    edge_0_1_3_id: edge_0_1_3,
+                }
+            },
+            "test_graph_node/1": {},
         }
 
-        G = self.Graph()
+        assert G._succ == {
+            "test_graph_node/0": {
+                "test_graph_node/1": {
+                    edge_0_1_0_id: edge_0_1_0,
+                    edge_0_1_1_id: edge_0_1_1,
+                    edge_0_1_2_id: edge_0_1_2,
+                    edge_0_1_3_id: edge_0_1_3,
+                }
+            },
+            "test_graph_node/1": {},
+        }
+
+        assert G._pred == {
+            "test_graph_node/1": {
+                "test_graph_node/0": {
+                    edge_0_1_0_id: edge_0_1_0,
+                    edge_0_1_1_id: edge_0_1_1,
+                    edge_0_1_2_id: edge_0_1_2,
+                    edge_0_1_3_id: edge_0_1_3,
+                }
+            },
+            "test_graph_node/0": {},
+        }
+
+        G = self.EmptyGraph()
         edges = [
             (0, 1, {"weight": 3}),
             (0, 1, (("weight", 2),)),
@@ -475,9 +604,48 @@ class TestMultiDiGraph(BaseMultiDiGraphTester, _TestMultiGraph):
             (0, 1, "s"),
         ]
         G.add_edges_from(edges)
-        keydict = {0: {"weight": 3}, 1: {"weight": 2}, 5: {}, "s": {}}
-        assert G._succ == {0: {1: keydict}, 1: {}}
-        assert G._pred == {1: {0: keydict}, 0: {}}
+
+        edge_0_1_0_id = G[0][1][0]["_id"]
+        edge_0_1_0 = get_doc(edge_0_1_0_id)
+        assert edge_0_1_0["weight"] == 3
+
+        edge_0_1_1_id = G[0][1][1]["_id"]
+        edge_0_1_1 = get_doc(edge_0_1_1_id)
+        assert edge_0_1_1["weight"] == 2
+
+        edge_0_1_2_id = G[0][1][2]["_id"]
+        edge_0_1_2 = get_doc(edge_0_1_2_id)
+        assert edge_0_1_2_id != 5
+        assert "weight" not in edge_0_1_2
+
+        edge_0_1_3_id = G[0][1][3]["_id"]
+        edge_0_1_3 = get_doc(edge_0_1_3_id)
+        assert edge_0_1_3_id != "s"
+        assert "weight" not in edge_0_1_3
+
+        assert G._succ == {
+            "test_graph_node/0": {
+                "test_graph_node/1": {
+                    edge_0_1_0_id: edge_0_1_0,
+                    edge_0_1_1_id: edge_0_1_1,
+                    edge_0_1_2_id: edge_0_1_2,
+                    edge_0_1_3_id: edge_0_1_3,
+                }
+            },
+            "test_graph_node/1": {},
+        }
+
+        assert G._pred == {
+            "test_graph_node/1": {
+                "test_graph_node/0": {
+                    edge_0_1_0_id: edge_0_1_0,
+                    edge_0_1_1_id: edge_0_1_1,
+                    edge_0_1_2_id: edge_0_1_2,
+                    edge_0_1_3_id: edge_0_1_3,
+                }
+            },
+            "test_graph_node/0": {},
+        }
 
         # too few in tuple
         pytest.raises(nx.NetworkXError, G.add_edges_from, [(0,)])
@@ -485,73 +653,59 @@ class TestMultiDiGraph(BaseMultiDiGraphTester, _TestMultiGraph):
         pytest.raises(nx.NetworkXError, G.add_edges_from, [(0, 1, 2, 3, 4)])
         # not a tuple
         pytest.raises(TypeError, G.add_edges_from, [0])
-        with pytest.raises(ValueError, match="None cannot be a node"):
+        with pytest.raises(ValueError, match="Key cannot be None"):
             G.add_edges_from([(None, 3), (3, 2)])
 
     def test_remove_edge(self):
-        G = self.K3
+        G = self.K3Graph()
+        assert db.has_document(list(G[0][1])[0])
         G.remove_edge(0, 1)
+        with pytest.raises(KeyError):
+            G[0][1]
+
+        edge_1_0_id = list(G[1][0])[0]
+        edge_1_0 = get_doc(edge_1_0_id)
+
+        edge_0_2_id = list(G[0][2])[0]
+        edge_0_2 = get_doc(edge_0_2_id)
+
+        edge_2_0_id = list(G[2][0])[0]
+        edge_2_0 = get_doc(edge_2_0_id)
+
+        edge_1_2_id = list(G[1][2])[0]
+        edge_1_2 = get_doc(edge_1_2_id)
+
+        edge_2_1_id = list(G[2][1])[0]
+        edge_2_1 = get_doc(edge_2_1_id)
+
         assert G._succ == {
-            0: {2: {0: {}}},
-            1: {0: {0: {}}, 2: {0: {}}},
-            2: {0: {0: {}}, 1: {0: {}}},
+            "test_graph_node/0": {"test_graph_node/2": {edge_0_2_id: edge_0_2}},
+            "test_graph_node/1": {
+                "test_graph_node/0": {edge_1_0_id: edge_1_0},
+                "test_graph_node/2": {edge_1_2_id: edge_1_2},
+            },
+            "test_graph_node/2": {
+                "test_graph_node/0": {edge_2_0_id: edge_2_0},
+                "test_graph_node/1": {edge_2_1_id: edge_2_1},
+            },
         }
+
         assert G._pred == {
-            0: {1: {0: {}}, 2: {0: {}}},
-            1: {2: {0: {}}},
-            2: {0: {0: {}}, 1: {0: {}}},
+            "test_graph_node/0": {
+                "test_graph_node/1": {edge_1_0_id: edge_1_0},
+                "test_graph_node/2": {edge_2_0_id: edge_2_0},
+            },
+            "test_graph_node/1": {
+                "test_graph_node/2": {edge_2_1_id: edge_2_1},
+            },
+            "test_graph_node/2": {
+                "test_graph_node/0": {edge_0_2_id: edge_0_2},
+                "test_graph_node/1": {edge_1_2_id: edge_1_2},
+            },
         }
+
         pytest.raises((KeyError, nx.NetworkXError), G.remove_edge, -1, 0)
         pytest.raises((KeyError, nx.NetworkXError), G.remove_edge, 0, 2, key=1)
-
-    def test_remove_multiedge(self):
-        G = self.K3
-        G.add_edge(0, 1, key="parallel edge")
-        G.remove_edge(0, 1, key="parallel edge")
-        assert G._adj == {
-            0: {1: {0: {}}, 2: {0: {}}},
-            1: {0: {0: {}}, 2: {0: {}}},
-            2: {0: {0: {}}, 1: {0: {}}},
-        }
-
-        assert G._succ == {
-            0: {1: {0: {}}, 2: {0: {}}},
-            1: {0: {0: {}}, 2: {0: {}}},
-            2: {0: {0: {}}, 1: {0: {}}},
-        }
-
-        assert G._pred == {
-            0: {1: {0: {}}, 2: {0: {}}},
-            1: {0: {0: {}}, 2: {0: {}}},
-            2: {0: {0: {}}, 1: {0: {}}},
-        }
-        G.remove_edge(0, 1)
-        assert G._succ == {
-            0: {2: {0: {}}},
-            1: {0: {0: {}}, 2: {0: {}}},
-            2: {0: {0: {}}, 1: {0: {}}},
-        }
-        assert G._pred == {
-            0: {1: {0: {}}, 2: {0: {}}},
-            1: {2: {0: {}}},
-            2: {0: {0: {}}, 1: {0: {}}},
-        }
-        pytest.raises((KeyError, nx.NetworkXError), G.remove_edge, -1, 0)
-
-    def test_remove_edges_from(self):
-        G = self.K3
-        G.remove_edges_from([(0, 1)])
-        assert G._succ == {
-            0: {2: {0: {}}},
-            1: {0: {0: {}}, 2: {0: {}}},
-            2: {0: {0: {}}, 1: {0: {}}},
-        }
-        assert G._pred == {
-            0: {1: {0: {}}, 2: {0: {}}},
-            1: {2: {0: {}}},
-            2: {0: {0: {}}, 1: {0: {}}},
-        }
-        G.remove_edges_from([(0, 0)])  # silent fail
 
 
 # TODO: Revisit

@@ -224,18 +224,25 @@ class BaseDiGraphTester(BaseGraphTester):
         assert G_undirected.has_edge("test_graph_node/2", "test_graph_node/1")
 
         G_undirected_reciprocal = G.to_undirected(reciprocal=True)
-        assert G_undirected_reciprocal.number_of_edges() == 1  # NOTE: This is failing
+        assert G_undirected_reciprocal.number_of_edges() == 0
         assert not G_undirected_reciprocal.has_edge(
             "test_graph_node/1", "test_graph_node/2"
         )
 
-        G.add_edge("test_graph_node/2", "test_graph_node/1")
+        G.add_edge("test_graph_node/2", "test_graph_node/1", foo="bar")
         assert G.number_of_edges() == 2
         G_undirected_reciprocal = G.to_undirected(reciprocal=True)
-        assert G_undirected_reciprocal.number_of_edges() == 2
+        assert G_undirected_reciprocal.number_of_edges() == 1
         assert G_undirected_reciprocal.has_edge(
             "test_graph_node/1", "test_graph_node/2"
         )
+        assert G_undirected_reciprocal.has_edge(
+            "test_graph_node/2", "test_graph_node/1"
+        )
+        edge_1_2 = G_undirected_reciprocal["test_graph_node/1"]["test_graph_node/2"]
+        edge_2_1 = G_undirected_reciprocal["test_graph_node/2"]["test_graph_node/1"]
+        assert edge_1_2 == edge_2_1
+        assert edge_1_2["foo"] == "bar"
 
     def test_reverse_copy(self):
         G = self.EmptyGraph(incoming_graph_data=[(0, 1), (1, 2)])

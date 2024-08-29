@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Any, Callable, ClassVar
 
 import networkx as nx
@@ -61,6 +62,7 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
 
         if self.graph_exists_in_db:
             self.reverse = self.reverse_override
+            self.to_undirected = self.to_undirected_override
 
     #######################
     # Init helper methods #
@@ -75,3 +77,48 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
             raise NotImplementedError("In-place reverse is not supported yet.")
 
         return super().reverse(copy=True)
+
+    def to_undirected_override(self, reciprocal=False, as_view=False):
+        if reciprocal is False:
+            return super().to_undirected(reciprocal=False, as_view=as_view)
+
+        graph_class = self.to_undirected_class()
+        if as_view is True:
+            return nx.graphviews.generic_graph_view(self, graph_class)
+
+        # deepcopy when not a view
+        G = graph_class()
+        G.graph.update(deepcopy(self.graph))
+        G.add_nodes_from((n, deepcopy(d)) for n, d in self._node.items())
+
+        ######################
+        # NOTE: Monkey patch #
+        ######################
+
+        # Old
+        # G.add_edges_from(
+        #     (u, v, key, deepcopy(data))
+        #     for u, nbrs in self._adj.items()
+        #     for v, keydict in nbrs.items()
+        #     for key, data in keydict.items()
+        #     if v in self._pred[u] and key in self._pred[u][v]
+        # )
+
+        # New:
+        G.add_edges_from(
+            (u, v, key, deepcopy(data))
+            for u, nbrs in self._adj.items()
+            for v, keydict in nbrs.items()
+            for key, data in keydict.items()
+            if v in self._pred[u]  # and key in self._pred[u][v]
+        )
+
+        # Reason: MultiGraphs in `nxadb` don't use integer-based keys for edges.
+        # They use ArangoDB Edge IDs. Therefore, the statement `key in self._pred[u][v]`
+        # will always be False in the context of MultiDiGraphs. For more details on why
+        # this adjustment is needed, see the `test_to_undirected_reciprocal`
+        # in `test_multidigraph.py`.
+
+        ###########################
+
+        return G

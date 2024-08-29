@@ -374,18 +374,30 @@ class BaseMultiDiGraphTester(BaseMultiGraphTester):
         assert G_undirected.has_edge("test_graph_node/2", "test_graph_node/1")
 
         G_undirected_reciprocal = G.to_undirected(reciprocal=True)
-        assert G_undirected_reciprocal.number_of_edges() == 1  # NOTE: This is failing
+        assert G_undirected_reciprocal.number_of_edges() == 0
         assert not G_undirected_reciprocal.has_edge(
             "test_graph_node/1", "test_graph_node/2"
         )
 
-        G.add_edge("test_graph_node/2", "test_graph_node/1")
+        edge_2_1_id = G.add_edge("test_graph_node/2", "test_graph_node/1", foo="bar")
         assert G.number_of_edges() == 2
         G_undirected_reciprocal = G.to_undirected(reciprocal=True)
         assert G_undirected_reciprocal.number_of_edges() == 2
         assert G_undirected_reciprocal.has_edge(
             "test_graph_node/1", "test_graph_node/2"
         )
+        assert G_undirected_reciprocal.has_edge(
+            "test_graph_node/2", "test_graph_node/1"
+        )
+        # notice how edge_1_2 now has the same data as edge_2_1 (+ the same _id)
+        edge_1_2 = G_undirected_reciprocal["test_graph_node/1"]["test_graph_node/2"][
+            edge_2_1_id
+        ]
+        edge_2_1 = G_undirected_reciprocal["test_graph_node/2"]["test_graph_node/1"][
+            edge_2_1_id
+        ]
+        assert edge_1_2 == edge_2_1
+        assert edge_1_2["foo"] == "bar"
 
     def test_reverse_copy(self):
         G = self.EmptyGraph([(0, 1), (0, 1)])
@@ -454,7 +466,6 @@ class TestMultiDiGraph(BaseMultiDiGraphTester, _TestMultiGraph):
         self.K3Graph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs, incoming_graph_data=self.K3
         )
-        self.Graph = self.K3Graph
         self.EmptyGraph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs
         )

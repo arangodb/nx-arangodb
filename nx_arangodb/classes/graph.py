@@ -36,6 +36,19 @@ networkx_api = nxadb.utils.decorators.networkx_class(nx.Graph)  # type: ignore
 
 __all__ = ["Graph"]
 
+try:
+    from langchain_community.chains.graph_qa.arangodb import ArangoGraphQAChain
+    from langchain_community.graphs import ArangoGraph
+    from langchain_core.language_models import BaseLanguageModel
+    from langchain_openai import ChatOpenAI
+
+    LLM_AVAILABLE = True
+except Exception:
+    LLM_AVAILABLE = False
+
+    class BaseLanguageModel:  # type: ignore[no-redef]
+        pass
+
 
 class Graph(nx.Graph):
     __networkx_backend__: ClassVar[str] = "arangodb"  # nx >=3.2
@@ -84,8 +97,6 @@ class Graph(nx.Graph):
         self.use_nx_cache = True
         self.use_nxcg_cache = True
         self.nxcg_graph = None
-
-        # self.__qa_chain = None
 
         # Does not apply to undirected graphs
         self.symmetrize_edges = symmetrize_edges
@@ -370,33 +381,34 @@ class Graph(nx.Graph):
         return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
 
     # def pull(self) -> None:
-    #     self._node._fetch_all()
-    #     self._adj._fetch_all()
+    #     TODO: what would this look like?
 
-    # NOTE: OUT OF SERVICE
-    # def chat(self, prompt: str) -> str:
-    #     if self.__qa_chain is None:
-    #         if not self.graph_exists_in_db:
-    #             return "Could not initialize QA chain: Graph does not exist"
+    # def push(self) -> None:
+    #     TODO: what would this look like?
 
-    #         # try:
-    #         from langchain.chains import ArangoGraphQAChain
-    #         from langchain_community.graphs import ArangoGraph
-    #         from langchain_openai import ChatOpenAI
+    def chat(
+        self, prompt: str, verbose: bool = False, llm: BaseLanguageModel | None = None
+    ) -> str:
+        if not LLM_AVAILABLE:
+            m = "LLM dependencies not installed. Install with **pip install nx-arangodb[llm]**"  # noqa: E501
+            raise ModuleNotFoundError(m)
 
-    #         model = ChatOpenAI(temperature=0, model_name="gpt-4")
+        if not self._graph_exists_in_db:
+            m = "Cannot chat without a graph in the database"
+            raise GraphNameNotSet(m)
 
-    #         self.__qa_chain = ArangoGraphQAChain.from_llm(
-    #             llm=model, graph=ArangoGraph(self.db), verbose=True
-    #         )
+        if llm is None:
+            llm = ChatOpenAI(temperature=0, model_name="gpt-4")
 
-    #         # except Exception as e:
-    #         #     return f"Could not initialize QA chain: {e}"
+        chain = ArangoGraphQAChain.from_llm(
+            llm=llm,
+            graph=ArangoGraph(self.db),
+            verbose=verbose,
+        )
 
-    #     self.__qa_chain.graph.set_schema()
-    #     result = self.__qa_chain.invoke(prompt)
+        response = chain.invoke(prompt)
 
-    #     print(result["result"])
+        return str(response["result"])
 
     #####################
     # nx.Graph Overides #

@@ -195,7 +195,7 @@ def key_is_adb_id_or_int(func: Callable[..., Any]) -> Any:
         """"""
         if isinstance(key, str):
             if key != "-1" and "/" not in key:
-                raise ValueError(f"{key} is not an ArangoDB ID.")
+                raise KeyError(f"{key} is not an ArangoDB ID.")
 
         elif isinstance(key, int):
             m = "Edge order is not guaranteed when using int as an edge key. It may raise a KeyError. Use at your own risk."  # noqa

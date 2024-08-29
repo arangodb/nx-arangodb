@@ -779,7 +779,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             self.__contains_helper = self.__contains__multigraph
             self.__getitem_helper_db = self.__getitem__multigraph_db
             self.__getitem_helper_cache = self.__getitem__multigraph_cache
-            self.__setitem_helper = self.__setitem__multigraph  # type: ignore[assignment]
+            self.__setitem_helper = self.__setitem__multigraph  # type: ignore[assignment] # noqa
             self.__delitem_helper = self.__delitem__multigraph
             self.__fetch_all_helper = self.__fetch_all_multigraph
         else:

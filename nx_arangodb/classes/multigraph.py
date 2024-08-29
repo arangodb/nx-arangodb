@@ -76,6 +76,13 @@ class MultiGraph(Graph, nx.MultiGraph):
                         m = f"converting multigraph_input raised:\n{type(err)}: {err}"
                         raise nx.NetworkXError(m)
 
+                    # Reset the graph
+                    for v_col in self.adb_graph.vertex_collections():
+                        self.db.collection(v_col).truncate()
+
+                    for e_def in self.adb_graph.edge_definitions():
+                        self.db.collection(e_def["edge_collection"]).truncate()
+
                     nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)
             else:
                 nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)

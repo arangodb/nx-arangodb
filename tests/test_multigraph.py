@@ -360,7 +360,9 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         # test round-trip to_dict_of_dict and MultiGraph constructor
         G = self.EmptyGraph(dododod, multigraph_input=True)
         G_copy = G.copy()
-        H = self.EmptyGraph(nx.to_dict_of_dicts(G))
+        # Avoids the "reserved key" error
+        G_no_db = nxadb.MultiGraph(nx.to_dict_of_dicts(G), multigraph_input=True)
+        H = self.EmptyGraph(G_no_db)
         assert nx.is_isomorphic(G_copy, H) is True  # test that default is True
 
         G = self.EmptyGraph(dododod, multigraph_input=True)
@@ -430,9 +432,9 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         G_nx = nx.MultiGraph(dodod3, multigraph_input=None)
         G = self.EmptyGraph(dodod3, multigraph_input=None)
         assert G.number_of_nodes() == G_nx.number_of_nodes()
-        assert G.number_of_edges() == G_nx.number_of_edges()  # NOTE: This is failing
-        # assert G["a"]["b"][0]["traits"] == etraits
-        # assert G["a"]["b"][0]["s"] == dodod3["a"]["b"]["s"]
+        assert G.number_of_edges() == G_nx.number_of_edges()
+        assert G["a"]["b"][0]["traits"] == etraits
+        assert G["a"]["b"][0]["s"] == dodod3["a"]["b"]["s"]
 
     def test_getitem(self):
         G = self.K3Graph()

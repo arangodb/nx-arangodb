@@ -301,6 +301,7 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
             assert G["a"]["b"][1]["s"] == edata1["s"]
 
             # TODO: Figure out why it's either (a, b) or (b, a)...
+            # Assertion is not clean, but still works.
             multiple_edge_a_b = [
                 (
                     "test_graph_node/a",
@@ -334,6 +335,7 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
             edges = list(G.edges(keys=True, data=True))
             for edge in edges:
                 # TODO: Need to revisit. I don't like this...
+                # Assertion is not clean, but still works.
                 assert edge in multiple_edge_a_b or edge in multiple_edge_b_a
 
         G = self.EmptyGraph(dododod, multigraph_input=False)
@@ -354,6 +356,7 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         edges = list(G.edges(keys=True, data=True))
         assert len(edges) == 1
         # TODO: Need to revisit. I don't like this...
+        # Assertion is not clean, but still works.
         assert edges[0] == single_edge_a_b or edges[0] == single_edge_b_a
 
         # test round-trip to_dict_of_dict and MultiGraph constructor

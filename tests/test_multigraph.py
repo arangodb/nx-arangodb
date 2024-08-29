@@ -268,7 +268,6 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         self.K3Graph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs, incoming_graph_data=self.K3
         )
-        self.Graph = self.K3Graph
         self.EmptyGraph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs
         )
@@ -303,6 +302,7 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
             assert G["a"]["b"][1]["s"] == edata1["s"]
 
             # TODO: Figure out why it's either (a, b) or (b, a)...
+            # Assertion is not clean, but still works.
             multiple_edge_a_b = [
                 (
                     "test_graph_node/a",
@@ -336,6 +336,7 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
             edges = list(G.edges(keys=True, data=True))
             for edge in edges:
                 # TODO: Need to revisit. I don't like this...
+                # Assertion is not clean, but still works.
                 assert edge in multiple_edge_a_b or edge in multiple_edge_b_a
 
         G = self.EmptyGraph(dododod, multigraph_input=False)
@@ -356,12 +357,15 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         edges = list(G.edges(keys=True, data=True))
         assert len(edges) == 1
         # TODO: Need to revisit. I don't like this...
+        # Assertion is not clean, but still works.
         assert edges[0] == single_edge_a_b or edges[0] == single_edge_b_a
 
         # test round-trip to_dict_of_dict and MultiGraph constructor
         G = self.EmptyGraph(dododod, multigraph_input=True)
         G_copy = G.copy()
-        H = self.EmptyGraph(nx.to_dict_of_dicts(G))
+        # Avoids the "reserved key" error
+        G_no_db = nxadb.MultiGraph(nx.to_dict_of_dicts(G), multigraph_input=True)
+        H = self.EmptyGraph(G_no_db)
         assert nx.is_isomorphic(G_copy, H) is True  # test that default is True
 
         G = self.EmptyGraph(dododod, multigraph_input=True)
@@ -376,32 +380,59 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         H = self.EmptyGraph(nx.to_dict_of_dicts(G), multigraph_input=False)
         assert nx.is_isomorphic(G_copy, H) is False
 
-    # Set up cases for when incoming_graph_data is not multigraph_input
-    etraits = {"w": 200, "s": "foo"}
-    egraphics = {"color": "blue", "shape": "box"}
-    edata = {"traits": etraits, "graphics": egraphics}
-    dodod1 = {"a": {"b": edata}}
-    dodod2 = {"a": {"b": etraits}}
-    dodod3 = {"a": {"b": {"traits": etraits, "s": "foo"}}}
-    dol = {"a": ["b"]}
+    def test_non_multigraph_input_a(self):
+        etraits = {"w": 200, "s": "foo"}
+        egraphics = {"color": "blue", "shape": "box"}
+        edata = {"traits": etraits, "graphics": egraphics}
+        dodod1 = {"a": {"b": edata}}
+        dodod2 = {"a": {"b": etraits}}
+        dodod3 = {"a": {"b": {"traits": etraits, "s": "foo"}}}
+        dol = {"a": ["b"]}
 
-    multiple_edge = [("a", "b", "traits", etraits), ("a", "b", "graphics", egraphics)]
-    single_edge = [("a", "b", 0, {})]  # type: ignore[var-annotated]
-    single_edge1 = [("a", "b", 0, edata)]
-    single_edge2 = [("a", "b", 0, etraits)]
-    single_edge3 = [("a", "b", 0, {"traits": etraits, "s": "foo"})]
+        # 1
+        G = self.EmptyGraph(dodod1, multigraph_input=True)
+        G_nx = self.Graph(dodod1, multigraph_input=True)
+        assert G.number_of_nodes() == G_nx.number_of_nodes() == 2
+        assert G.number_of_edges() == G_nx.number_of_edges() == 2
+        with pytest.raises(KeyError):
+            G["a"]["b"]["traits"]  # custom edge keys not supported
+        with pytest.raises(KeyError):
+            G["a"]["b"]["graphics"]  # custom edge keys not supported
+        assert G["a"]["b"][0]["w"] == G_nx["a"]["b"]["traits"]["w"]
+        assert G["a"]["b"][0]["s"] == G_nx["a"]["b"]["traits"]["s"]
+        assert G["a"]["b"][1]["color"] == G_nx["a"]["b"]["graphics"]["color"]
+        assert G["a"]["b"][1]["shape"] == G_nx["a"]["b"]["graphics"]["shape"]
 
-    cases = [  # (dod, mgi, edges)
-        (dodod1, True, multiple_edge),
-        (dodod1, False, single_edge1),
-        (dodod2, False, single_edge2),
-        (dodod3, False, single_edge3),
-        (dol, False, single_edge),
-    ]
+        # 2
+        G = self.EmptyGraph(dodod1, multigraph_input=False)
+        G_nx = self.Graph(dodod1, multigraph_input=False)
+        assert G.number_of_nodes() == G_nx.number_of_nodes() == 2
+        assert G.number_of_edges() == G_nx.number_of_edges() == 1
+        assert G["a"]["b"][0]["traits"] == G_nx["a"]["b"][0]["traits"]
+        assert G["a"]["b"][0]["graphics"] == G_nx["a"]["b"][0]["graphics"]
 
-    # def test_non_multigraph_input(self, dod, mgi, edges):
-    # pass
-    # TODO: Implement
+        # 3
+        G = self.EmptyGraph(dodod2, multigraph_input=False)
+        G_nx = self.Graph(dodod2, multigraph_input=False)
+        assert G.number_of_nodes() == G_nx.number_of_nodes() == 2
+        assert G.number_of_edges() == G_nx.number_of_edges() == 1
+        assert G["a"]["b"][0]["w"] == G_nx["a"]["b"][0]["w"]
+        assert G["a"]["b"][0]["s"] == G_nx["a"]["b"][0]["s"]
+
+        # 4
+        G = self.EmptyGraph(dodod3, multigraph_input=False)
+        G_nx = self.Graph(dodod3, multigraph_input=False)
+        assert G.number_of_nodes() == G_nx.number_of_nodes() == 2
+        assert G.number_of_edges() == G_nx.number_of_edges() == 1
+        assert G["a"]["b"][0]["traits"] == G_nx["a"]["b"][0]["traits"]
+        assert G["a"]["b"][0]["s"] == G_nx["a"]["b"][0]["s"]
+
+        # 5
+        G = self.EmptyGraph(dol, multigraph_input=False)
+        G_nx = self.Graph(dol, multigraph_input=False)
+        assert G.number_of_nodes() == G_nx.number_of_nodes()
+        assert G.number_of_edges() == G_nx.number_of_edges()
+        assert set(G["a"]["b"][0].keys()) == {"_id", "_key", "_from", "_to"}
 
     def test_non_multigraph_input_mgi_none(self):
         etraits = {"w": 200, "s": "foo"}
@@ -412,7 +443,7 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         dodod3 = {"a": {"b": {"traits": etraits, "s": "foo"}}}
 
         # test constructor without to_networkx_graph for mgi=None
-        G_nx = nx.MultiGraph(dodod1, multigraph_input=None)
+        G_nx = self.Graph(dodod1, multigraph_input=None)
         G = self.EmptyGraph(dodod1, multigraph_input=None)
         assert G.number_of_nodes() == G_nx.number_of_nodes()
         assert G.number_of_edges() == G_nx.number_of_edges()
@@ -421,19 +452,19 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         assert G["a"]["b"][1]["color"] == egraphics["color"]
         assert G["a"]["b"][1]["shape"] == egraphics["shape"]
 
-        G_nx = nx.MultiGraph(dodod2, multigraph_input=None)
+        G_nx = self.Graph(dodod2, multigraph_input=None)
         G = self.EmptyGraph(dodod2, multigraph_input=None)
         assert G.number_of_nodes() == G_nx.number_of_nodes()
         assert G.number_of_edges() == G_nx.number_of_edges()
         assert G["a"]["b"][0]["w"] == etraits["w"]
         assert G["a"]["b"][0]["s"] == etraits["s"]
 
-        G_nx = nx.MultiGraph(dodod3, multigraph_input=None)
+        G_nx = self.Graph(dodod3, multigraph_input=None)
         G = self.EmptyGraph(dodod3, multigraph_input=None)
         assert G.number_of_nodes() == G_nx.number_of_nodes()
-        assert G.number_of_edges() == G_nx.number_of_edges()  # NOTE: This is failing
-        # assert G["a"]["b"][0]["traits"] == etraits
-        # assert G["a"]["b"][0]["s"] == dodod3["a"]["b"]["s"]
+        assert G.number_of_edges() == G_nx.number_of_edges()
+        assert G["a"]["b"][0]["traits"] == etraits
+        assert G["a"]["b"][0]["s"] == dodod3["a"]["b"]["s"]
 
     def test_getitem(self):
         G = self.K3Graph()

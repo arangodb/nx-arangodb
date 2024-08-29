@@ -135,11 +135,30 @@ class BaseDiGraphTester(BaseGraphTester):
         assert sorted(G.in_edges(2)) == []
 
     def test_in_edges_data(self):
-        G = nx.DiGraph([(0, 1, {"data": 0}), (1, 0, {})])
-        assert sorted(G.in_edges(data=True)) == [(0, 1, {"data": 0}), (1, 0, {})]
-        assert sorted(G.in_edges(1, data=True)) == [(0, 1, {"data": 0})]
-        assert sorted(G.in_edges(data="data")) == [(0, 1, 0), (1, 0, None)]
-        assert sorted(G.in_edges(1, data="data")) == [(0, 1, 0)]
+        G = self.EmptyGraph(incoming_graph_data=[(0, 1, {"data": 0}), (1, 0, {})])
+        edge_0_1 = get_doc(G[0][1]["_id"])
+        edge_1_0 = get_doc(G[1][0]["_id"])
+        assert "data" in edge_0_1
+        assert edge_0_1["data"] == 0
+        assert "data" not in edge_1_0
+        assert sorted(G.in_edges(data=True)) == sorted(
+            [
+                ("test_graph_node/1", "test_graph_node/0", edge_0_1),
+                ("test_graph_node/0", "test_graph_node/1", edge_1_0),
+            ]
+        )
+        assert sorted(G.in_edges(0, data=True)) == [
+            ("test_graph_node/1", "test_graph_node/0", edge_0_1)
+        ]
+        assert sorted(G.in_edges(data="data")) == sorted(
+            [
+                ("test_graph_node/1", "test_graph_node/0", 0),
+                ("test_graph_node/0", "test_graph_node/1", None),
+            ]
+        )
+        assert sorted(G.in_edges(0, data="data")) == sorted(
+            [("test_graph_node/1", "test_graph_node/0", 0)]
+        )
 
     def test_degree(self):
         G = self.K3Graph()
@@ -354,7 +373,6 @@ class TestDiGraph(BaseAttrDiGraphTester, _TestGraph):
         self.K3Graph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs, incoming_graph_data=self.K3
         )
-        self.Graph = self.K3Graph
         self.P3Graph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs, incoming_graph_data=self.P3
         )

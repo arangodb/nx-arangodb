@@ -270,7 +270,6 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         self.K3Graph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs, incoming_graph_data=self.K3
         )
-        self.Graph = self.K3Graph
         self.EmptyGraph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs
         )
@@ -400,9 +399,6 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         (dol, False, single_edge),
     ]
 
-    # def test_non_multigraph_input(self, dod, mgi, edges):
-    # pass
-    # TODO: Implement
 
     def test_non_multigraph_input_mgi_none(self):
         etraits = {"w": 200, "s": "foo"}
@@ -413,7 +409,7 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         dodod3 = {"a": {"b": {"traits": etraits, "s": "foo"}}}
 
         # test constructor without to_networkx_graph for mgi=None
-        G_nx = nx.MultiGraph(dodod1, multigraph_input=None)
+        G_nx = self.Graph(dodod1, multigraph_input=None)
         G = self.EmptyGraph(dodod1, multigraph_input=None)
         assert G.number_of_nodes() == G_nx.number_of_nodes()
         assert G.number_of_edges() == G_nx.number_of_edges()
@@ -422,14 +418,14 @@ class TestMultiGraph(BaseMultiGraphTester, _TestGraph):
         assert G["a"]["b"][1]["color"] == egraphics["color"]
         assert G["a"]["b"][1]["shape"] == egraphics["shape"]
 
-        G_nx = nx.MultiGraph(dodod2, multigraph_input=None)
+        G_nx = self.Graph(dodod2, multigraph_input=None)
         G = self.EmptyGraph(dodod2, multigraph_input=None)
         assert G.number_of_nodes() == G_nx.number_of_nodes()
         assert G.number_of_edges() == G_nx.number_of_edges()
         assert G["a"]["b"][0]["w"] == etraits["w"]
         assert G["a"]["b"][0]["s"] == etraits["s"]
 
-        G_nx = nx.MultiGraph(dodod3, multigraph_input=None)
+        G_nx = self.Graph(dodod3, multigraph_input=None)
         G = self.EmptyGraph(dodod3, multigraph_input=None)
         assert G.number_of_nodes() == G_nx.number_of_nodes()
         assert G.number_of_edges() == G_nx.number_of_edges()

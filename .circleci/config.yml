@@ -139,3 +139,7 @@ workflows:
           matrix:
             parameters:
               python_version: ["3.10", "3.11"] # "3.12" # TODO: Revisit 3.12
+          filters:
+            branches:
+              only:
+                - main

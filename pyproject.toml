@@ -17,15 +17,15 @@ authors = [
     { name = "ArangoDB" },
 ]
 license = { text = "Apache 2.0" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3 :: Only",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -57,6 +57,11 @@ dev = [
 ]
 gpu = [
     "nx-cugraph-cu12 @ https://pypi.nvidia.com"
+]
+llm = [
+    "langchain~=0.2.14",
+    "langchain-openai~=0.1.22",
+    "langchain-community~=0.2.12"
 ]
 
 [project.urls]

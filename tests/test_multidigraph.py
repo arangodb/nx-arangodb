@@ -458,9 +458,7 @@ class TestMultiDiGraph(BaseMultiDiGraphTester, _TestMultiGraph):
 
         def nxadb_graph_constructor(*args, **kwargs) -> nxadb.MultiDiGraph:
             db.delete_graph(GRAPH_NAME, drop_collections=True, ignore_missing=True)
-            G = nxadb.MultiDiGraph(*args, **kwargs, name=GRAPH_NAME)
-            # Experimenting with a delay to see if it helps with CircleCI...
-            time.sleep(0.10)
+            G = nxadb.MultiDiGraph(*args, **kwargs, name=GRAPH_NAME, write_async=False)
             return G
 
         self.K3Graph = lambda *args, **kwargs: nxadb_graph_constructor(

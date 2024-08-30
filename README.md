@@ -1,8 +1,8 @@
 # nx-arangodb
 
 <div style="display: flex; align-items: center; gap: 10px;">
-    <img src="https://arangodb.com/wp-content/uploads/2016/05/ArangoDB_logo_avocado_@1.png" alt="ArangoDB" style="height: 60px;">
     <img src="https://avatars.githubusercontent.com/u/388785?s=200&v=4" alt="NetworkX" style="height: 60px;">
+    <img src="https://arangodb.com/wp-content/uploads/2016/05/ArangoDB_logo_avocado_@1.png" alt="ArangoDB" style="height: 60px;">
     <img src="https://rapids.ai/images/RAPIDS-logo.png" alt="RAPIDS" style="height: 60px;">
     <img src="https://insights.virti.com/content/images/2021/09/20181218-Nvidia-Inception.png" alt="NVIDIA" style="height: 60px;">
 </div>
@@ -40,9 +40,9 @@ Benefits of having ArangoDB as a backend to NetworkX include:
 
 6. Access to efficient distribution of graph data ([ArangoDB SmartGraphs](https://docs.arangodb.com/3.11/graphs/smartgraphs/)).
 
-<br>
-<img src="./docs/_static/nxadb.png" style="height: 200px;">
-
+<div style="text-align: center;">
+    <img src="./docs/_static/nxadb.png" style="height: 200px;">
+</div>
 
 ## Does this replace NetworkX?
 
@@ -95,7 +95,7 @@ assert G.number_of_edges() == 1
 pip install nx-arangodb
 ```
 
-**What if I want to use cuGraph as well?**
+### What if I want to use nx-cuGraph with it?
 
 ```bash
 pip install nx-cugraph-cu12 --extra-index-url https://pypi.nvidia.com
@@ -140,11 +140,14 @@ os.environ["DATABASE_NAME"] = credentials["database"]
 
 ## How does Algorithm Dispatching work?
 
-`nx-arangodb` will automatically dispatch algorithm invocations to either CPU or GPU based on if `nx-cugraph` is installed. We rely on a rust-based library called [phenolrs](https://github.com/arangoml/phenolrs) to retrieve ArangoDB Graphs as fast as possible.
+`nx-arangodb` will automatically dispatch algorithm calls to either CPU or GPU based on if `nx-cugraph` is installed. We rely on a rust-based library called [phenolrs](https://github.com/arangoml/phenolrs) to retrieve ArangoDB Graphs as fast as possible.
 
-<img src="./docs/_static/dispatch.png" style="height: 200px;">
+<div style="text-align: center;">
+    <img src="./docs/_static/dispatch.png" style="height: 200px;">
+</div>
 
-**I have a nx-cugraph installed, but I want to run an algorithm on CPU. Is this possible?**
+
+### I have a nx-cugraph installed, but I want to run an algorithm on CPU. Is this possible?
 
 Yes:
 
@@ -164,4 +167,26 @@ nx.betweenness_centrality(G)
 # ...
 
 nx.config.backends.arangodb.use_gpu = True
+```
+
+## Can I create an ArangoDB Graph from an existing NetworkX Graph?
+
+Yes, this is actually the recommended way to start using `nx-arangodb`:
+
+```python
+import os
+import networkx as nx
+import nx_arangodb as nxadb
+
+# os.environ ...
+
+G_nx = nx.karate_club_graph()
+
+G = nxadb.Graph(
+    incoming_graph_data=G_nx,
+    name="MyKarateGraph"
+)
+
+assert G.number_of_nodes() == G_nx.number_of_nodes()
+assert G.number_of_edges() == G_nx.number_of_edges()
 ```

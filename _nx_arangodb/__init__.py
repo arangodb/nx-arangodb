@@ -25,7 +25,7 @@ _info = {
     "backend_name": "arangodb",
     "project": "nx-arangodb",
     "package": "nx_arangodb",
-    "url": f"https://github.com/aMahanna/nx-arangodb",
+    "url": "https://github.com/arangodb/nx-arangodb",
     "short_summary": "Remote storage backend.",
     # "description": "TODO",
     "functions": {
@@ -90,22 +90,6 @@ def get_info():
 
 if __name__ == "__main__":
     from pathlib import Path
-
-    # This script imports nx_arangodb modules, which imports nx_arangodb runtime
-    # dependencies. The modules do not need the runtime deps, so stub them out
-    # to avoid installing them.
-    class Stub:
-        def __getattr__(self, *args, **kwargs):
-            return Stub()
-
-        def __call__(self, *args, **kwargs):
-            return Stub()
-
-    import sys
-
-    sys.modules["cupy"] = Stub()
-    sys.modules["numpy"] = Stub()
-    sys.modules["python-arango"] = Stub()
 
     from _nx_arangodb.core import main
 

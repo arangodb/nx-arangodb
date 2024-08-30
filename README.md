@@ -1,87 +1,201 @@
-Development Sandbox:
+# nx-arangodb
 
-<a href="https://colab.research.google.com/drive/1gIfJDEumN6UdZou_VlSbG874xGkHwtU2?usp=sharing" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+<a href="https://colab.research.google.com/github/arangodb/nx-arangodb/blob/main/docs/notebook.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 
-What's currently possible:
-- ArangoDB CRUD Interface for `nx.Graph`
-- Algorithm dispatching to `nx` & `nxcg` (`betweenness_centrality`, `pagerank`, `louvain_communities`)
-- Algorithm dispatching to ArangoDB (`shortest_path`)
-- Data Load from ArangoDB to `nx` object
-- Data Load from ArangoDB to `nxcg` object
-- Data Load from ArangoDB via dictionary-based remote connection
 
-Next steps:
-- Generalize `nxadb`'s support for `nx` & `nxcg` algorithms
-- Improve support for `nxadb.DiGraph`
-- CRUD Interface Improvements
+<div style="display: flex; align-items: center; gap: 10px;">
+    <img src="https://avatars.githubusercontent.com/u/388785?s=200&v=4" alt="NetworkX" style="height: 60px;">
+    <img src="https://arangodb.com/wp-content/uploads/2016/05/ArangoDB_logo_avocado_@1.png" alt="ArangoDB" style="height: 60px;">
+    <img src="https://rapids.ai/images/RAPIDS-logo.png" alt="RAPIDS" style="height: 60px;">
+    <img src="https://insights.virti.com/content/images/2021/09/20181218-Nvidia-Inception.png" alt="NVIDIA" style="height: 60px;">
+</div>
 
-Planned:
-- Support for `nxadb.MultiGraph` & `nxadb.MultiDiGraph`
-- Data Load from `nx` to ArangoDB
-- Data Load from `nxcg` to ArangoDB
+<br>
 
-```py
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/arangodb/nx-arangodb/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/arangodb/nx-arangodb/tree/main)
+[![CodeQL](https://github.com/arangodb/nx-arangodb/actions/workflows/analyzee.yaml/badge.svg)](https://github.com/arangodb/nx-arangodb/actions/workflows/analyzee.yaml)
+[![Docs](https://github.com/arangodb/nx-arangodb/actions/workflows/docs.yaml/badge.svg)](https://github.com/arangodb/nx-arangodb/actions/workflows/docs.yaml)
+[![Last commit](https://img.shields.io/github/last-commit/arangodb/nx-arangodb)](https://github.com/arangodb/nx-arangodb/commits/main)
+
+[![PyPI version badge](https://img.shields.io/pypi/v/nx-arangodb?color=3775A9&style=for-the-badge&logo=pypi&logoColor=FFD43B)](https://pypi.org/project/nx-arangodb/)
+[![Python versions badge](https://img.shields.io/badge/3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=FFD43B&label=Python)](https://pypi.org/project/nx-arangodb/)
+
+[![Code style: black](https://img.shields.io/static/v1?style=for-the-badge&label=code%20style&message=black&color=black)](https://github.com/psf/black)
+[![Downloads](https://img.shields.io/pepy/dt/nx-arangodb?style=for-the-badge&color=282661
+)](https://pepy.tech/project/nx-arangodb)
+
+
+
+https://github.com/user-attachments/assets/e5f56574-d3ef-452c-ab21-b47b3d5d5900
+
+
+## What is this?
+
+This is a [backend to NetworkX](https://networkx.org/documentation/stable/reference/backends.html) that offers [ArangoDB](https://github.com/arangodb/arangodb) as a [Persistence Layer to NetworkX Graphs](https://arangodb.com/introducing-the-arangodb-networkx-persistence-layer/).
+
+`nx-arangodb` allows you to:
+1. Persist NetworkX Graphs to ArangoDB.
+2. Reload NetworkX Graphs from ArangoDB.
+2. Perform CRUD on ArangoDB Graphs via NetworkX.
+3. Run algorithms (CPU & GPU) on ArangoDB Graphs via NetworkX.
+
+Benefits of having ArangoDB as a backend to NetworkX include:
+1. No need to re-create the graph every time you start a new session.
+2. Access to GPU-accelerated graph analytics ([nx-cugraph](https://docs.rapids.ai/api/cugraph/nightly/nx_cugraph/nx_cugraph/)).
+2. Access to a database query language ([Arango Query Language](https://arangodb.com/sql-aql-comparison/)).
+3. Access to a visual interface for graph exploration ([ArangoDB Web UI](https://docs.arangodb.com/3.11/components/web-interface/graphs/)).
+4. Access to cross-collaboration on the same graph ([ArangoDB Cloud](https://dashboard.arangodb.cloud/)).
+
+6. Access to efficient distribution of graph data ([ArangoDB SmartGraphs](https://docs.arangodb.com/3.11/graphs/smartgraphs/)).
+
+<p align="center">
+    <img src="./docs/_static/nxadb.png" style="height: 200px;">
+</p>
+
+
+## Does this replace NetworkX?
+
+No. This is a plugin to NetworkX, which means that you can use NetworkX as you normally would, but with the added benefit of persisting your graphs to a database.
+
+```python
 import os
 import networkx as nx
 import nx_arangodb as nxadb
 
 os.environ["DATABASE_HOST"] = "http://localhost:8529"
 os.environ["DATABASE_USERNAME"] = "root"
-os.environ["DATABASE_PASSWORD"] = "password"
+os.environ["DATABASE_PASSWORD"] = "openSesame"
 os.environ["DATABASE_NAME"] = "_system"
 
-G = nxadb.Graph(name="KarateGraph")
+G = nxadb.Graph(name="MyGraph")
+
+G.add_node(1, foo='bar')
+G.add_node(2, bar='foo')
+G.add_edge(1, 2, weight=2)
+
+res = nx.pagerank(G)
+
+for k, v in res.items():
+    G.nodes[k]['pagerank'] = v
+```
+
+## Does this mean I need to learn ArangoDB?
+
+No. You can use `nx-arangodb` without knowing anything about ArangoDB. The UX of `nx-arangodb` is designed to be as close as possible to the UX of NetworkX. See the ReadTheDocs for a list of features that are currently unsupported/in-development.
+
+```python
+import os
+import networkx as nx
+import nx_arangodb as nxadb
+
+# os.environ ...
+
+# Re-connect to the graph
+G = nxadb.Graph(name="MyGraph")
+
+assert G.number_of_nodes() == 2
+assert G.number_of_edges() == 1
+```
+
+
+## How do I install it?
+
+```bash
+pip install nx-arangodb
+```
+
+### What if I want to use nx-cuGraph with it?
+
+```bash
+pip install nx-cugraph-cu12 --extra-index-url https://pypi.nvidia.com
+pip install nx-arangodb
+```
+
+## What are the easiests ways to set up ArangoDB?
+
+**1) Local Instance via Docker**
+
+Appears on `localhost:8529` with the user `root` & password `openSesame`.
+
+More info: [arangodb.com/download-major](https://arangodb.com/download-major/).
+
+```bash
+docker run -e ARANGO_ROOT_PASSWORD=openSesame -p 8529:8529 arangodb/arangodb
+```
+
+**2) ArangoDB Cloud Trial**
+
+[ArangoGraph](https://dashboard.arangodb.cloud/home) is ArangoDB’s Cloud offering to use ArangoDB as a managed service.
+
+A 14-day trial is available upon sign up.
+
+**3) Temporary Cloud Instance via Python**
+
+A temporary cloud database can be provisioned using the [adb-cloud-connector](https://github.com/arangodb/adb-cloud-connector?tab=readme-ov-file#arangodb-cloud-connector) python package.
+
+```python
+# !pip install adb-cloud-connector
+
+import os
+from adb_cloud_connector import get_temp_credentials
+
+credentials = get_temp_credentials()
+
+os.environ["DATABASE_HOST"] = credentials["url"]
+os.environ["DATABASE_USERNAME"] = credentials["username"]
+os.environ["DATABASE_PASSWORD"] = credentials["password"]
+os.environ["DATABASE_NAME"] = credentials["database"]
+
+# ...
+```
+
+## How does Algorithm Dispatching work?
+
+`nx-arangodb` will automatically dispatch algorithm calls to either CPU or GPU based on if `nx-cugraph` is installed. We rely on a rust-based library called [phenolrs](https://github.com/arangoml/phenolrs) to retrieve ArangoDB Graphs as fast as possible.
+
+You can also force-run algorithms on CPU even if `nx-cugraph` is installed:
+
+```python
+import os
+import networkx as nx
+import nx_arangodb as nxadb
+
+# os.environ ...
+
+G = nxadb.Graph(name="MyGraph")
+
+nx.config.backends.arangodb.use_gpu = False
+
+nx.pagerank(G)
+nx.betweenness_centrality(G)
+# ...
+
+nx.config.backends.arangodb.use_gpu = True
+```
+
+<p align="center">
+    <img src="./docs/_static/dispatch.png" style="height: 200px;">
+</p>
+
+
+## Can I create an ArangoDB Graph from an existing NetworkX Graph?
+
+Yes, this is actually the recommended way to start using `nx-arangodb`:
+
+```python
+import os
+import networkx as nx
+import nx_arangodb as nxadb
+
+# os.environ ...
 
 G_nx = nx.karate_club_graph()
-assert len(G.nodes) == len(G_nx.nodes)
-assert len(G.adj) == len(G_nx.adj)
-assert len(G.edges) == len(G_nx.edges)
 
-nx.betweenness_centrality(G)
-nx.pagerank(G)
-nx.community.louvain_communities(G)
-nx.shortest_path(G, "person/1", "person/34")
-nx.all_neighbors(G, "person/1")
-
-G.nodes(data='club', default='unknown')
-G.edges(data='weight', default=1000)
-
-G.nodes["person/1"]
-G.adj["person/1"]
-G.edges[("person/1", "person/3")]
-
-G.nodes["person/1"]["name"] = "John Doe"
-G.nodes["person/1"].update({"age": 40})
-del G.nodes["person/1"]["name"]
-
-G.adj["person/1"]["person/3"]["weight"] = 2
-G.adj["person/1"]["person/3"].update({"weight": 3})
-del G.adj["person/1"]["person/3"]["weight"]
-
-G.edges[("person/1", "person/3")]["weight"] = 0.5
-assert G.adj["person/1"]["person/3"]["weight"] == 0.5
-
-G.add_node("person/35", name="Jane Doe")
-G.add_nodes_from(
-    [("person/36", {"name": "Jack Doe"}), ("person/37", {"name": "Jill Doe"})]
-)
-G.add_edge("person/1", "person/35", weight=1.5, _edge_type="knows")
-G.add_edges_from(
-    [
-        ("person/1", "person/36", {"weight": 2}),
-        ("person/1", "person/37", {"weight": 3}),
-    ],
-    _edge_type="knows",
+G_nxadb = nxadb.Graph(
+    incoming_graph_data=G_nx,
+    name="MyKarateGraph"
 )
 
-G.remove_edge("person/1", "person/35")
-G.remove_edges_from([("person/1", "person/36"), ("person/1", "person/37")])
-G.remove_node("person/35")
-G.remove_nodes_from(["person/36", "person/37"])
-
-G.clear()
-
-assert len(G.nodes) == len(G_nx.nodes)
-assert len(G.adj) == len(G_nx.adj)
-assert len(G.edges) == len(G_nx.edges)
+assert G_nxadb.number_of_nodes() == G_nx.number_of_nodes()
+assert G_nxadb.number_of_edges() == G_nx.number_of_edges()
 ```

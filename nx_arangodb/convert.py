@@ -135,7 +135,7 @@ def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
         symmetrize_edges_if_directed=G.symmetrize_edges if G.is_directed() else False,
     )
 
-    print(f"Graph '{G.adb_graph.name}' load took {time.time() - start_time}s")
+    logger.info(f"Graph '{G.adb_graph.name}' load took {time.time() - start_time}s")
 
     # NOTE: At this point, we _could_ choose to implement something similar to
     # NodeDict._fetch_all() and AdjListOuterDict._fetch_all() to iterate through
@@ -195,7 +195,7 @@ if GPU_AVAILABLE:
             ),
         )
 
-        print(f"ADB Graph '{G.adb_graph.name}' load took {time.time() - start_time}s")
+        logger.info(f"Graph '{G.adb_graph.name}' load took {time.time() - start_time}s")
 
         start_time = time.time()
 
@@ -240,6 +240,6 @@ if GPU_AVAILABLE:
                 key_to_id=vertex_ids_to_index,
             )
 
-        print(f"NXCG Graph construction took {time.time() - start_time}s")
+        logger.info(f"NXCG Graph construction took {time.time() - start_time}s")
 
         return G.nxcg_graph

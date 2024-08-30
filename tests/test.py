@@ -15,7 +15,7 @@ import nx_arangodb as nxadb
 from nx_arangodb.classes.dict.adj import AdjListOuterDict, EdgeAttrDict, EdgeKeyDict
 from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 
-from .conftest import Capturing, create_grid_graph, create_line_graph, db, run_gpu_tests
+from .conftest import create_grid_graph, create_line_graph, db, run_gpu_tests
 
 G_NX = nx.karate_club_graph()
 G_NX_digraph = nx.DiGraph(G_NX)
@@ -344,38 +344,53 @@ def test_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
 
     assert nxadb.convert.GPU_AVAILABLE is True
     assert nx.config.backends.arangodb.use_gpu is True
+    assert graph.nxcg_graph is None
 
-    res_gpu = None
-    res_cpu = None
-
-    # Measure GPU execution time
+    # 1. GPU
     start_gpu = time.time()
-
-    # Note: While this works, we should use the logger or some alternative
-    # approach testing this. Via stdout is not the best way to test this.
-    with Capturing() as output_gpu:
-        res_gpu = nx.pagerank(graph)
-
-    assert any(
-        "NXCG Graph construction took" in line for line in output_gpu
-    ), "Expected output not found in GPU execution"
-
+    res_gpu = nx.pagerank(graph)
     gpu_time = time.time() - start_gpu
 
-    # Disable GPU and measure CPU execution time
+    assert graph.nxcg_graph is not None
+    assert graph.nxcg_graph.number_of_nodes() == 250000
+    assert graph.nxcg_graph.number_of_edges() == 499000
+
+    # 2. GPU (cached)
+    assert graph.use_nxcg_cache is True
+
+    start_gpu_cached = time.time()
+    res_gpu_cached = nx.pagerank(graph)
+    gpu_cached_time = time.time() - start_gpu_cached
+
+    assert gpu_cached_time < gpu_time
+    assert_pagerank(res_gpu, res_gpu_cached, 10)
+
+    # 3. GPU (disable cache)
+    graph.use_nxcg_cache = False
+
+    start_gpu_no_cache = time.time()
+    res_gpu_no_cache = nx.pagerank(graph)
+    gpu_no_cache_time = time.time() - start_gpu_no_cache
+
+    assert gpu_cached_time < gpu_no_cache_time
+    assert_pagerank(res_gpu_cached, res_gpu_no_cache, 10)
+
+    # 4. CPU
+    assert graph.nxcg_graph is not None
+    graph.clear_nxcg_cache()
+    assert graph.nxcg_graph is None
     nx.config.backends.arangodb.use_gpu = False
+
     start_cpu = time.time()
-    with Capturing() as output_cpu:
-        res_cpu = nx.pagerank(graph)
-
-    output_cpu_list = list(output_cpu)
-    assert len(output_cpu_list) == 1
-    assert "Graph 'GridGraph' load took" in output_cpu_list[0]
-
+    res_cpu = nx.pagerank(graph)
     cpu_time = time.time() - start_cpu
 
-    assert gpu_time < cpu_time, "GPU execution should be faster than CPU execution"
-    assert_pagerank(res_gpu, res_cpu, 10)
+    assert graph.nxcg_graph is None
+
+    m = "GPU execution should be faster than CPU execution"
+    assert gpu_time < cpu_time, m
+    assert gpu_no_cache_time < cpu_time, m
+    assert_pagerank(res_gpu_no_cache, res_cpu, 10)
 
 
 @pytest.mark.parametrize(

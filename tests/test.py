@@ -1592,15 +1592,9 @@ def test_graph_dict_clear_will_not_remove_remote_data(load_karate_graph: Any) ->
 
 
 def test_graph_dict_set_item(load_karate_graph: Any) -> None:
-    try:
-        db.collection("nxadb_graphs").delete("KarateGraph")
-    except DocumentDeleteError:
-        pass
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        raise
-
-    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
+    name = "KarateGraph"
+    db.collection("nxadb_graphs").delete(name, ignore_missing=True)
+    G = nxadb.Graph(name, default_node_type="person")
 
     json_values = [
         "aString",

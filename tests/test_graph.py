@@ -54,7 +54,7 @@ class BaseGraphTester:
     """Tests for data-structure independent graph class features."""
 
     def test_contains(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert 1 in G
         assert 4 not in G
         assert "b" not in G
@@ -62,13 +62,13 @@ class BaseGraphTester:
         assert {1: 1} not in G  # no exception for nonhashable
 
     def test_order(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert len(G) == 3
         assert G.order() == 3
         assert G.number_of_nodes() == 3
 
     def test_nodes(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert isinstance(G._node, NodeDict)
         assert isinstance(G._adj, AdjListOuterDict)
         assert all(isinstance(adj, AdjListInnerDict) for adj in G._adj.values())
@@ -76,7 +76,7 @@ class BaseGraphTester:
         assert sorted(G.nodes(data=True)) == get_all_nodes()
 
     def test_none_node(self):
-        G = self.Graph()
+        G = self.K3Graph()
         with pytest.raises(ValueError):
             G.add_node(None)
         with pytest.raises(ValueError):
@@ -87,19 +87,19 @@ class BaseGraphTester:
             G.add_edges_from([(0, None)])
 
     def test_has_node(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert G.has_node(1)
         assert not G.has_node(4)
         assert not G.has_node([])  # no exception for nonhashable
         assert not G.has_node({1: 1})  # no exception for nonhashable
 
     def test_has_edge(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert G.has_edge(0, 1)
         assert not G.has_edge(0, -1)
 
     def test_neighbors(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert len(G[0]) == 2
         assert sorted(G.neighbors(0)) == ["test_graph_node/1", "test_graph_node/2"]
         with pytest.raises(nx.NetworkXError):
@@ -109,7 +109,7 @@ class BaseGraphTester:
         platform.python_implementation() == "PyPy", reason="PyPy gc is different"
     )
     def test_memory_leak(self):
-        G = self.Graph()
+        G = self.K3Graph()
 
         def count_objects_of_type(_type):
             # Iterating over all objects tracked by gc can include weak references
@@ -146,7 +146,7 @@ class BaseGraphTester:
         assert before == after
 
     def test_edges(self):
-        G = self.Graph()
+        G = self.K3Graph()
         edges_all = [
             ("test_graph_node/0", "test_graph_node/1"),
             ("test_graph_node/0", "test_graph_node/2"),
@@ -165,7 +165,7 @@ class BaseGraphTester:
             G.edges(-1)
 
     def test_degree(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert sorted(G.degree()) == [
             ("test_graph_node/0", 2),
             ("test_graph_node/1", 2),
@@ -181,12 +181,12 @@ class BaseGraphTester:
             G.degree(-1)  # node not in graph
 
     def test_size(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert G.size() == 3
         assert G.number_of_edges() == 3
 
     def test_nbunch_iter(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert nodes_equal(list(G.nbunch_iter()), self.k3nodes)  # all nodes
         assert nodes_equal(G.nbunch_iter(0), ["test_graph_node/0"])  # single node
         assert nodes_equal(
@@ -215,7 +215,7 @@ class BaseGraphTester:
         # :exc:`nx.NetworkXError`.
 
         # For more information, see pull request #1813.
-        G = self.Graph()
+        G = self.K3Graph()
         nbunch = [("x", set())]
         # NOTE: Switched from NetworkXError to TypeError
         # TODO: Switch back?
@@ -249,7 +249,7 @@ class BaseGraphTester:
         G.remove_nodes_from([0, 1])
 
     def test_cache_reset(self):
-        G = self.Graph()
+        G = self.K3Graph()
         old_adj = G.adj
         assert id(G.adj) == id(old_adj)
         G._adj = {}
@@ -261,7 +261,7 @@ class BaseGraphTester:
         assert id(G.nodes) != id(old_nodes)
 
     def test_attributes_cached(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert id(G.nodes) == id(G.nodes)
         assert id(G.edges) == id(G.edges)
         assert id(G.degree) == id(G.degree)
@@ -314,7 +314,7 @@ class BaseAttrGraphTester(BaseGraphTester):
     def test_copy(self):
         pytest.skip("TODO: Revisit graph_equals")
 
-        G = self.Graph()
+        G = self.K3Graph()
         G.add_node(0)
         G.add_edge(1, 2)
         self.add_attributes(G)
@@ -328,7 +328,7 @@ class BaseAttrGraphTester(BaseGraphTester):
     def test_class_copy(self):
         pytest.skip("TODO: Revisit graph_equals")
 
-        G = self.Graph()
+        G = self.K3Graph()
         G.add_node(0)
         G.add_edge(1, 2)
         self.add_attributes(G)
@@ -465,13 +465,13 @@ class BaseAttrGraphTester(BaseGraphTester):
         del G.graph["foo"]
         graph_doc = get_doc(f"nxadb_graphs/{GRAPH_NAME}")
         assert G.graph == graph_doc
-        H = self.Graph(foo="bar")
+        H = self.K3Graph(foo="bar")
         assert H.graph["foo"] == "bar"
         graph_doc = get_doc(f"nxadb_graphs/{GRAPH_NAME}")
         assert H.graph == graph_doc
 
     def test_node_attr(self):
-        G = self.Graph()
+        G = self.K3Graph()
         G.add_node(1, foo="bar")
         assert all(isinstance(d, NodeAttrDict) for u, d in G.nodes(data=True))
         assert nodes_equal(G.nodes(), self.k3nodes)
@@ -498,7 +498,7 @@ class BaseAttrGraphTester(BaseGraphTester):
         )
 
     def test_node_attr2(self):
-        G = self.Graph()
+        G = self.K3Graph()
         a = {"foo": "bar"}
         G.add_node(3, **a)
         assert nodes_equal(G.nodes(), self.k3nodes + ["test_graph_node/3"])
@@ -506,7 +506,7 @@ class BaseAttrGraphTester(BaseGraphTester):
         assert nodes_equal(G.nodes(data=True), all_nodes)
 
     def test_edge_lookup(self):
-        G = self.Graph()
+        G = self.K3Graph()
         G.add_edge(1, 2, foo="bar")
         edge = get_doc(G.adj[1][2]["_id"])
         assert edge["foo"] == "bar"
@@ -530,8 +530,13 @@ class BaseAttrGraphTester(BaseGraphTester):
     def test_edge_attr2(self):
         G = self.EmptyGraph()
         G.add_edges_from([(1, 2), (3, 4)], foo="foo")
-        edge_1_2 = get_doc(G.adj[1][2]["_id"])
-        edge_3_4 = get_doc(G.adj[3][4]["_id"])
+        if G.is_multigraph():
+            edge_1_2 = get_doc(G.adj[1][2][0]["_id"])
+            edge_3_4 = get_doc(G.adj[3][4][0]["_id"])
+        else:
+            edge_1_2 = get_doc(G.adj[1][2]["_id"])
+            edge_3_4 = get_doc(G.adj[3][4]["_id"])
+
         assert edge_1_2["foo"] == "foo"
         assert edge_3_4["foo"] == "foo"
         assert edges_equal(
@@ -552,8 +557,13 @@ class BaseAttrGraphTester(BaseGraphTester):
     def test_edge_attr3(self):
         G = self.EmptyGraph()
         G.add_edges_from([(1, 2, {"weight": 32}), (3, 4, {"weight": 64})], foo="foo")
-        edge_1_2 = get_doc(G.adj[1][2]["_id"])
-        edge_3_4 = get_doc(G.adj[3][4]["_id"])
+        if G.is_multigraph():
+            edge_1_2 = get_doc(G.adj[1][2][0]["_id"])
+            edge_3_4 = get_doc(G.adj[3][4][0]["_id"])
+        else:
+            edge_1_2 = get_doc(G.adj[1][2]["_id"])
+            edge_3_4 = get_doc(G.adj[3][4]["_id"])
+
         assert edge_1_2["weight"] == 32
         assert edge_3_4["weight"] == 64
         assert edge_1_2["foo"] == "foo"
@@ -568,7 +578,10 @@ class BaseAttrGraphTester(BaseGraphTester):
 
         G.remove_edges_from([(1, 2), (3, 4)])
         G.add_edge(1, 2, data=7, spam="bar", bar="foo")
-        edge_1_2 = get_doc(G.adj[1][2]["_id"])
+        if G.is_multigraph():
+            edge_1_2 = get_doc(G.adj[1][2][0]["_id"])
+        else:
+            edge_1_2 = get_doc(G.adj[1][2]["_id"])
         assert edge_1_2["spam"] == "bar"
         assert edge_1_2["bar"] == "foo"
         assert edge_1_2["data"] == 7
@@ -621,7 +634,7 @@ class BaseAttrGraphTester(BaseGraphTester):
     # TODO: graphs_equal not working with AdjListOuterDict yet.
     def test_to_undirected(self):
         pytest.skip("TODO: Revisit graph_equals")
-        G = self.Graph()
+        G = self.K3Graph()
         self.add_attributes(G)
         H = nx.Graph(G)
         self.is_shallow_copy(H, G)
@@ -654,7 +667,7 @@ class BaseAttrGraphTester(BaseGraphTester):
         assert H2.has_edge(2, 1)
 
     def test_directed_class(self):
-        G = self.Graph()
+        G = self.K3Graph()
 
         class newGraph(G.to_undirected_class()):
             def to_directed_class(self):
@@ -679,7 +692,7 @@ class BaseAttrGraphTester(BaseGraphTester):
     # TODO: Revisit graph_equals
     def test_to_directed(self):
         pytest.skip("TODO: Revisit graph_equals")
-        G = self.Graph()
+        G = self.K3Graph()
         self.add_attributes(G)
         H = nx.DiGraph(G)
         self.is_shallow_copy(H, G)
@@ -690,7 +703,7 @@ class BaseAttrGraphTester(BaseGraphTester):
     # TODO: revisit graph_equals
     def test_subgraph(self):
         pytest.skip("TODO: Revisit graph_equals")
-        G = self.Graph()
+        G = self.K3Graph()
         self.add_attributes(G)
         H = G.subgraph([0, 1, 2, 5])
         self.graphs_equal(H, G)
@@ -707,8 +720,14 @@ class BaseAttrGraphTester(BaseGraphTester):
         G = self.EmptyGraph()
         G.add_edge(0, 0)
         G.add_edge(1, 1, weight=2)
-        edge_0_0 = get_doc(G.adj[0][0]["_id"])
-        edge_1_1 = get_doc(G.adj[1][1]["_id"])
+
+        if G.is_multigraph():
+            edge_0_0 = get_doc(G[0][0][0]["_id"])
+            edge_1_1 = get_doc(G[1][1][0]["_id"])
+        else:
+            edge_0_0 = get_doc(G[0][0]["_id"])
+            edge_1_1 = get_doc(G[1][1]["_id"])
+
         assert "weight" not in edge_0_0
         assert edge_1_1["weight"] == 2
         assert edges_equal(
@@ -735,7 +754,11 @@ class TestGraph(BaseAttrGraphTester):
         # build dict-of-dict-of-dict K3
         ed1, ed2, ed3 = ({}, {}, {})
         self.k3adj = {0: {1: ed1, 2: ed2}, 1: {0: ed1, 2: ed3}, 2: {0: ed2, 1: ed3}}
-        self.k3edges = [(0, 1), (0, 2), (1, 2)]
+        self.k3edges = [
+            ("test_graph_node/0", "test_graph_node/1"),
+            ("test_graph_node/0", "test_graph_node/2"),
+            ("test_graph_node/1", "test_graph_node/2"),
+        ]
         self.k3nodes = ["test_graph_node/0", "test_graph_node/1", "test_graph_node/2"]
         self.K3 = self.Graph()
         self.K3._adj = self.k3adj
@@ -746,12 +769,10 @@ class TestGraph(BaseAttrGraphTester):
 
         def nxadb_graph_constructor(*args, **kwargs) -> nxadb.Graph:
             db.delete_graph(GRAPH_NAME, drop_collections=True, ignore_missing=True)
-            G = nxadb.Graph(*args, **kwargs, name=GRAPH_NAME)
-            # Experimenting with a delay to see if it helps with CircleCI...
-            time.sleep(0.10)
+            G = nxadb.Graph(*args, **kwargs, name=GRAPH_NAME, write_async=False)
             return G
 
-        self.Graph = lambda *args, **kwargs: nxadb_graph_constructor(
+        self.K3Graph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs, incoming_graph_data=self.K3
         )
         self.EmptyGraph = lambda *args, **kwargs: nxadb_graph_constructor(
@@ -761,7 +782,7 @@ class TestGraph(BaseAttrGraphTester):
     def test_pickle(self):
         pytest.skip("TODO: Revisit pickle")
 
-        G = self.Graph()
+        G = self.K3Graph()
         pg = pickle.loads(pickle.dumps(G, -1))
         self.graphs_equal(pg, G)
         pg = pickle.loads(pickle.dumps(G))
@@ -777,7 +798,7 @@ class TestGraph(BaseAttrGraphTester):
         assert edge_1_2 == edge_2_1
 
     def test_adjacency(self):
-        G = self.Graph()
+        G = self.K3Graph()
         edge_0_1 = get_doc(G.adj[0][1]["_id"])
         edge_1_0 = get_doc(G.adj[1][0]["_id"])
         edge_0_2 = get_doc(G.adj[0][2]["_id"])
@@ -810,7 +831,7 @@ class TestGraph(BaseAttrGraphTester):
         }
 
     def test_getitem(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert isinstance(G._adj[0], AdjListInnerDict)
         assert str(G.adj[0]) == "AdjListInnerDict('test_graph_node/0')"
         assert str(G[0]) == "AdjListInnerDict('test_graph_node/0')"
@@ -896,7 +917,7 @@ class TestGraph(BaseAttrGraphTester):
         assert H.nodes[3]["c"] == "cyan"
 
     def test_remove_node(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert 0 in G.adj
         assert "test_graph_node/0" in G.adj
         assert 0 in G.nodes
@@ -912,13 +933,25 @@ class TestGraph(BaseAttrGraphTester):
         # generator here to implement list,set,string...
 
     def test_remove_nodes_from(self):
-        G = self.Graph()
+        G = self.K3Graph()
+        assert 0 in G.nodes
+        assert "0" in G.nodes
+        assert "test_graph_node/0" in G.nodes
+        assert 1 in G.nodes
         assert 0 in G.adj
+        assert "0" in G.adj
+        assert "test_graph_node/0" in G.adj
         assert 1 in G.adj
         G.remove_nodes_from([0, 1])
+        assert 0 not in G.nodes
+        assert "1" not in G.nodes
+        assert "test_graph_node/0" not in G.nodes
+        assert 1 not in G.nodes
         assert 0 not in G.adj
+        assert "0" not in G.adj
+        assert "test_graph_node/0" not in G.adj
         assert 1 not in G.adj
-        assert len(G.adj) == 1
+        assert len(G.adj) == len(G.nodes) == G.number_of_nodes() == 1
         G.remove_nodes_from([-1])  # silent fail
 
     def test_add_edge(self):
@@ -973,7 +1006,7 @@ class TestGraph(BaseAttrGraphTester):
             G.add_edges_from([(None, 3), (3, 2)])  # None cannot be a node
 
     def test_remove_edge(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert G.number_of_edges() == 3
         assert G[0][1]
         G.remove_edge(0, 1)
@@ -984,7 +1017,7 @@ class TestGraph(BaseAttrGraphTester):
             G.remove_edge(-1, 0)
 
     def test_remove_edges_from(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert G.number_of_edges() == 3
         G.remove_edges_from([(0, 1)])
         assert G.number_of_edges() == 2
@@ -994,7 +1027,7 @@ class TestGraph(BaseAttrGraphTester):
         assert G.number_of_edges() == 2
 
     def test_clear(self):
-        G = self.Graph()
+        G = self.K3Graph()
         G.graph["name"] = "K3"
         G.clear()  # clearing only removes local cache!
         assert set(G.nodes) == {
@@ -1006,16 +1039,17 @@ class TestGraph(BaseAttrGraphTester):
         assert G.graph["name"] == "K3"
 
     def test_clear_edges(self):
-        G = self.Graph()
+        G = self.K3Graph()
         G.graph["name"] = "K3"
         nodes = list(G.nodes)
+        assert G.number_of_edges() > 0
         G.clear_edges()  # clearing only removes local cache!
         assert list(G.nodes) == nodes
-        assert G.number_of_edges() == 3
+        assert G.number_of_edges() > 0
         assert G.graph["name"] == "K3"
 
     def test_edges_data(self):
-        G = self.Graph()
+        G = self.K3Graph()
         all_edges = get_all_edges()
         assert edges_equal(G.edges(data=True), all_edges)
         all_edges_0 = [
@@ -1043,7 +1077,7 @@ class TestGraph(BaseAttrGraphTester):
             G.edges(-1, True)
 
     def test_get_edge_data(self):
-        G = self.Graph()
+        G = self.K3Graph()
         assert G.get_edge_data(0, 1) == get_doc("test_graph_node_to_test_graph_node/0")
         assert G[0][1] == get_doc("test_graph_node_to_test_graph_node/0")
         assert G.get_edge_data(10, 20) is None
@@ -1052,14 +1086,18 @@ class TestGraph(BaseAttrGraphTester):
 
     def test_update(self):
         # specify both edges and nodes
-        G = self.Graph()
+        G = self.K3Graph()
         G.update(nodes=[3, (4, {"size": 2})], edges=[(4, 5), (6, 7, {"weight": 2})])
         assert "size" not in G.nodes[3]
         assert G.nodes[4]["size"] == 2
         nlist = [(G.nodes[i]["_id"], G.nodes[i]) for i in range(0, 8)]
         assert sorted(G.nodes.data()) == nlist
         assert G[4][5]
-        assert G[6][7]["weight"] == 2
+
+        if G.is_multigraph():
+            assert G[6][7][0]["weight"] == 2
+        else:
+            assert G[6][7]["weight"] == 2
 
         if G.is_directed():
             for src, dst in G.edges():
@@ -1070,14 +1108,17 @@ class TestGraph(BaseAttrGraphTester):
         assert G.graph == get_doc(G.graph.graph_id)
 
         # no keywords -- order is edges, nodes
-        G = self.Graph()
+        G = self.K3Graph()
         G.update([(4, 5), (6, 7, {"weight": 2})], [3, (4, {"size": 2})])
         assert "size" not in G.nodes[3]
         assert G.nodes[4]["size"] == 2
         nlist = [(G.nodes[i]["_id"], G.nodes[i]) for i in range(0, 8)]
         assert sorted(G.nodes.data()) == nlist
         assert G[4][5]
-        assert G[6][7]["weight"] == 2
+        if G.is_multigraph():
+            assert G[6][7][0]["weight"] == 2
+        else:
+            assert G[6][7]["weight"] == 2
 
         if G.is_directed():
             for src, dst in G.edges():
@@ -1088,12 +1129,12 @@ class TestGraph(BaseAttrGraphTester):
         assert G.graph == get_doc(G.graph.graph_id)
 
         # update using only a graph
-        G = self.Graph()
+        G = self.K3Graph()
         G.graph["foo"] = "bar"
         G.add_node(2, data=4)
         G.add_edge(0, 1, weight=0.5)
         GG = G.copy()
-        H = self.Graph()
+        H = self.K3Graph()
         GG.update(H)
         # TODO: Revisit graphs_equal
         # assert graphs_equal(G, GG)
@@ -1111,7 +1152,9 @@ class TestGraph(BaseAttrGraphTester):
         H.update(edges=[(3, 4)])
         # NOTE: We can't guarantee the order of the edges here. Should revisit...
         H_edges_data = H.edges.data()
-        edge = get_doc(H[3][4]["_id"])
+        edge = (
+            get_doc(H[3][4][0]["_id"]) if H.is_multigraph() else get_doc(H[3][4]["_id"])
+        )
         assert H_edges_data == [("test_graph_node/3", "test_graph_node/4", edge)] or [
             ("test_graph_node/4", "test_graph_node/3", edge)
         ]

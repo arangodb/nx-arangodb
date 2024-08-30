@@ -64,6 +64,14 @@ class DiGraph(Graph, nx.DiGraph):
             self.clear_edges = self.clear_edges_override
             self.add_node = self.add_node_override
             self.remove_node = self.remove_node_override
+            self.reverse = self.reverse_override
+
+        if (
+            not self.is_multigraph()
+            and incoming_graph_data is not None
+            and not self._loaded_incoming_graph_data
+        ):
+            nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)
 
     #######################
     # nx.DiGraph Overides #
@@ -78,6 +86,12 @@ class DiGraph(Graph, nx.DiGraph):
     # @cached_property
     # def out_edges(self):
     # pass
+
+    def reverse_override(self, copy: bool = True) -> Any:
+        if copy is False:
+            raise NotImplementedError("In-place reverse is not supported yet.")
+
+        return super().reverse(copy=True)
 
     def clear_edges_override(self):
         logger.info("Note that clearing edges ony erases the edges in the local cache")

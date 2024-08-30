@@ -5,6 +5,7 @@ Used by the nx_arangodb Graph, DiGraph, MultiGraph, and MultiDiGraph classes.
 
 from __future__ import annotations
 
+from collections import UserDict
 from typing import Any, Callable, Generator, Optional, Tuple
 
 import networkx as nx
@@ -194,26 +195,16 @@ def key_is_adb_id_or_int(func: Callable[..., Any]) -> Any:
         """"""
         if isinstance(key, str):
             if key != "-1" and "/" not in key:
-                raise ValueError(f"{key} is not an ArangoDB ID.")
+                raise KeyError(f"{key} is not an ArangoDB ID.")
 
         elif isinstance(key, int):
             m = "Edge order is not guaranteed when using int as an edge key. It may raise a KeyError. Use at your own risk."  # noqa
-            logger.warning(m)
+            logger.debug(m)
 
         else:
             raise TypeError(f"{key} is not an ArangoDB Edge _id or integer.")
 
         return func(self, key, *args, **kwargs)
-
-    return wrapper
-
-
-def logger_debug(func: Callable[..., Any]) -> Any:
-    """Decorator to log debug messages."""
-
-    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
-        logger.debug(f"{type(self)}.{func.__name__} - {args} - {kwargs}")
-        return func(self, *args, **kwargs)
 
     return wrapper
 
@@ -447,10 +438,10 @@ def aql_edge_count_src(
     direction: str,
 ) -> int:
     query = f"""
-        RETURN LENGTH(
-            FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
-                RETURN DISTINCT e._id
-        )
+        FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
+            COLLECT id = e._id
+            COLLECT WITH COUNT INTO num
+            RETURN num
     """
 
     bind_vars = {
@@ -475,8 +466,9 @@ def aql_edge_count_src_dst(
     query = f"""
         FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
             FILTER {filter_clause}
-            COLLECT WITH COUNT INTO length
-            RETURN length
+            COLLECT id = e._id
+            COLLECT WITH COUNT INTO num
+            RETURN num
     """
 
     bind_vars = {

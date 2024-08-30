@@ -25,6 +25,7 @@ class MultiGraph(Graph, nx.MultiGraph):
     def __init__(
         self,
         incoming_graph_data: Any = None,
+        multigraph_input: bool | None = None,
         name: str | None = None,
         default_node_type: str | None = None,
         edge_type_key: str = "_edge_type",
@@ -60,6 +61,31 @@ class MultiGraph(Graph, nx.MultiGraph):
 
         if self.graph_exists_in_db:
             self.add_edge = self.add_edge_override
+            self.has_edge = self.has_edge_override
+            self.copy = self.copy_override
+
+        if incoming_graph_data is not None and not self._loaded_incoming_graph_data:
+            # Taken from networkx.MultiGraph.__init__
+            if isinstance(incoming_graph_data, dict) and multigraph_input is not False:
+                try:
+                    nx.convert.from_dict_of_dicts(
+                        incoming_graph_data, create_using=self, multigraph_input=True
+                    )
+                except Exception as err:
+                    if multigraph_input is True:
+                        m = f"converting multigraph_input raised:\n{type(err)}: {err}"
+                        raise nx.NetworkXError(m)
+
+                    # Reset the graph
+                    for v_col in self.adb_graph.vertex_collections():
+                        self.db.collection(v_col).truncate()
+
+                    for e_def in self.adb_graph.edge_definitions():
+                        self.db.collection(e_def["edge_collection"]).truncate()
+
+                    nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)
+            else:
+                nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)
 
     #######################
     # Init helper methods #
@@ -106,3 +132,35 @@ class MultiGraph(Graph, nx.MultiGraph):
         # document. This will allow us to use the edge key as a unique identifier
 
         ###########################
+
+    def has_edge_override(self, u, v, key=None):
+        try:
+            if key is None:
+                return v in self._adj[u]
+            else:
+                ######################
+                # NOTE: monkey patch #
+                ######################
+
+                # Old: Nothing
+
+                # New:
+                if isinstance(key, int):
+                    return len(self._adj[u][v]) > key
+
+                # Reason:
+                # Integer keys in nxadb.MultiGraph are simply used
+                # as syntactic sugar to access the edge data of a specific
+                # edge that is **cached** in the adjacency dictionary.
+                # So we simply just check if the integer key is within the
+                # range of the number of edges between u and v.
+
+                return key in self._adj[u][v]
+        except KeyError:
+            return False
+
+    def copy_override(self, *args, **kwargs):
+        logger.warning("Note that copying a graph loses the connection to the database")
+        G = super().copy(*args, **kwargs)
+        G.edge_key_dict_factory = nx.MultiGraph.edge_key_dict_factory
+        return G

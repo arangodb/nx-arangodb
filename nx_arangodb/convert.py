@@ -89,10 +89,10 @@ def nx_to_nxadb(
     as_directed: bool = False,
     **kwargs: Any,
     # name: str | None = None,
-    # graph_name: str | None = None,
 ) -> nxadb.Graph:
     logger.debug(f"from_networkx for {graph.__class__.__name__}")
 
+    klass: type[nxadb.Graph]
     if graph.is_multigraph():
         if graph.is_directed() or as_directed:
             klass = nxadb.MultiDiGraph

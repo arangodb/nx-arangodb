@@ -18,11 +18,9 @@ from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 from .conftest import db
 
 # from .test_graph import TestEdgeSubgraph as _TestGraphEdgeSubgraph
-from .test_graph import BaseAttrGraphTester, BaseGraphTester
+from .test_graph import GRAPH_NAME, BaseAttrGraphTester, BaseGraphTester
 from .test_graph import TestGraph as _TestGraph
 from .test_graph import get_doc
-
-GRAPH_NAME = "test_graph"
 
 
 class BaseDiGraphTester(BaseGraphTester):
@@ -135,11 +133,30 @@ class BaseDiGraphTester(BaseGraphTester):
         assert sorted(G.in_edges(2)) == []
 
     def test_in_edges_data(self):
-        G = nx.DiGraph([(0, 1, {"data": 0}), (1, 0, {})])
-        assert sorted(G.in_edges(data=True)) == [(0, 1, {"data": 0}), (1, 0, {})]
-        assert sorted(G.in_edges(1, data=True)) == [(0, 1, {"data": 0})]
-        assert sorted(G.in_edges(data="data")) == [(0, 1, 0), (1, 0, None)]
-        assert sorted(G.in_edges(1, data="data")) == [(0, 1, 0)]
+        G = self.EmptyGraph(incoming_graph_data=[(0, 1, {"data": 0}), (1, 0, {})])
+        edge_0_1 = get_doc(G[0][1]["_id"])
+        edge_1_0 = get_doc(G[1][0]["_id"])
+        assert "data" in edge_0_1
+        assert edge_0_1["data"] == 0
+        assert "data" not in edge_1_0
+        assert sorted(G.in_edges(data=True)) == sorted(
+            [
+                ("test_graph_node/1", "test_graph_node/0", edge_0_1),
+                ("test_graph_node/0", "test_graph_node/1", edge_1_0),
+            ]
+        )
+        assert sorted(G.in_edges(0, data=True)) == [
+            ("test_graph_node/1", "test_graph_node/0", edge_0_1)
+        ]
+        assert sorted(G.in_edges(data="data")) == sorted(
+            [
+                ("test_graph_node/1", "test_graph_node/0", 0),
+                ("test_graph_node/0", "test_graph_node/1", None),
+            ]
+        )
+        assert sorted(G.in_edges(0, data="data")) == sorted(
+            [("test_graph_node/1", "test_graph_node/0", 0)]
+        )
 
     def test_degree(self):
         G = self.K3Graph()
@@ -197,13 +214,35 @@ class BaseDiGraphTester(BaseGraphTester):
 
     def test_to_undirected_reciprocal(self):
         G = self.EmptyGraph()
+        assert G.number_of_edges() == 0
         G.add_edge(1, 2)
-        assert G.to_undirected().has_edge("test_graph_node/1", "test_graph_node/2")
-        assert not G.to_undirected(reciprocal=True).has_edge(1, 2)
-        G.add_edge(2, 1)
-        assert G.to_undirected(reciprocal=True).has_edge(
+        assert G.number_of_edges() == 1
+
+        G_undirected = G.to_undirected()
+        assert G_undirected.number_of_edges() == 1
+        assert G_undirected.has_edge("test_graph_node/1", "test_graph_node/2")
+        assert G_undirected.has_edge("test_graph_node/2", "test_graph_node/1")
+
+        G_undirected_reciprocal = G.to_undirected(reciprocal=True)
+        assert G_undirected_reciprocal.number_of_edges() == 0
+        assert not G_undirected_reciprocal.has_edge(
             "test_graph_node/1", "test_graph_node/2"
         )
+
+        G.add_edge("test_graph_node/2", "test_graph_node/1", foo="bar")
+        assert G.number_of_edges() == 2
+        G_undirected_reciprocal = G.to_undirected(reciprocal=True)
+        assert G_undirected_reciprocal.number_of_edges() == 1
+        assert G_undirected_reciprocal.has_edge(
+            "test_graph_node/1", "test_graph_node/2"
+        )
+        assert G_undirected_reciprocal.has_edge(
+            "test_graph_node/2", "test_graph_node/1"
+        )
+        edge_1_2 = G_undirected_reciprocal["test_graph_node/1"]["test_graph_node/2"]
+        edge_2_1 = G_undirected_reciprocal["test_graph_node/2"]["test_graph_node/1"]
+        assert edge_1_2 == edge_2_1
+        assert edge_1_2["foo"] == "bar"
 
     def test_reverse_copy(self):
         G = self.EmptyGraph(incoming_graph_data=[(0, 1), (1, 2)])
@@ -221,21 +260,9 @@ class BaseDiGraphTester(BaseGraphTester):
 
     def test_reverse_nocopy(self):
         G = self.EmptyGraph(incoming_graph_data=[(0, 1), (1, 2)])
-        R = G.reverse(copy=False)
-        assert R[1][0]
-        assert R[2][1]
-        assert R._pred[0][1]
-        assert R._pred[1][2]
-        with pytest.raises(KeyError):
-            R[0][1]
-        with pytest.raises(KeyError):
-            R[1][2]
-        with pytest.raises(KeyError):
-            R._pred[1][0]
-        with pytest.raises(KeyError):
-            R._pred[2][1]
-        with pytest.raises(nx.NetworkXError):
-            R.remove_edge(1, 0)
+        with pytest.raises(NotImplementedError):
+            G.reverse(copy=False)
+        pytest.skip("NotImplementedError: In-place reverse is not supported yet.")
 
     def test_reverse_hashable(self):
         pytest.skip("Class-based nodes are not supported in ArangoDB.")
@@ -346,15 +373,12 @@ class TestDiGraph(BaseAttrDiGraphTester, _TestGraph):
 
         def nxadb_graph_constructor(*args, **kwargs) -> nxadb.DiGraph:
             db.delete_graph(GRAPH_NAME, drop_collections=True, ignore_missing=True)
-            G = nxadb.DiGraph(*args, **kwargs, name=GRAPH_NAME)
-            # Experimenting with a delay to see if it helps with CircleCI...
-            time.sleep(0.10)
+            G = nxadb.DiGraph(*args, **kwargs, name=GRAPH_NAME, write_async=False)
             return G
 
         self.K3Graph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs, incoming_graph_data=self.K3
         )
-        self.Graph = self.K3Graph
         self.P3Graph = lambda *args, **kwargs: nxadb_graph_constructor(
             *args, **kwargs, incoming_graph_data=self.P3
         )

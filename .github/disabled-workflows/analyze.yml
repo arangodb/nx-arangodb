@@ -20,7 +20,6 @@ on:
     - cron: "00 9 1,15 * *"
 jobs:
   analyze:
-    name: Analyze
     runs-on: ubuntu-latest
     permissions:
       actions: read

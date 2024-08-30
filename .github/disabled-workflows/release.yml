@@ -6,7 +6,6 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    name: Release package
     steps:
       - uses: actions/checkout@v4
 
@@ -39,7 +38,6 @@ jobs:
   changelog:
     needs: release
     runs-on: ubuntu-latest
-    name: Update Changelog
     steps:
       - uses: actions/checkout@v4
         with:

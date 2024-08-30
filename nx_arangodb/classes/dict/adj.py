@@ -39,16 +39,15 @@ from ..function import (
     edge_link,
     get_arangodb_graph,
     get_node_id,
+    get_node_type,
     get_node_type_and_id,
     get_update_dict,
-    is_arangodb_id,
     json_serializable,
     key_is_adb_id_or_int,
     key_is_not_reserved,
     key_is_string,
     keys_are_not_reserved,
     keys_are_strings,
-    read_collection_name_from_local_id,
     separate_edges_by_collections,
     upsert_collection_edges,
 )
@@ -1180,11 +1179,10 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         return {key: value.copy() for key, value in self.data.items()}
 
     @keys_are_strings
-    def update(self, edges: Any) -> None:
+    def update(self, edges: dict[str, dict[str, Any]]) -> None:
         """g._adj['node/1'].update({'node/2': {'foo': 'bar'}})"""
-        from_col_name = read_collection_name_from_local_id(
-            self.src_node_id, self.default_node_type
-        )
+        assert self.src_node_id
+        from_col_name = get_node_type(self.src_node_id, self.default_node_type)
 
         to_upsert: Dict[str, List[Dict[str, Any]]] = {from_col_name: []}
 
@@ -1194,10 +1192,10 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
             edge_doc["_to"] = edge_id
 
             edge_doc_id = edge_data.get("_id")
-            assert is_arangodb_id(edge_doc_id)
-            edge_col_name = read_collection_name_from_local_id(
-                edge_doc_id, self.default_node_type
-            )
+            if not edge_doc_id:
+                raise ValueError("Edge _id field is required for update.")
+
+            edge_col_name = get_node_type(edge_doc_id, self.default_node_type)
 
             if to_upsert.get(edge_col_name) is None:
                 to_upsert[edge_col_name] = [edge_doc]

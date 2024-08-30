@@ -637,17 +637,36 @@ def edge_link(
     return edge
 
 
+def is_arangodb_id(key):
+    return "/" in key
+
+
+def get_node_type(key: str, default_node_type: str) -> str:
+    """Gets the node type."""
+    return key.split("/")[0] if is_arangodb_id(key) else default_node_type
+
+
 def get_node_id(key: str, default_node_type: str) -> str:
     """Gets the node ID."""
-    return key if "/" in key else f"{default_node_type}/{key}"
+    return key if is_arangodb_id(key) else f"{default_node_type}/{key}"
 
 
 def get_node_type_and_id(key: str, default_node_type: str) -> tuple[str, str]:
     """Gets the node type and ID."""
-    if "/" in key:
-        return key.split("/")[0], key
+    return (
+        (key.split("/")[0], key)
+        if is_arangodb_id(key)
+        else (default_node_type, f"{default_node_type}/{key}")
+    )
 
-    return default_node_type, f"{default_node_type}/{key}"
+
+def get_node_type_and_key(key: str, default_node_type: str) -> tuple[str, str]:
+    """Gets the node type and key."""
+    if is_arangodb_id(key):
+        col, key = key.split("/", 1)
+        return col, key
+
+    return default_node_type, key
 
 
 def get_update_dict(
@@ -683,38 +702,9 @@ def check_list_for_errors(lst):
     return True
 
 
-def is_arangodb_id(key):
-    return "/" in key
-
-
-def get_arangodb_collection_key_tuple(key):
-    if not is_arangodb_id(key):
-        raise ValueError(f"Invalid ArangoDB key: {key}")
-    return key.split("/", 1)
-
-
-def extract_arangodb_collection_name(arangodb_id: str) -> str:
-    if not is_arangodb_id(arangodb_id):
-        raise ValueError(f"Invalid ArangoDB key: {arangodb_id}")
-    return arangodb_id.split("/")[0]
-
-
-def read_collection_name_from_local_id(
-    local_id: Optional[str], default_collection: str
-) -> str:
-    if local_id is None:
-        print("local_id is None, cannot read collection name.")
-        return ""
-
-    if is_arangodb_id(local_id):
-        return extract_arangodb_collection_name(local_id)
-
-    assert default_collection is not None
-    assert default_collection != ""
-    return default_collection
-
-
-def separate_nodes_by_collections(nodes: Any, default_collection: str) -> Any:
+def separate_nodes_by_collections(
+    nodes: dict[str, Any], default_collection: str
+) -> Any:
     """
     Separate the dictionary into collections based on whether keys contain '/'.
     :param nodes:
@@ -728,15 +718,12 @@ def separate_nodes_by_collections(nodes: Any, default_collection: str) -> Any:
     separated: Any = {}
 
     for key, value in nodes.items():
-        if is_arangodb_id(key):
-            collection, doc_key = get_arangodb_collection_key_tuple(key)
-            if collection not in separated:
-                separated[collection] = {}
-            separated[collection][doc_key] = value
-        else:
-            if default_collection not in separated:
-                separated[default_collection] = {}
-            separated[default_collection][key] = value
+        collection, doc_key = get_node_type_and_key(key, default_collection)
+
+        if collection not in separated:
+            separated[collection] = {}
+
+        separated[collection][doc_key] = value
 
     return separated
 

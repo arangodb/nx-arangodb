@@ -113,6 +113,7 @@ def test_load_graph_from_nxadb():
         name=graph_name,
         incoming_graph_data=G_NX,
         default_node_type="person",
+        write_async=False,
     )
 
     assert db.has_graph(graph_name)
@@ -134,6 +135,7 @@ def test_load_graph_from_nxadb_w_specific_edge_attribute():
         incoming_graph_data=G_NX,
         default_node_type="person",
         edge_collections_attributes={"weight"},
+        write_async=False,
     )
     # TODO: re-enable this line as soon as CPU based data caching is implemented
     # graph._adj._fetch_all()
@@ -163,6 +165,7 @@ def test_load_graph_from_nxadb_w_not_available_edge_attribute():
         default_node_type="person",
         # This will lead to weight not being loaded into the edge data
         edge_collections_attributes={"_id"},
+        write_async=False,
     )
 
     # Should just succeed without any errors (fallback to weight: 1 as above)
@@ -1592,15 +1595,9 @@ def test_graph_dict_clear_will_not_remove_remote_data(load_karate_graph: Any) ->
 
 
 def test_graph_dict_set_item(load_karate_graph: Any) -> None:
-    try:
-        db.collection("nxadb_graphs").delete("KarateGraph")
-    except DocumentDeleteError:
-        pass
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        raise
-
-    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
+    name = "KarateGraph"
+    db.collection("nxadb_graphs").delete(name, ignore_missing=True)
+    G = nxadb.Graph(name=name, default_node_type="person")
 
     json_values = [
         "aString",
@@ -1819,7 +1816,9 @@ def test_incoming_graph_data_not_nx_graph(
     name = "KarateGraph"
     db.delete_graph(name, drop_collections=True, ignore_missing=True)
 
-    G = nxadb.Graph(incoming_graph_data=incoming_graph_data, name=name)
+    G = nxadb.Graph(
+        incoming_graph_data=incoming_graph_data, name=name, write_async=False
+    )
 
     assert len(G.adj) == len(G_NX.adj) == db.collection(G.default_node_type).count()
     assert (
@@ -1870,7 +1869,9 @@ def test_incoming_graph_data_not_nx_graph_digraph(
     name = "KarateGraph"
     db.delete_graph(name, drop_collections=True, ignore_missing=True)
 
-    G = nxadb.DiGraph(incoming_graph_data=incoming_graph_data, name=name)
+    G = nxadb.DiGraph(
+        incoming_graph_data=incoming_graph_data, name=name, write_async=False
+    )
 
     assert (
         len(G.adj)

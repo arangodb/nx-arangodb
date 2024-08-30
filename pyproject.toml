@@ -54,6 +54,8 @@ dev = [
     "isort",
     "mypy",
     "pandas",
+    "sphinx",
+    "sphinx_rtd_theme",
 ]
 gpu = [
     "nx-cugraph-cu12 @ https://pypi.nvidia.com"

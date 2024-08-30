@@ -218,9 +218,6 @@ def keys_are_strings(func: Callable[..., Any]) -> Any:
         items: Any
         if isinstance(data, dict):
             items = data.items()
-        # NOTE: Would this even work? What are the implications?
-        # elif isinstance(data, UserDict):
-        #     items = data.data.items()
         elif isinstance(data, zip):
             items = list(data)
         else:

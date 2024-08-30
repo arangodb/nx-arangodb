@@ -376,7 +376,9 @@ def test_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     assert_pagerank(res_gpu_cached, res_gpu_no_cache, 10)
 
     # 4. CPU
+    assert graph.nxcg_graph is not None
     graph.clear_nxcg_cache()
+    assert graph.nxcg_graph is None
     nx.config.backends.arangodb.use_gpu = False
 
     start_cpu = time.time()

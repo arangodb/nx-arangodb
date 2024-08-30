@@ -24,6 +24,11 @@
 [![Downloads](https://img.shields.io/pepy/dt/nx-arangodb?style=for-the-badge&color=282661
 )](https://pepy.tech/project/nx-arangodb)
 
+
+
+https://github.com/user-attachments/assets/e5f56574-d3ef-452c-ab21-b47b3d5d5900
+
+
 ## What is this?
 
 This is a [backend to NetworkX](https://networkx.org/documentation/stable/reference/backends.html) that offers [ArangoDB](https://github.com/arangodb/arangodb) as a [Persistence Layer to NetworkX Graphs](https://arangodb.com/introducing-the-arangodb-networkx-persistence-layer/).

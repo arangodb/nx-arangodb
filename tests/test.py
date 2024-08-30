@@ -15,7 +15,7 @@ import nx_arangodb as nxadb
 from nx_arangodb.classes.dict.adj import AdjListOuterDict, EdgeAttrDict, EdgeKeyDict
 from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 
-from .conftest import Capturing, create_grid_graph, create_line_graph, db, run_gpu_tests
+from .conftest import create_grid_graph, create_line_graph, db, run_gpu_tests
 
 G_NX = nx.karate_club_graph()
 G_NX_digraph = nx.DiGraph(G_NX)

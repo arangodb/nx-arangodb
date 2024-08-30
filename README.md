@@ -43,9 +43,10 @@ Benefits of having ArangoDB as a backend to NetworkX include:
 
 6. Access to efficient distribution of graph data ([ArangoDB SmartGraphs](https://docs.arangodb.com/3.11/graphs/smartgraphs/)).
 
-<div style="text-align: center;">
+<p align="center">
     <img src="./docs/_static/nxadb.png" style="height: 200px;">
-</div>
+</p>
+
 
 ## Does this replace NetworkX?
 
@@ -147,14 +148,7 @@ os.environ["DATABASE_NAME"] = credentials["database"]
 
 `nx-arangodb` will automatically dispatch algorithm calls to either CPU or GPU based on if `nx-cugraph` is installed. We rely on a rust-based library called [phenolrs](https://github.com/arangoml/phenolrs) to retrieve ArangoDB Graphs as fast as possible.
 
-<div style="text-align: center;">
-    <img src="./docs/_static/dispatch.png" style="height: 200px;">
-</div>
-
-
-### I have a nx-cugraph installed, but I want to run an algorithm on CPU. Is this possible?
-
-Yes:
+You can also force-run algorithms on CPU even if `nx-cugraph` is installed:
 
 ```python
 import os
@@ -174,6 +168,11 @@ nx.betweenness_centrality(G)
 nx.config.backends.arangodb.use_gpu = True
 ```
 
+<p align="center">
+    <img src="./docs/_static/dispatch.png" style="height: 200px;">
+</p>
+
+
 ## Can I create an ArangoDB Graph from an existing NetworkX Graph?
 
 Yes, this is actually the recommended way to start using `nx-arangodb`:
@@ -187,11 +186,11 @@ import nx_arangodb as nxadb
 
 G_nx = nx.karate_club_graph()
 
-G = nxadb.Graph(
+G_nxadb = nxadb.Graph(
     incoming_graph_data=G_nx,
     name="MyKarateGraph"
 )
 
-assert G.number_of_nodes() == G_nx.number_of_nodes()
-assert G.number_of_edges() == G_nx.number_of_edges()
+assert G_nxadb.number_of_nodes() == G_nx.number_of_nodes()
+assert G_nxadb.number_of_edges() == G_nx.number_of_edges()
 ```

@@ -104,7 +104,7 @@ pip install nx-arangodb
 
 ## What are the easiests ways to set up ArangoDB?
 
-**Local Instance via Docker**
+**1) Local Instance via Docker**
 
 Appears on `localhost:8529` with the user `root` & password `openSesame`.
 
@@ -114,7 +114,13 @@ More info: [arangodb.com/download-major](https://arangodb.com/download-major/).
 docker run -e ARANGO_ROOT_PASSWORD=openSesame -p 8529:8529 arangodb/arangodb
 ```
 
-**Temporary Cloud Instance via Python**
+**2) ArangoDB Cloud Trial**
+
+[ArangoGraph](https://dashboard.arangodb.cloud/home) is ArangoDB’s Cloud offering to use ArangoDB as a managed service.
+
+A 14-day trial is available upon sign up.
+
+**3) Temporary Cloud Instance via Python**
 
 A temporary cloud database can be provisioned using the [adb-cloud-connector](https://github.com/arangodb/adb-cloud-connector?tab=readme-ov-file#arangodb-cloud-connector) python package.
 
@@ -133,10 +139,6 @@ os.environ["DATABASE_NAME"] = credentials["database"]
 
 # ...
 ```
-
-**ArangoDB Cloud Trial**
-
-[ArangoGraph](https://dashboard.arangodb.cloud/home) is ArangoDB’s Cloud offering to use ArangoDB as a managed service. A free trial is available upon sign up.
 
 ## How does Algorithm Dispatching work?
 

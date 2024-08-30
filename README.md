@@ -1,5 +1,8 @@
 # nx-arangodb
 
+<a href="https://colab.research.google.com/github/arangodb/nx-arangodb/blob/main/docs/notebook.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+
+
 <div style="display: flex; align-items: center; gap: 10px;">
     <img src="https://avatars.githubusercontent.com/u/388785?s=200&v=4" alt="NetworkX" style="height: 60px;">
     <img src="https://arangodb.com/wp-content/uploads/2016/05/ArangoDB_logo_avocado_@1.png" alt="ArangoDB" style="height: 60px;">

@@ -144,7 +144,7 @@ credentials = get_temp_credentials()
 os.environ["DATABASE_HOST"] = credentials["url"]
 os.environ["DATABASE_USERNAME"] = credentials["username"]
 os.environ["DATABASE_PASSWORD"] = credentials["password"]
-os.environ["DATABASE_NAME"] = credentials["database"]
+os.environ["DATABASE_NAME"] = credentials["dbName"]
 
 # ...
 ```

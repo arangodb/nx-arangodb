@@ -26,8 +26,8 @@ _info = {
     "project": "nx-arangodb",
     "package": "nx_arangodb",
     "url": "https://github.com/arangodb/nx-arangodb",
-    "short_summary": "Remote storage backend.",
-    # "description": "TODO",
+    "short_summary": "ArangoDB storage backend to NetworkX.",
+    "description": "Persist, maintain, and reload NetworkX graphs with ArangoDB.",
     "functions": {
         # BEGIN: functions
         "shortest_path",
@@ -81,7 +81,6 @@ def get_info():
         "db_name": None,
         "read_parallelism": None,
         "read_batch_size": None,
-        "write_batch_size": None,
         "use_gpu": True,
     }
 

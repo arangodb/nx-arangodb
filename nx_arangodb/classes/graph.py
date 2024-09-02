@@ -27,8 +27,6 @@ from .dict import (
     node_attr_dict_factory,
     node_dict_factory,
 )
-from .dict.adj import AdjListOuterDict
-from .enum import TraversalDirection
 from .function import get_node_id
 from .reportviews import CustomEdgeView, CustomNodeView
 
@@ -76,27 +74,21 @@ class Graph(nx.Graph):
         *args: Any,
         **kwargs: Any,
     ):
-        self._db = None
+        self.__db = None
         self.__name = None
         self.__use_experimental_views = use_experimental_views
+        self.__graph_exists_in_db = False
 
-        self._graph_exists_in_db = False
-        self._loaded_incoming_graph_data = False
+        self.__set_db(db)
+        if self.__db is not None:
+            self.__set_graph_name(name)
 
-        self._set_db(db)
-        if self._db is not None:
-            self._set_graph_name(name)
-
-        self.read_parallelism = read_parallelism
-        self.read_batch_size = read_batch_size
-        self.write_batch_size = write_batch_size
-
-        self._set_edge_collections_attributes_to_fetch(edge_collections_attributes)
+        self.__set_edge_collections_attributes(edge_collections_attributes)
 
         # NOTE: Need to revisit these...
         # self.maintain_node_dict_cache = False
         # self.maintain_adj_dict_cache = False
-        self.use_nx_cache = True
+        # self.use_nx_cache = True
         self.use_nxcg_cache = True
         self.nxcg_graph = None
 
@@ -111,7 +103,9 @@ class Graph(nx.Graph):
         #         m = "Must set **graph_name** if passing **incoming_graph_data**"
         #         raise ValueError(m)
 
-        if self._graph_exists_in_db:
+        self._loaded_incoming_graph_data = False
+
+        if self.__graph_exists_in_db:
             if incoming_graph_data is not None:
                 m = "Cannot pass both **incoming_graph_data** and **name** yet if the already graph exists"  # noqa: E501
                 raise NotImplementedError(m)
@@ -152,7 +146,7 @@ class Graph(nx.Graph):
             self.default_node_type = default_node_type
 
             self._set_factory_methods()
-            self._set_arangodb_backend_config()
+            self.__set_arangodb_backend_config(read_parallelism, read_batch_size)
 
         elif self.__name:
 
@@ -181,7 +175,7 @@ class Graph(nx.Graph):
                     self.__name,
                     incoming_graph_data,
                     edge_definitions=edge_definitions,
-                    batch_size=self.write_batch_size,
+                    batch_size=write_batch_size,
                     use_async=write_async,
                 )
 
@@ -194,22 +188,14 @@ class Graph(nx.Graph):
                 )
 
             self._set_factory_methods()
-            self._set_arangodb_backend_config()
+            self.__set_arangodb_backend_config(read_parallelism, read_batch_size)
             logger.info(f"Graph '{name}' created.")
-            self._graph_exists_in_db = True
+            self.__graph_exists_in_db = True
 
         if self.__name is not None:
             kwargs["name"] = self.__name
 
         super().__init__(*args, **kwargs)
-
-        if self.is_directed() and self.graph_exists_in_db:
-            assert isinstance(self._succ, AdjListOuterDict)
-            assert isinstance(self._pred, AdjListOuterDict)
-            self._succ.mirror = self._pred
-            self._pred.mirror = self._succ
-            self._succ.traversal_direction = TraversalDirection.OUTBOUND
-            self._pred.traversal_direction = TraversalDirection.INBOUND
 
         if self.graph_exists_in_db:
             self.copy = self.copy_override
@@ -220,6 +206,11 @@ class Graph(nx.Graph):
             self.number_of_edges = self.number_of_edges_override
             self.nbunch_iter = self.nbunch_iter_override
 
+        # If incoming_graph_data wasn't loaded by the NetworkX Adapter,
+        # then we can rely on the CRUD operations of the modified dictionaries
+        # to load the data into the graph. However, if the graph is directed
+        # or multigraph, then we leave that responsibility to the child classes
+        # due to the possibility of additional CRUD-based method overrides.
         if (
             not self.is_directed()
             and not self.is_multigraph()
@@ -231,21 +222,6 @@ class Graph(nx.Graph):
     #######################
     # Init helper methods #
     #######################
-
-    def _set_arangodb_backend_config(self) -> None:
-        if not all([self._host, self._username, self._password, self._db_name]):
-            m = "Must set all environment variables to use the ArangoDB Backend with an existing graph"  # noqa: E501
-            raise OSError(m)
-
-        config = nx.config.backends.arangodb
-        config.host = self._host
-        config.username = self._username
-        config.password = self._password
-        config.db_name = self._db_name
-        config.read_parallelism = self.read_parallelism
-        config.read_batch_size = self.read_batch_size
-        config.write_batch_size = self.write_batch_size
-        config.use_gpu = True  # Only used by default if nx-cugraph is available
 
     def _set_factory_methods(self) -> None:
         """Set the factory methods for the graph, _node, and _adj dictionaries.
@@ -281,58 +257,33 @@ class Graph(nx.Graph):
             *adj_args, self.symmetrize_edges
         )
 
-    def _set_edge_collections_attributes_to_fetch(
-        self, attributes: set[str] | None
+    def __set_arangodb_backend_config(
+        self, read_parallelism: int, read_batch_size: int
     ) -> None:
-        if attributes is None:
+        if not all([self._host, self._username, self._password, self._db_name]):
+            m = "Must set all environment variables to use the ArangoDB Backend with an existing graph"  # noqa: E501
+            raise OSError(m)
+
+        config = nx.config.backends.arangodb
+        config.host = self._host
+        config.username = self._username
+        config.password = self._password
+        config.db_name = self._db_name
+        config.read_parallelism = read_parallelism
+        config.read_batch_size = read_batch_size
+        config.use_gpu = True  # Only used by default if nx-cugraph is available
+
+    def __set_edge_collections_attributes(self, attributes: set[str] | None) -> None:
+        if not attributes:
             self._edge_collections_attributes = set()
             return
-        if len(attributes) > 0:
-            self._edge_collections_attributes = attributes
-            if "_id" not in attributes:
-                self._edge_collections_attributes.add("_id")
 
-    ###########
-    # Getters #
-    ###########
+        self._edge_collections_attributes = attributes
 
-    @property
-    def db(self) -> StandardDatabase:
-        if self._db is None:
-            raise DatabaseNotSet("Database not set")
+        if "_id" not in attributes:
+            self._edge_collections_attributes.add("_id")
 
-        return self._db
-
-    @property
-    def name(self) -> str:
-        if self.__name is None:
-            raise GraphNameNotSet("Graph name not set")
-
-        return self.__name
-
-    @name.setter
-    def name(self, s):
-        if self.__name is not None:
-            raise ValueError("Existing graph cannot be renamed")
-
-        self.__name = s
-        m = "Note that setting the graph name does not create the graph in the database"  # noqa: E501
-        logger.warning(m)
-        nx._clear_cache(self)
-
-    @property
-    def graph_exists_in_db(self) -> bool:
-        return self._graph_exists_in_db
-
-    @property
-    def get_edge_attributes(self) -> set[str]:
-        return self._edge_collections_attributes
-
-    ###########
-    # Setters #
-    ###########
-
-    def _set_db(self, db: StandardDatabase | None = None) -> None:
+    def __set_db(self, db: Any = None) -> None:
         self._host = os.getenv("DATABASE_HOST")
         self._username = os.getenv("DATABASE_USERNAME")
         self._password = os.getenv("DATABASE_PASSWORD")
@@ -344,27 +295,26 @@ class Graph(nx.Graph):
                 raise TypeError(m)
 
             db.version()
-            self._db = db
+            self.__db = db
             return
 
-        # TODO: Raise a custom exception if any of the environment
-        # variables are missing. For now, we'll just set db to None.
         if not all([self._host, self._username, self._password, self._db_name]):
-            self._db = None
-            logger.warning("Database environment variables not set")
+            m = "Database environment variables not set. Can't connect to the database"
+            logger.warning(m)
+            self.__db = None
             return
 
-        self._db = ArangoClient(hosts=self._host, request_timeout=None).db(
+        self.__db = ArangoClient(hosts=self._host, request_timeout=None).db(
             self._db_name, self._username, self._password, verify=True
         )
 
-    def _set_graph_name(self, name: str | None = None) -> None:
-        if self._db is None:
+    def __set_graph_name(self, name: Any = None) -> None:
+        if self.__db is None:
             m = "Cannot set graph name without setting the database first"
             raise DatabaseNotSet(m)
 
         if name is None:
-            self._graph_exists_in_db = False
+            self.__graph_exists_in_db = False
             logger.warning(f"**name** not set for {self.__class__.__name__}")
             return
 
@@ -372,9 +322,51 @@ class Graph(nx.Graph):
             raise TypeError("**name** must be a string")
 
         self.__name = name
-        self._graph_exists_in_db = self.db.has_graph(name)
+        self.__graph_exists_in_db = self.db.has_graph(name)
 
-        logger.info(f"Graph '{name}' exists: {self._graph_exists_in_db}")
+        logger.info(f"Graph '{name}' exists: {self.__graph_exists_in_db}")
+
+    ###########
+    # Getters #
+    ###########
+
+    @property
+    def db(self) -> StandardDatabase:
+        if self.__db is None:
+            raise DatabaseNotSet("Database not set")
+
+        return self.__db
+
+    @property
+    def name(self) -> str:
+        if self.__name is None:
+            raise GraphNameNotSet("Graph name not set")
+
+        return self.__name
+
+    @name.setter
+    def name(self, s):
+        if self.graph_exists_in_db:
+            raise ValueError("Existing graph cannot be renamed")
+
+        m = "Note that setting the graph name does not create the graph in the database"  # noqa: E501
+        logger.warning(m)
+
+        self.__name = s
+        self.graph["name"] = s
+        nx._clear_cache(self)
+
+    @property
+    def graph_exists_in_db(self) -> bool:
+        return self.__graph_exists_in_db
+
+    @property
+    def edge_attributes(self) -> set[str]:
+        return self._edge_collections_attributes
+
+    ###########
+    # Setters #
+    ###########
 
     ####################
     # ArangoDB Methods #
@@ -383,7 +375,9 @@ class Graph(nx.Graph):
     def clear_nxcg_cache(self):
         self.nxcg_graph = None
 
-    def aql(self, query: str, bind_vars: dict[str, Any] = {}, **kwargs: Any) -> Cursor:
+    def query(
+        self, query: str, bind_vars: dict[str, Any] = {}, **kwargs: Any
+    ) -> Cursor:
         return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
 
     # def pull(self) -> None:
@@ -399,7 +393,7 @@ class Graph(nx.Graph):
             m = "LLM dependencies not installed. Install with **pip install nx-arangodb[llm]**"  # noqa: E501
             raise ModuleNotFoundError(m)
 
-        if not self._graph_exists_in_db:
+        if not self.__graph_exists_in_db:
             m = "Cannot chat without a graph in the database"
             raise GraphNameNotSet(m)
 
@@ -440,7 +434,7 @@ class Graph(nx.Graph):
     def edges(self):
         if self.__use_experimental_views and self.graph_exists_in_db:
             if self.is_directed():
-                logger.warning("CustomEdgeView for Directed Graphs not yet implemented")
+                logger.warning("CustomEdgeView for DiGraphs not yet implemented")
                 return super().edges
 
             if self.is_multigraph():
@@ -463,7 +457,11 @@ class Graph(nx.Graph):
         return G
 
     def subgraph_override(self, nbunch):
-        raise NotImplementedError("Subgraphing is not yet implemented")
+        if self.graph_exists_in_db:
+            m = "Subgraphing an ArangoDB Graph is not yet implemented"
+            raise NotImplementedError(m)
+
+        return super().subgraph(nbunch)
 
     def clear_override(self):
         logger.info("Note that clearing only erases the local cache")

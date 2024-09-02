@@ -1,7 +1,5 @@
 # nx-arangodb
 
-<a href="https://colab.research.google.com/github/arangodb/nx-arangodb/blob/main/docs/nx_arangodb.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-
 
 <div style="display: flex; align-items: center; gap: 10px;">
     <img src="https://avatars.githubusercontent.com/u/388785?s=200&v=4" alt="NetworkX" style="height: 60px;">
@@ -12,10 +10,10 @@
 
 <br>
 
+<a href="https://colab.research.google.com/github/arangodb/nx-arangodb/blob/main/docs/nx_arangodb.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/arangodb/nx-arangodb/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/arangodb/nx-arangodb/tree/main)
 [![CodeQL](https://github.com/arangodb/nx-arangodb/actions/workflows/analyzee.yaml/badge.svg)](https://github.com/arangodb/nx-arangodb/actions/workflows/analyzee.yaml)
 [![Docs](https://github.com/arangodb/nx-arangodb/actions/workflows/docs.yaml/badge.svg)](https://github.com/arangodb/nx-arangodb/actions/workflows/docs.yaml)
-[![Last commit](https://img.shields.io/github/last-commit/arangodb/nx-arangodb)](https://github.com/arangodb/nx-arangodb/commits/main)
 
 [![PyPI version badge](https://img.shields.io/pypi/v/nx-arangodb?color=3775A9&style=for-the-badge&logo=pypi&logoColor=FFD43B)](https://pypi.org/project/nx-arangodb/)
 [![Python versions badge](https://img.shields.io/badge/3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=FFD43B&label=Python)](https://pypi.org/project/nx-arangodb/)
@@ -31,9 +29,7 @@ https://github.com/user-attachments/assets/e5f56574-d3ef-452c-ab21-b47b3d5d5900
 
 ## What is this?
 
-This is a [backend to NetworkX](https://networkx.org/documentation/stable/reference/backends.html) that offers [ArangoDB](https://github.com/arangodb/arangodb) as a [Persistence Layer to NetworkX Graphs](https://arangodb.com/introducing-the-arangodb-networkx-persistence-layer/).
-
-`nx-arangodb` allows you to:
+This is a [backend to NetworkX](https://networkx.org/documentation/stable/reference/backends.html) that offers [ArangoDB](https://github.com/arangodb/arangodb) as a [Persistence Layer to NetworkX Graphs](https://arangodb.com/introducing-the-arangodb-networkx-persistence-layer/):
 1. Persist NetworkX Graphs to ArangoDB.
 2. Reload NetworkX Graphs from ArangoDB.
 2. Perform CRUD on ArangoDB Graphs via NetworkX.
@@ -42,11 +38,10 @@ This is a [backend to NetworkX](https://networkx.org/documentation/stable/refere
 Benefits of having ArangoDB as a backend to NetworkX include:
 1. No need to re-create the graph every time you start a new session.
 2. Access to GPU-accelerated graph analytics ([nx-cugraph](https://docs.rapids.ai/api/cugraph/nightly/nx_cugraph/nx_cugraph/)).
-2. Access to a database query language ([Arango Query Language](https://arangodb.com/sql-aql-comparison/)).
-3. Access to a visual interface for graph exploration ([ArangoDB Web UI](https://docs.arangodb.com/3.11/components/web-interface/graphs/)).
-4. Access to cross-collaboration on the same graph ([ArangoDB Cloud](https://dashboard.arangodb.cloud/)).
-
-6. Access to efficient distribution of graph data ([ArangoDB SmartGraphs](https://docs.arangodb.com/3.11/graphs/smartgraphs/)).
+3. Access to a database query language ([Arango Query Language](https://arangodb.com/sql-aql-comparison/)).
+4. Access to a visual interface for graph exploration ([ArangoDB Web UI](https://docs.arangodb.com/stable/components/web-interface/graphs/)).
+5. Access to cross-collaboration on the same graph ([ArangoDB Cloud](https://docs.arangodb.com/stable/get-started/set-up-a-cloud-instance/)).
+6. Access to efficient distribution of graph data ([ArangoDB SmartGraphs](https://docs.arangodb.com/stable/graphs/smartgraphs/)).
 
 <p align="center">
     <img src="./docs/_static/nxadb.png" style="height: 200px;">
@@ -55,7 +50,7 @@ Benefits of having ArangoDB as a backend to NetworkX include:
 
 ## Does this replace NetworkX?
 
-No. This is a plugin to NetworkX, which means that you can use NetworkX as you normally would, but with the added benefit of persisting your graphs to a database.
+Not really. This is a plugin to NetworkX, which means that you can use NetworkX as you normally would, but with the added benefit of persisting your graphs to a database.
 
 ```python
 import os
@@ -111,7 +106,7 @@ pip install nx-cugraph-cu12 --extra-index-url https://pypi.nvidia.com
 pip install nx-arangodb
 ```
 
-## What are the easiests ways to set up ArangoDB?
+## How can I set up ArangoDB?
 
 **1) Local Instance via Docker**
 
@@ -149,7 +144,7 @@ os.environ["DATABASE_NAME"] = credentials["dbName"]
 # ...
 ```
 
-## How does Algorithm Dispatching work?
+## How does algorithm dispatching work?
 
 `nx-arangodb` will automatically dispatch algorithm calls to either CPU or GPU based on if `nx-cugraph` is installed. We rely on a rust-based library called [phenolrs](https://github.com/arangoml/phenolrs) to retrieve ArangoDB Graphs as fast as possible.
 

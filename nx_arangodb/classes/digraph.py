@@ -66,6 +66,13 @@ class DiGraph(Graph, nx.DiGraph):
             self.remove_node = self.remove_node_override
             self.reverse = self.reverse_override
 
+            assert isinstance(self._succ, AdjListOuterDict)
+            assert isinstance(self._pred, AdjListOuterDict)
+            self._succ.mirror = self._pred
+            self._pred.mirror = self._succ
+            self._succ.traversal_direction = TraversalDirection.OUTBOUND
+            self._pred.traversal_direction = TraversalDirection.INBOUND
+
         if (
             not self.is_multigraph()
             and incoming_graph_data is not None
@@ -78,6 +85,8 @@ class DiGraph(Graph, nx.DiGraph):
     #######################
 
     # TODO?
+    # If we want to continue with "Experimental Views" we need to implement the
+    # InEdgeView and OutEdgeView classes.
     # @cached_property
     # def in_edges(self):
     # pass

@@ -7,7 +7,6 @@ from arango.database import StandardDatabase
 import nx_arangodb as nxadb
 from nx_arangodb.classes.digraph import DiGraph
 from nx_arangodb.classes.multigraph import MultiGraph
-from nx_arangodb.logger import logger
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.MultiDiGraph)  # type: ignore
 

@@ -578,6 +578,24 @@ def doc_delete(db: StandardDatabase, id: str, **kwargs: Any) -> None:
     db.delete_document(id, silent=True, **kwargs)
 
 
+def edges_delete(
+    db: StandardDatabase, graph: Graph, src_node_id: str, **kwargs: Any
+) -> None:
+    remove_statements = "\n".join(
+        f"REMOVE e IN `{edge_def['edge_collection']}` OPTIONS {{ignoreErrors: true}}"  # noqa
+        for edge_def in graph.edge_definitions()
+    )
+
+    query = f"""
+        FOR v, e IN 1..1 ANY @src_node_id GRAPH @graph_name
+            {remove_statements}
+    """
+
+    bind_vars = {"src_node_id": src_node_id, "graph_name": graph.name}
+
+    aql(db, query, bind_vars)
+
+
 def doc_insert(
     db: StandardDatabase,
     collection: str,

@@ -65,23 +65,6 @@ def assert_pagerank(
     assert_same_dict_values(d1, d2, digit)
 
 
-def assert_louvain(l1: list[set[Any]], l2: list[set[Any]]) -> None:
-    # TODO: Implement some kind of comparison
-    # Reason: Louvain returns different results on different runs
-    assert l1
-    assert l2
-    pass
-
-
-def assert_k_components(
-    d1: dict[int, list[set[Any]]], d2: dict[int, list[set[Any]]]
-) -> None:
-    assert d1
-    assert d2
-    assert d1.keys() == d2.keys(), "Dictionaries have different keys"
-    assert d1 == d2
-
-
 def test_db(load_karate_graph: Any) -> None:
     assert db.version()
 

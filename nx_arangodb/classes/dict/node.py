@@ -19,6 +19,7 @@ from ..function import (
     doc_delete,
     doc_insert,
     doc_update,
+    edges_delete,
     get_arangodb_graph,
     get_node_id,
     get_node_type_and_id,
@@ -303,21 +304,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         if not self.graph.has_vertex(node_id):
             raise KeyError(key)
 
-        # TODO: wrap in edges_delete() method
-        remove_statements = "\n".join(
-            f"REMOVE e IN `{edge_def['edge_collection']}` OPTIONS {{ignoreErrors: true}}"  # noqa
-            for edge_def in self.graph.edge_definitions()
-        )
-
-        query = f"""
-            FOR v, e IN 1..1 ANY @src_node_id GRAPH @graph_name
-                {remove_statements}
-        """
-
-        bind_vars = {"src_node_id": node_id, "graph_name": self.graph.name}
-
-        aql(self.db, query, bind_vars)
-        #####
+        edges_delete(self.db, self.graph, node_id)
 
         doc_delete(self.db, node_id)
 

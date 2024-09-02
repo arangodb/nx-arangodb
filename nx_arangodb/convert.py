@@ -79,10 +79,6 @@ def _to_nxadb_graph(
 ) -> nxadb.Graph:
     """Convert a graph to a NetworkX-ArangoDB graph.
 
-    NOTE: **kwargs** are passed to the constructor of the nxadb.Graph class.
-    This is useful for passing the **name** of the graph, which is required if
-    the user wants to store the graph in the database.
-
     Parameters
     ----------
     G : Any
@@ -107,7 +103,7 @@ def _to_nxadb_graph(
         return G
 
     if isinstance(G, nx.Graph):
-        return nx_to_nxadb(G, as_directed=as_directed, **kwargs)
+        return nx_to_nxadb(G, as_directed=as_directed)
 
     raise TypeError(f"Expected nxadb.Graph or nx.Graph; got {type(G)}")
 
@@ -160,7 +156,10 @@ else:
 
 
 def nx_to_nxadb(
-    graph: nx.Graph, as_directed: bool = False, **kwargs: Any
+    graph: nx.Graph,
+    *args: Any,
+    as_directed: bool = False,
+    **kwargs: Any,
 ) -> nxadb.Graph:
     """Convert a NetworkX graph to a NetworkX-ArangoDB graph.
 
@@ -172,9 +171,6 @@ def nx_to_nxadb(
     as_directed : bool, optional
         Whether to convert the graph to a directed graph.
         Default is False.
-
-    **kwargs : Any
-        Additional keyword arguments to pass to the nxadb.Graph constructor.
 
     Returns
     -------
@@ -196,7 +192,7 @@ def nx_to_nxadb(
         else:
             klass = nxadb.Graph
 
-    return klass(incoming_graph_data=graph, **kwargs)
+    return klass(incoming_graph_data=graph)
 
 
 def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:

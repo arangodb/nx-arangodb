@@ -62,7 +62,6 @@ def _auto_func(func_name: str, /, *args: Any, **kwargs: Any) -> Any:
     """
     dfunc = _registered_algorithms[func_name]
 
-    # TODO: Use `nx.config.backends.arangodb.backend_priority` instead
     backend_priority = []
     if nxadb.convert.GPU_AVAILABLE and nx.config.backends.arangodb.use_gpu:
         backend_priority.append("cugraph")
@@ -143,6 +142,8 @@ def _run_with_backend(
     # TODO: Convert to nxadb.Graph?
     # What would this look like? Create a new graph in ArangoDB?
     # Or just establish a remote connection?
+    # For now, if dfunc._returns_graph is True, it will return a
+    # regular nx.Graph object.
     # if dfunc._returns_graph:
     #     raise NotImplementedError("Returning Graphs not implemented yet")
 

@@ -65,23 +65,6 @@ def assert_pagerank(
     assert_same_dict_values(d1, d2, digit)
 
 
-def assert_louvain(l1: list[set[Any]], l2: list[set[Any]]) -> None:
-    # TODO: Implement some kind of comparison
-    # Reason: Louvain returns different results on different runs
-    assert l1
-    assert l2
-    pass
-
-
-def assert_k_components(
-    d1: dict[int, list[set[Any]]], d2: dict[int, list[set[Any]]]
-) -> None:
-    assert d1
-    assert d2
-    assert d1.keys() == d2.keys(), "Dictionaries have different keys"
-    assert d1 == d2
-
-
 def test_db(load_karate_graph: Any) -> None:
     assert db.version()
 
@@ -312,7 +295,7 @@ def test_algorithm(
     assert_func(r_13_orig, r_9_orig)
 
 
-def test_shortest_path_remote_algorithm(load_karate_graph: Any) -> None:
+def test_shortest_path(load_karate_graph: Any) -> None:
     G_1 = nxadb.Graph(name="KarateGraph")
     G_2 = nxadb.DiGraph(name="KarateGraph")
 
@@ -321,8 +304,15 @@ def test_shortest_path_remote_algorithm(load_karate_graph: Any) -> None:
     r_3 = nx.shortest_path(G_2, source="person/0", target="person/33")
     r_4 = nx.shortest_path(G_2, source="person/0", target="person/33", weight="weight")
 
+    r_5 = nx.shortest_path.orig_func(
+        G_1, source="person/0", target="person/33", weight="weight"
+    )
+    r_6 = nx.shortest_path.orig_func(
+        G_2, source="person/0", target="person/33", weight="weight"
+    )
+
     assert r_1 == r_3
-    assert r_2 == r_4
+    assert r_2 == r_4 == r_5 == r_6
     assert r_1 != r_2
     assert r_3 != r_4
 

@@ -54,7 +54,7 @@ def shortest_path(
         "weight": weight,
     }
 
-    result = list(G.aql(query, bind_vars=bind_vars))
+    result = list(G.query(query, bind_vars=bind_vars))
 
     if not result:
         raise nx.NodeNotFound(f"Either source {source} or target {target} is not in G")

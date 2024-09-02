@@ -10,7 +10,7 @@ NETWORKX_FALLBACK_TO_NX=True \
     --cov-report= \
     "$@"
 coverage report \
-    --include="*/nx_arangodb/algorithms/*" \
+    --include="*/nx_arangodb/classes/*" \
     --omit=__init__.py \
     --show-missing \
     --rcfile=$(dirname $0)/pyproject.toml

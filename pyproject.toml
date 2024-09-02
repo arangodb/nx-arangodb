@@ -17,7 +17,6 @@ authors = [
 license = { text = "Apache 2.0" }
 requires-python = ">=3.10"
 classifiers = [
-    "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -30,7 +29,6 @@ classifiers = [
 ]
 dependencies = [
     "networkx>=3.0,<=3.3",
-    "numpy>=1.23,<2.0a0",
     "phenolrs",
     "python-arango",
     "adbnx-adapter"
@@ -55,9 +53,6 @@ dev = [
     "sphinx",
     "sphinx_rtd_theme",
 ]
-gpu = [
-    "nx-cugraph-cu12 @ https://pypi.nvidia.com"
-]
 llm = [
     "langchain~=0.2.14",
     "langchain-openai~=0.1.22",
@@ -65,7 +60,7 @@ llm = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/aMahanna/nx-arangodb"
+Homepage = "https://github.com/arangodb/nx-arangodb"
 
 # "plugin" used in nx version < 3.2
 [project.entry-points."networkx.plugins"]

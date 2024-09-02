@@ -295,7 +295,7 @@ def test_algorithm(
     assert_func(r_13_orig, r_9_orig)
 
 
-def test_shortest_path_remote_algorithm(load_karate_graph: Any) -> None:
+def test_shortest_path(load_karate_graph: Any) -> None:
     G_1 = nxadb.Graph(name="KarateGraph")
     G_2 = nxadb.DiGraph(name="KarateGraph")
 
@@ -304,8 +304,15 @@ def test_shortest_path_remote_algorithm(load_karate_graph: Any) -> None:
     r_3 = nx.shortest_path(G_2, source="person/0", target="person/33")
     r_4 = nx.shortest_path(G_2, source="person/0", target="person/33", weight="weight")
 
+    r_5 = nx.shortest_path.orig_func(
+        G_1, source="person/0", target="person/33", weight="weight"
+    )
+    r_6 = nx.shortest_path.orig_func(
+        G_2, source="person/0", target="person/33", weight="weight"
+    )
+
     assert r_1 == r_3
-    assert r_2 == r_4
+    assert r_2 == r_4 == r_5 == r_6
     assert r_1 != r_2
     assert r_3 != r_4
 

@@ -11,7 +11,7 @@ Examples
 >>> G.add_edge(1, 2, weight=3.0)
 >>> G.add_edge(2, 3, weight=7.5)
 >>>
->>> G_ADB = nxadb.convert._to_nxadb_graph(G, name="MyGraph")
+>>> G_ADB = nxadb.convert._to_nxadb_graph(G)
 >>> G_CG = nxadb.convert._to_nxcg_graph(G_ADB)
 >>> G_NX = nxadb.convert._to_nx_graph(G_ADB)
 """

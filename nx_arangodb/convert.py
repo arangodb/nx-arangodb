@@ -1,3 +1,21 @@
+"""Functions to convert between NetworkX, NetworkX-ArangoDB,
+and NetworkX-cuGraph.
+
+Examples
+--------
+>>> import networkx as nx
+>>> import nx_arangodb as nxadb
+>>> import nx_cugraph as nxcg
+>>>
+>>> G = nx.Graph()
+>>> G.add_edge(1, 2, weight=3.0)
+>>> G.add_edge(2, 3, weight=7.5)
+>>>
+>>> G_ADB = nxadb.convert._to_nxadb_graph(G, name="MyGraph")
+>>> G_CG = nxadb.convert._to_nxcg_graph(G_ADB)
+>>> G_NX = nxadb.convert._to_nx_graph(G_ADB)
+"""
+
 from __future__ import annotations
 
 import time
@@ -29,6 +47,22 @@ __all__ = [
 
 
 def _to_nx_graph(G: Any, *args: Any, **kwargs: Any) -> nx.Graph:
+    """Convert a graph to a NetworkX graph.
+
+    Parameters
+    ----------
+    G : Any
+        The graph to convert.
+
+        Currently supported types:
+        - nx.Graph
+        - nxadb.Graph
+
+    Returns
+    -------
+    nx.Graph
+        The converted graph.
+    """
     logger.debug(f"_to_nx_graph for {G.__class__.__name__}")
 
     if isinstance(G, nxadb.Graph):
@@ -41,18 +75,39 @@ def _to_nx_graph(G: Any, *args: Any, **kwargs: Any) -> nx.Graph:
 
 
 def _to_nxadb_graph(
-    G: Any,
-    *args: Any,
-    as_directed: bool = False,
-    **kwargs: Any,
+    G: Any, *args: Any, as_directed: bool = False, **kwargs: Any
 ) -> nxadb.Graph:
+    """Convert a graph to a NetworkX-ArangoDB graph.
+
+    NOTE: **kwargs** are passed to the constructor of the nxadb.Graph class.
+    This is useful for passing the **name** of the graph, which is required if
+    the user wants to store the graph in the database.
+
+    Parameters
+    ----------
+    G : Any
+        The graph to convert.
+
+        Currently supported types:
+        - nx.Graph
+        - nxadb.Graph
+
+    as_directed : bool, optional
+        Whether to convert the graph to a directed graph.
+        Default is False.
+
+    Returns
+    -------
+    nxadb.Graph
+        The converted graph.
+    """
     logger.debug(f"_to_nxadb_graph for {G.__class__.__name__}")
 
     if isinstance(G, nxadb.Graph):
         return G
 
     if isinstance(G, nx.Graph):
-        return nx_to_nxadb(G, as_directed=as_directed)
+        return nx_to_nxadb(G, as_directed=as_directed, **kwargs)
 
     raise TypeError(f"Expected nxadb.Graph or nx.Graph; got {type(G)}")
 
@@ -60,6 +115,28 @@ def _to_nxadb_graph(
 if GPU_AVAILABLE:
 
     def _to_nxcg_graph(G: Any, as_directed: bool = False) -> nxcg.Graph:
+        """Convert a graph to a NetworkX-cuGraph graph.
+
+        NOTE: Only supported if NetworkX-cuGraph is installed.
+
+        Parameters
+        ----------
+        G : Any
+            The graph to convert.
+
+            Currently supported types:
+            - nxadb.Graph
+            - nxcg.Graph
+
+        as_directed : bool, optional
+            Whether to convert the graph to a directed graph.
+            Default is False.
+
+        Returns
+        -------
+        nxcg.Graph
+            The converted graph.
+        """
         logger.debug(f"_to_nxcg_graph for {G.__class__.__name__}")
 
         if isinstance(G, nxcg.Graph):
@@ -83,12 +160,27 @@ else:
 
 
 def nx_to_nxadb(
-    graph: nx.Graph,
-    *args: Any,
-    as_directed: bool = False,
-    **kwargs: Any,
-    # name: str | None = None,
+    graph: nx.Graph, as_directed: bool = False, **kwargs: Any
 ) -> nxadb.Graph:
+    """Convert a NetworkX graph to a NetworkX-ArangoDB graph.
+
+    Parameters
+    ----------
+    graph : nx.Graph
+        The NetworkX graph to convert.
+
+    as_directed : bool, optional
+        Whether to convert the graph to a directed graph.
+        Default is False.
+
+    **kwargs : Any
+        Additional keyword arguments to pass to the nxadb.Graph constructor.
+
+    Returns
+    -------
+    nxadb.Graph
+        The converted graph.
+    """
     logger.debug(f"from_networkx for {graph.__class__.__name__}")
 
     klass: type[nxadb.Graph]
@@ -104,11 +196,48 @@ def nx_to_nxadb(
         else:
             klass = nxadb.Graph
 
-    # name=kwargs.get("name") ?
-    return klass(incoming_graph_data=graph)
+    return klass(incoming_graph_data=graph, **kwargs)
 
 
 def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
+    """Convert a NetworkX-ArangoDB graph to a NetworkX graph.
+
+    This function will pull the graph from the database if it does
+    not exist in the cache. A new NetworkX graph will be created
+    using the node and adjacency dictionaries that are fetched.
+
+    NOTE: The current downside of this approach is that we are not
+    able to take advantage of the custom Dictionary classes that we
+    have implemented in nx_arangodb.classes.dict. This is because
+    the node and adjacency dictionaries are fetched as regular
+    Python dictionaries. Furthermore, we don't cache the dictionaries
+    themselves, so we have to fetch them every time we convert the
+    graph, which is currently being invoked on *every* algorithm
+    call. See the note below for a potential solution. As a temporary
+    workaround, users can do the following:
+
+    ```
+        import networkx as nx
+        import nx_arangodb as nxadb
+
+        G_ADB = nxadb.Graph(name="MyGraph") # Connect to the graph
+        G_NX = nxadb.convert._to_nx_graph(G_ADB) # Pull the graph
+
+        nx.pagerank(G_NX)
+        nx.betweenness_centrality(G_NX)
+        ...
+    ```
+
+    Parameters
+    ----------
+    G : nxadb.Graph
+        The NetworkX-ArangoDB graph to convert.
+
+    Returns
+    -------
+    nx.Graph
+        The converted graph.
+    """
     if not G.graph_exists_in_db:
         # Since nxadb.Graph is a subclass of nx.Graph, we can return it as is.
         # This only applies if the graph does not exist in the database.
@@ -163,6 +292,27 @@ def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
 if GPU_AVAILABLE:
 
     def nxadb_to_nxcg(G: nxadb.Graph, as_directed: bool = False) -> nxcg.Graph:
+        """Convert a NetworkX-ArangoDB graph to a NetworkX-cuGraph graph.
+
+        This function will pull the graph from the database if it does
+        not exist in the cache. A new NetworkX-cuGraph graph will be
+        created using the COO format that is fetched. The created graph
+        will be cached in the nxadb.Graph object for future use.
+
+        Parameters
+        ----------
+        G : nxadb.Graph
+            The NetworkX-ArangoDB graph to convert.
+
+        as_directed : bool, optional
+            Whether to convert the graph to a directed graph.
+            Default is False.
+
+        Returns
+        -------
+        nxcg.Graph
+            The converted graph.
+        """
         if G.use_nxcg_cache and G.nxcg_graph is not None:
             m = "**use_nxcg_cache** is enabled. using cached NXCG Graph. no pull required."  # noqa
             logger.debug(m)

@@ -313,7 +313,7 @@ class Graph(nx.Graph):
             m = "Cannot set graph name without setting the database first"
             raise DatabaseNotSet(m)
 
-        if name is None:
+        if not name:
             self.__graph_exists_in_db = False
             logger.warning(f"**name** not set for {self.__class__.__name__}")
             return

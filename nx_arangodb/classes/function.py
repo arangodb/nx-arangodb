@@ -1,12 +1,12 @@
 """
-A collection of CRUD functions for the ArangoDB graph database.
-Used by the nx_arangodb Graph, DiGraph, MultiGraph, and MultiDiGraph classes.
+A collection of CRUD functions for ArangoDB Graphs.
+
+Used across the nx_arangodb package to interact with ArangoDB.
 """
 
 from __future__ import annotations
 
-from collections import UserDict
-from typing import Any, Callable, Generator, Optional, Tuple
+from typing import Any, Callable, Generator, Tuple
 
 import networkx as nx
 from arango import ArangoError, DocumentInsertError
@@ -33,12 +33,7 @@ from nx_arangodb.logger import logger
 from ..exceptions import AQLMultipleResultsFound, InvalidTraversalDirection
 from .enum import GraphType
 
-
-def do_load_all_edge_attributes(attributes: set[str]) -> bool:
-    if len(attributes) == 0:
-        return True
-
-    return False
+RESERVED_KEYS = {"_id", "_key", "_rev", "_from", "_to"}
 
 
 def get_arangodb_graph(
@@ -61,15 +56,74 @@ def get_arangodb_graph(
     ArangoIDtoIndex,
     EdgeValuesDict,
 ]:
-    """Pulls the graph from the database, assuming the graph exists.
+    """Pulls ArangoDB Graph Data from the database using
+    `phenolrs.networkx.NetworkXLoader`.
 
-    Returns the following representations:
-    - Node dictionary (nx.Graph)
-    - Adjacency dictionary (nx.Graph)
-    - Source Indices (COO)
-    - Destination Indices (COO)
-    - Node-ID-to-index mapping (COO)
+    Parameters
+    ----------
+    adb_graph : Graph
+        The ArangoDB Graph object from python-arango.
+
+    load_node_dict : bool
+        Whether to load the Node dictionary representation.
+
+    load_adj_dict : bool
+        Whether to load the Adjacency dictionary representation.
+
+    load_coo : bool
+        Whether to load the COO representation.
+
+    edge_collections_attributes : set[str]
+        The set of edge attributes to load. Can be empty.
+
+    load_all_vertex_attributes : bool
+        Whether to load all vertex attributes.
+
+    load_all_edge_attributes : bool
+        Whether to load all edge attributes. Cannot be True if
+        **edge_collections_attributes** is not empty.
+
+    is_directed : bool
+        Whether to load the graph as directed or undirected.
+
+    is_multigraph : bool
+        Whether to load the graph as a MultiGraph or Graph.
+
+    symmetrize_edges_if_directed : bool
+        Whether to duplicate edges in the adjacency dictionary if the graph is directed.
+
+    Returns
+    -------
+    Tuple[
+        NodeDict,
+        GraphAdjDict | DiGraphAdjDict | MultiGraphAdjDict | MultiDiGraphAdjDict,
+        SrcIndices,
+        DstIndices,
+        EdgeIndices,
+        ArangoIDtoIndex,
+        EdgeValuesDict
+    ]
+        A tuple containing the different representations of the graph.
+
+    Raises
+    ------
+    ValueError
+        If **load_all_edge_attributes** is True and
+        **edge_collections_attributes** is not empty.
+
+    ValueError
+        If none of the load flags are True.
+
+    PhenolrsError
+        If an error occurs while loading the graph.
     """
+    if len(edge_collections_attributes) != 0 and load_all_edge_attributes:
+        raise ValueError(
+            "You have specified to load at least one specific edge attribute"
+            " and at the same time set the parameter `load_all_edge_attributes`"
+            " to true. This combination is not allowed."
+        )
+
     v_cols = adb_graph.vertex_collections()
     edge_definitions = adb_graph.edge_definitions()
     e_cols = {c["edge_collection"] for c in edge_definitions}
@@ -94,21 +148,6 @@ def get_arangodb_graph(
     assert config.username
     assert config.password
 
-    res_do_load_all_edge_attributes = do_load_all_edge_attributes(
-        edge_collections_attributes
-    )
-
-    if res_do_load_all_edge_attributes is not load_all_edge_attributes:
-        if len(edge_collections_attributes) > 0:
-            raise ValueError(
-                "You have specified to load at least one specific edge attribute"
-                " and at the same time set the parameter `load_all_vertex_attributes`"
-                " to true. This combination is not allowed."
-            )
-        else:
-            # We need this case as the user wants by purpose to not load any edge data
-            res_do_load_all_edge_attributes = load_all_edge_attributes
-
     (
         node_dict,
         adj_dict,
@@ -126,7 +165,7 @@ def get_arangodb_graph(
         load_adj_dict=load_adj_dict,
         load_coo=load_coo,
         load_all_vertex_attributes=load_all_vertex_attributes,
-        load_all_edge_attributes=res_do_load_all_edge_attributes,
+        load_all_edge_attributes=load_all_edge_attributes,
         is_directed=is_directed,
         is_multigraph=is_multigraph,
         symmetrize_edges_if_directed=symmetrize_edges_if_directed,
@@ -146,6 +185,10 @@ def get_arangodb_graph(
 
 
 def json_serializable(cls):
+    """Decorator to make a class JSON serializable. Only used for
+    the NodeAttrDict, EdgeAttrDict, and GraphAttrDict classes.
+    """
+
     def to_dict(self):
         return {
             key: dict(value) if isinstance(value, cls) else value
@@ -157,10 +200,11 @@ def json_serializable(cls):
 
 
 def key_is_string(func: Callable[..., Any]) -> Any:
-    """Decorator to check if the key is a string."""
+    """Decorator to check if the key is a string.
+    Will attempt to cast the key to a string if it is not.
+    """
 
     def wrapper(self: Any, key: Any, *args: Any, **kwargs: Any) -> Any:
-        """"""
         if key is None:
             raise ValueError("Key cannot be None.")
 
@@ -210,7 +254,9 @@ def key_is_adb_id_or_int(func: Callable[..., Any]) -> Any:
 
 
 def keys_are_strings(func: Callable[..., Any]) -> Any:
-    """Decorator to check if the keys are strings."""
+    """Decorator to check if the keys are strings.
+    Will attempt to cast the keys to strings if they are not.
+    """
 
     def wrapper(self: Any, data: Any, *args: Any, **kwargs: Any) -> Any:
         data_dict = {}
@@ -237,9 +283,6 @@ def keys_are_strings(func: Callable[..., Any]) -> Any:
     return wrapper
 
 
-RESERVED_KEYS = {"_id", "_key", "_rev", "_from", "_to"}
-
-
 def key_is_not_reserved(func: Callable[..., Any]) -> Any:
     """Decorator to check if the key is not reserved."""
 
@@ -255,9 +298,7 @@ def key_is_not_reserved(func: Callable[..., Any]) -> Any:
 def keys_are_not_reserved(func: Any) -> Any:
     """Decorator to check if the keys are not reserved."""
 
-    def wrapper(
-        self: Any, data: dict[Any, Any] | zip[Any], *args: Any, **kwargs: Any
-    ) -> Any:
+    def wrapper(self: Any, data: Any, *args: Any, **kwargs: Any) -> Any:
         keys: Any
         if isinstance(data, dict):
             keys = data.keys()
@@ -304,6 +345,7 @@ def aql_single(
 ) -> Any | None:
     """Executes an AQL query and returns the first result."""
     result = aql_as_list(db, query, bind_vars)
+
     if len(result) == 0:
         return None
 
@@ -374,6 +416,7 @@ def aql_edge_exists(
     graph_name: str,
     direction: str,
 ) -> bool | None:
+    """Checks if an edge exists between two nodes."""
     return aql_edge(
         db,
         src_node_id,
@@ -394,6 +437,7 @@ def aql_edge_get(
     direction: str,
     can_return_multiple: bool = False,
 ) -> Any | None:
+    """Gets an edge between two nodes."""
     return_clause = "UNSET(e, '_rev')"
     if direction == "ANY":
         return_clause = f"DISTINCT {return_clause}"
@@ -418,6 +462,7 @@ def aql_edge_id(
     direction: str,
     can_return_multiple: bool = False,
 ) -> Any | None:
+    """Gets the edge ID between two nodes."""
     return_clause = "DISTINCT e._id" if direction == "ANY" else "e._id"
     return aql_edge(
         db,
@@ -437,6 +482,7 @@ def aql_edge_count_src(
     graph_name: str,
     direction: str,
 ) -> int:
+    """Counts the number of edges from a source node."""
     query = f"""
         FOR v, e IN 1..1 {direction} @src_node_id GRAPH @graph_name
             COLLECT id = e._id
@@ -461,6 +507,7 @@ def aql_edge_count_src_dst(
     graph_name: str,
     direction: str,
 ) -> int:
+    """Counts the number of edges between two nodes."""
     filter_clause = aql_edge_direction_filter(direction)
 
     query = f"""
@@ -483,6 +530,7 @@ def aql_edge_count_src_dst(
 
 
 def aql_edge_direction_filter(direction: str) -> str:
+    """Returns the AQL filter clause for the edge direction."""
     if direction == "INBOUND":
         return "e._from == @dst_node_id"
     if direction == "OUTBOUND":
@@ -505,6 +553,7 @@ def aql_edge(
     limit_one: bool,
     can_return_multiple: bool,
 ) -> Any | None:
+    """Fetches an edge between two nodes."""
     if limit_one and can_return_multiple:
         raise ValueError("Cannot return multiple results limit_one=True.")
 
@@ -537,6 +586,7 @@ def aql_fetch_data(
     data: str,
     default: Any,
 ) -> Generator[dict[str, Any], None, None]:
+    """Fetches data from a collection (assumed to be vertex)."""
     bind_vars = {"data": data, "default": default}
     query = """
         FOR doc IN @@collection
@@ -554,6 +604,7 @@ def aql_fetch_data_edge(
     data: str,
     default: Any,
 ) -> Generator[tuple[str, str, Any], None, None]:
+    """Fetches data from an edge collection."""
     bind_vars = {"data": data, "default": default}
     query = """
         FOR doc IN @@collection
@@ -581,6 +632,7 @@ def doc_delete(db: StandardDatabase, id: str, **kwargs: Any) -> None:
 def edges_delete(
     db: StandardDatabase, graph: Graph, src_node_id: str, **kwargs: Any
 ) -> None:
+    """Deletes all edges from a source node."""
     remove_statements = "\n".join(
         f"REMOVE e IN `{edge_def['edge_collection']}` OPTIONS {{ignoreErrors: true}}"  # noqa
         for edge_def in graph.edge_definitions()
@@ -656,11 +708,12 @@ def edge_link(
 
 
 def is_arangodb_id(key):
+    """Checks if the key is an ArangoDB ID."""
     return "/" in key
 
 
 def get_node_type(key: str, default_node_type: str) -> str:
-    """Gets the node type."""
+    """Gets the collection of a node."""
     return key.split("/")[0] if is_arangodb_id(key) else default_node_type
 
 
@@ -670,7 +723,7 @@ def get_node_id(key: str, default_node_type: str) -> str:
 
 
 def get_node_type_and_id(key: str, default_node_type: str) -> tuple[str, str]:
-    """Gets the node type and ID."""
+    """Gets the node collection (i.e type) and ID."""
     return (
         (key.split("/")[0], key)
         if is_arangodb_id(key)
@@ -690,6 +743,9 @@ def get_node_type_and_key(key: str, default_node_type: str) -> tuple[str, str]:
 def get_update_dict(
     parent_keys: list[str], update_dict: dict[str, Any]
 ) -> dict[str, Any]:
+    """Builds the update dictionary for nested documents.
+    Useful for updating nested documents in ArangoDB.
+    """
     if parent_keys:
         for key in reversed(parent_keys):
             update_dict = {key: update_dict}
@@ -698,6 +754,8 @@ def get_update_dict(
 
 
 class ArangoDBBatchError(ArangoError):
+    """Custom exception for batch errors."""
+
     def __init__(self, errors):
         self.errors = errors
         super().__init__(self._format_errors())
@@ -706,11 +764,11 @@ class ArangoDBBatchError(ArangoError):
         return "\n".join(str(error) for error in self.errors)
 
 
-def check_list_for_errors(lst):
+def check_update_list_for_errors(lst):
+    """Checks if a list contains any errors."""
     for element in lst:
-        if element is type(bool):
-            if element is False:
-                return False
+        if element is False:
+            return False
 
         elif isinstance(element, list):
             for sub_element in element:
@@ -722,18 +780,12 @@ def check_list_for_errors(lst):
 
 def separate_nodes_by_collections(
     nodes: dict[str, Any], default_collection: str
-) -> Any:
+) -> dict[str, dict[str, Any]]:
+    """Separate the dictionary into collections based on whether IDs contain '/'.
+    Returns dictionary where the keys are collection names and the values are
+    dictionaries of key-value pairs belonging to those collections.
     """
-    Separate the dictionary into collections based on whether keys contain '/'.
-    :param nodes:
-        The input dictionary with keys that may or may not contain '/'.
-    :param default_collection:
-        The name of the default collection for keys without '/'.
-    :return: A dictionary where the keys are collection names and the
-        values are dictionaries of key-value pairs belonging to those
-        collections.
-    """
-    separated: Any = {}
+    separated: dict[str, dict[str, Any]] = {}
 
     for key, value in nodes.items():
         collection, doc_key = get_node_type_and_key(key, default_collection)
@@ -746,15 +798,14 @@ def separate_nodes_by_collections(
     return separated
 
 
-def transform_local_documents_for_adb(original_documents):
+def transform_local_documents_for_adb(
+    original_documents: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Transform original documents into a format suitable for UPSERT
+    operations in ArangoDB. Returns a list of documents with '_key' attribute
+    and additional attributes.
     """
-    Transform original documents into a format suitable for UPSERT
-    operations in ArangoDB.
-    :param original_documents: Original documents in the format
-                                 {'key': {'any-attr-key': 'any-attr-value'}}.
-    :return: List of documents with '_key' attribute and additional attributes.
-    """
-    transformed_documents = []
+    transformed_documents: list[dict[str, Any]] = []
 
     for key, values in original_documents.items():
         transformed_doc = {"_key": key}
@@ -764,18 +815,13 @@ def transform_local_documents_for_adb(original_documents):
     return transformed_documents
 
 
-def upsert_collection_documents(db: StandardDatabase, separated: Any) -> Any:
+def upsert_collection_documents(
+    db: StandardDatabase, separated: dict[str, dict[str, Any]]
+) -> list[Any]:
+    """Process each collection in the separated dictionary.
+    If inserting a document fails, the exception is not raised but
+    returned as an object in the result list.
     """
-    Process each collection in the separated dictionary.
-    :param db: The ArangoDB database object.
-    :param separated: A dictionary where the keys are collection names and the
-                      values are dictionaries
-                      of key-value pairs belonging to those collections.
-    :return: A list of results from the insert_many operation.
-     If inserting a document fails, the exception is not raised but
-     returned as an object in the result list.
-    """
-
     results = []
 
     for collection_name, documents in separated.items():
@@ -790,15 +836,14 @@ def upsert_collection_documents(db: StandardDatabase, separated: Any) -> Any:
     return results
 
 
-def separate_edges_by_collections_graph(edges: Any, default_node_type: str) -> Any:
+def separate_edges_by_collections_graph(
+    edges: GraphAdjDict, default_node_type: str
+) -> dict[str, list[dict[str, Any]]]:
+    """Separate the dictionary into collections for Graph and DiGraph types.
+    Returns a dictionary where the keys are collection names and the
+    values are dictionaries of key-value pairs belonging to those collections.
     """
-    Separate the dictionary into collections for Graph and DiGraph types.
-    :param edges: The input dictionary with keys that must contain the real doc id.
-    :param default_node_type: The name of the default collection for keys without '/'.
-    :return: A dictionary where the keys are collection names and the
-        values are dictionaries of key-value pairs belonging to those collections.
-    """
-    separated: Any = {}
+    separated: dict[str, list[dict[str, Any]]] = {}
 
     for from_doc_id, target_dict in edges.items():
         for to_doc_id, edge_doc in target_dict.items():
@@ -818,15 +863,15 @@ def separate_edges_by_collections_graph(edges: Any, default_node_type: str) -> A
     return separated
 
 
-def separate_edges_by_collections_multigraph(edges: Any, default_node_type: str) -> Any:
+def separate_edges_by_collections_multigraph(
+    edges: MultiGraphAdjDict, default_node_type: str
+) -> Any:
     """
     Separate the dictionary into collections for MultiGraph and MultiDiGraph types.
-    :param edges: The input dictionary with keys that must contain the real doc id.
-    :param default_node_type: The name of the default collection for keys without '/'.
-    :return: A dictionary where the keys are collection names and the
-        values are dictionaries of key-value pairs belonging to those collections.
+    Returns a dictionary where the keys are collection names and the
+    values are dictionaries of key-value pairs belonging to those collections.
     """
-    separated: Any = {}
+    separated: dict[str, list[dict[str, Any]]] = {}
 
     for from_doc_id, target_dict in edges.items():
         for to_doc_id, edge_doc in target_dict.items():
@@ -849,15 +894,12 @@ def separate_edges_by_collections_multigraph(edges: Any, default_node_type: str)
 
 
 def separate_edges_by_collections(
-    edges: Any, graph_type: str, default_node_type: str
+    edges: GraphAdjDict | MultiGraphAdjDict, graph_type: str, default_node_type: str
 ) -> Any:
     """
     Wrapper function to separate the dictionary into collections based on graph type.
-    :param edges: The input dictionary with keys that must contain the real doc id.
-    :param graph_type: The type of graph to create.
-    :param default_node_type: The name of the default collection for keys without '/'.
-    :return: A dictionary where the keys are collection names and the
-        values are dictionaries of key-value pairs belonging to those collections.
+    Returns a dictionary where the keys are collection names and the
+    values are dictionaries of key-value pairs belonging to those collections.
     """
     if graph_type in [GraphType.Graph.name, GraphType.DiGraph.name]:
         return separate_edges_by_collections_graph(edges, default_node_type)
@@ -867,16 +909,13 @@ def separate_edges_by_collections(
         raise ValueError(f"Unsupported graph type: {graph_type}")
 
 
-def upsert_collection_edges(db: StandardDatabase, separated: Any) -> Any:
-    """
-    Process each collection in the separated dictionary.
-    :param db: The ArangoDB database object.
-    :param separated: A dictionary where the keys are collection names and the
-                      values are dictionaries
-                      of key-value pairs belonging to those collections.
-    :return: A list of results from the insert_many operation.
-     If inserting a document fails, the exception is not raised but
-     returned as an object in the result list.
+def upsert_collection_edges(
+    db: StandardDatabase, separated: dict[str, list[dict[str, Any]]]
+) -> Any:
+    """Process each collection in the separated dictionary.
+    Returns a list of results from the insert_many operation.
+    If inserting a document fails, the exception is not raised but
+    returned as an object in the result list.
     """
 
     results = []

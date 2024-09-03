@@ -26,7 +26,6 @@ import networkx as nx
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict.adj import AdjListOuterDict
 from nx_arangodb.classes.dict.node import NodeDict
-from nx_arangodb.classes.function import do_load_all_edge_attributes
 from nx_arangodb.logger import logger
 
 try:
@@ -253,7 +252,7 @@ def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
         load_coo=False,
         edge_collections_attributes=G.edge_attributes,
         load_all_vertex_attributes=False,
-        load_all_edge_attributes=do_load_all_edge_attributes(G.edge_attributes),
+        load_all_edge_attributes=len(G.edge_attributes) == 0,
         is_directed=G.is_directed(),
         is_multigraph=G.is_multigraph(),
         symmetrize_edges_if_directed=G.symmetrize_edges if G.is_directed() else False,
@@ -332,7 +331,7 @@ if GPU_AVAILABLE:
             load_coo=True,
             edge_collections_attributes=G.edge_attributes,
             load_all_vertex_attributes=False,  # not used
-            load_all_edge_attributes=do_load_all_edge_attributes(G.edge_attributes),
+            load_all_edge_attributes=len(G.edge_attributes) == 0,
             is_directed=G.is_directed(),
             is_multigraph=G.is_multigraph(),
             symmetrize_edges_if_directed=(

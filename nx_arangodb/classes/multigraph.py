@@ -37,7 +37,7 @@ class MultiGraph(Graph, nx.MultiGraph):
         write_batch_size: int = 50000,
         write_async: bool = True,
         symmetrize_edges: bool = False,
-        use_experimental_views: bool = False,
+        use_arango_views: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
@@ -54,7 +54,7 @@ class MultiGraph(Graph, nx.MultiGraph):
             write_batch_size,
             write_async,
             symmetrize_edges,
-            use_experimental_views,
+            use_arango_views,
             *args,
             **kwargs,
         )

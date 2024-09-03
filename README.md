@@ -10,7 +10,7 @@
 
 <br>
 
-<a href="https://colab.research.google.com/github/arangodb/nx-arangodb/blob/main/docs/nx_arangodb.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+<a href="https://colab.research.google.com/github/arangodb/nx-arangodb/blob/main/doc/nx_arangodb.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/arangodb/nx-arangodb/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/arangodb/nx-arangodb/tree/main)
 [![CodeQL](https://github.com/arangodb/nx-arangodb/actions/workflows/analyzee.yaml/badge.svg)](https://github.com/arangodb/nx-arangodb/actions/workflows/analyzee.yaml)
 [![Docs](https://github.com/arangodb/nx-arangodb/actions/workflows/docs.yaml/badge.svg)](https://github.com/arangodb/nx-arangodb/actions/workflows/docs.yaml)
@@ -44,7 +44,7 @@ Benefits of having ArangoDB as a backend to NetworkX include:
 6. Access to efficient distribution of graph data ([ArangoDB SmartGraphs](https://docs.arangodb.com/stable/graphs/smartgraphs/)).
 
 <p align="center">
-    <img src="./docs/_static/nxadb.png" style="height: 200px;">
+    <img src="./doc/_static/nxadb.png" style="height: 200px;">
 </p>
 
 
@@ -169,7 +169,7 @@ nx.config.backends.arangodb.use_gpu = True
 ```
 
 <p align="center">
-    <img src="./docs/_static/dispatch.png" style="height: 200px;">
+    <img src="./doc/_static/dispatch.png" style="height: 200px;">
 </p>
 
 

@@ -18,7 +18,7 @@ from nx_arangodb.exceptions import (
 )
 from nx_arangodb.logger import logger
 
-from .coreviews import CustomAdjacencyView
+from .coreviews import ArangoAdjacencyView
 from .dict import (
     adjlist_inner_dict_factory,
     adjlist_outer_dict_factory,
@@ -28,7 +28,7 @@ from .dict import (
     node_dict_factory,
 )
 from .function import get_node_id
-from .reportviews import CustomEdgeView, CustomNodeView
+from .reportviews import ArangoEdgeView, ArangoNodeView
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.Graph)  # type: ignore
 
@@ -70,13 +70,13 @@ class Graph(nx.Graph):
         write_batch_size: int = 50000,
         write_async: bool = True,
         symmetrize_edges: bool = False,
-        use_experimental_views: bool = False,
+        use_arango_views: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
         self.__db = None
         self.__name = None
-        self.__use_experimental_views = use_experimental_views
+        self.__use_arango_views = use_arango_views
         self.__graph_exists_in_db = False
 
         self.__set_db(db)
@@ -416,33 +416,33 @@ class Graph(nx.Graph):
 
     @cached_property
     def nodes(self):
-        if self.__use_experimental_views and self.graph_exists_in_db:
-            logger.warning("nxadb.CustomNodeView is currently EXPERIMENTAL")
-            return CustomNodeView(self)
+        if self.__use_arango_views and self.graph_exists_in_db:
+            logger.warning("nxadb.ArangoNodeView is currently EXPERIMENTAL")
+            return ArangoNodeView(self)
 
         return super().nodes
 
     @cached_property
     def adj(self):
-        if self.__use_experimental_views and self.graph_exists_in_db:
-            logger.warning("nxadb.CustomAdjacencyView is currently EXPERIMENTAL")
-            return CustomAdjacencyView(self._adj)
+        if self.__use_arango_views and self.graph_exists_in_db:
+            logger.warning("nxadb.ArangoAdjacencyView is currently EXPERIMENTAL")
+            return ArangoAdjacencyView(self._adj)
 
         return super().adj
 
     @cached_property
     def edges(self):
-        if self.__use_experimental_views and self.graph_exists_in_db:
+        if self.__use_arango_views and self.graph_exists_in_db:
             if self.is_directed():
-                logger.warning("CustomEdgeView for DiGraphs not yet implemented")
+                logger.warning("ArangoEdgeView for DiGraphs not yet implemented")
                 return super().edges
 
             if self.is_multigraph():
-                logger.warning("CustomEdgeView for MultiGraphs not yet implemented")
+                logger.warning("ArangoEdgeView for MultiGraphs not yet implemented")
                 return super().edges
 
-            logger.warning("nxadb.CustomEdgeView is currently EXPERIMENTAL")
-            return CustomEdgeView(self)
+            logger.warning("nxadb.ArangoEdgeView is currently EXPERIMENTAL")
+            return ArangoEdgeView(self)
 
         return super().edges
 

@@ -15,7 +15,7 @@ from ..function import (
     aql_doc_get_key,
     aql_doc_has_key,
     aql_fetch_data,
-    check_list_for_errors,
+    check_update_list_for_errors,
     doc_delete,
     doc_insert,
     doc_update,
@@ -370,7 +370,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         result = upsert_collection_documents(self.db, separated_by_collection)
 
-        all_good = check_list_for_errors(result)
+        all_good = check_update_list_for_errors(result)
         if all_good:
             # Means no single operation failed, in this case we update the local cache
             self.__update_local_nodes(nodes)

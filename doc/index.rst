@@ -20,7 +20,7 @@ nx-arangodb
 
 .. raw:: html
 
-    <br>
+   <br>
 
 .. image:: https://colab.research.google.com/assets/colab-badge.svg
    :target: https://colab.research.google.com/github/arangodb/nx-arangodb/blob/main/doc/nx_arangodb.ipynb
@@ -38,13 +38,25 @@ nx-arangodb
    :target: https://github.com/arangodb/nx-arangodb/actions/workflows/docs.yaml
    :alt: Docs
 
+.. raw:: html
+
+   <br>
+
 .. image:: https://img.shields.io/pypi/v/nx-arangodb?color=3775A9&style=for-the-badge&logo=pypi&logoColor=FFD43B
    :target: https://pypi.org/project/nx-arangodb/
    :alt: PyPI version badge
 
-.. image:: https://img.shields.io/badge/3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=FFD43B&label=Python
+.. image:: https://img.shields.io/pypi/pyversions/nx-arangodb?color=3776AB&style=for-the-badge&logo=python&logoColor=FFD43B
    :target: https://pypi.org/project/nx-arangodb/
    :alt: Python versions badge
+
+.. raw:: html
+
+   <br>
+
+.. image:: https://img.shields.io/github/license/arangodb/nx-arangodb?color=9E2165&style=for-the-badge
+   :target: https://github.com/arangodb/nx-arangodb/blob/main/LICENSE
+   :alt: License
 
 .. image:: https://img.shields.io/static/v1?style=for-the-badge&label=code%20style&message=black&color=black
    :target: https://github.com/psf/black

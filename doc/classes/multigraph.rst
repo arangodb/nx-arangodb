@@ -6,7 +6,7 @@ MultiGraph
 
 Overview
 ========
-.. currentmodule:: nx_arangodb
+.. currentmodule:: nx_arangodb.classes.multigraph
 .. autoclass:: MultiGraph
    :members: query, chat
 

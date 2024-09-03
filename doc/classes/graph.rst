@@ -6,7 +6,7 @@ Graph
 
 Overview
 ========
-.. currentmodule:: nx_arangodb
+.. currentmodule:: nx_arangodb.classes.graph
 .. autoclass:: Graph
    :members: query, chat
 

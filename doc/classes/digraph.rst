@@ -6,7 +6,7 @@ DiGraph
 
 Overview
 ========
-.. currentmodule:: nx_arangodb
+.. currentmodule:: nx_arangodb.classes.digraph
 .. autoclass:: DiGraph
    :members: query, chat
 

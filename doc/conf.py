@@ -10,6 +10,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.abspath("../"))
+sys.path.insert(0, os.path.abspath('../nx_arangodb'))
 
 project = 'nx-arangodb'
 copyright = '2024, ArangoDB'
@@ -37,3 +38,4 @@ html_static_path = ['_static']
 autodoc_member_order = "bysource"
 autodoc_inherit_docstrings = True
 autosummary_generate = True
+autodoc_mock_imports = ["nx_arangodb"]

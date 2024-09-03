@@ -22,8 +22,9 @@
 [![Docs](https://readthedocs.org/projects/nx-arangodb/badge/?version=latest)](https://nx-arangodb.readthedocs.io/en/latest/?badge=latest)
 
 [![PyPI version badge](https://img.shields.io/pypi/v/nx-arangodb?color=3775A9&style=for-the-badge&logo=pypi&logoColor=FFD43B)](https://pypi.org/project/nx-arangodb/)
-[![Python versions badge](https://img.shields.io/badge/3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=FFD43B&label=Python)](https://pypi.org/project/nx-arangodb/)
+[![Python versions badge](https://img.shields.io/pypi/pyversions/nx-arangodb?color=3776AB&style=for-the-badge&logo=python&logoColor=FFD43B)](https://pypi.org/project/nx-arangodb/)
 
+[![License](https://img.shields.io/github/license/arangoml/networkx-adapter?color=9E2165&style=for-the-badge)](https://github.com/arangoml/networkx-adapter/blob/master/LICENSE)
 [![Code style: black](https://img.shields.io/static/v1?style=for-the-badge&label=code%20style&message=black&color=black)](https://github.com/psf/black)
 [![Downloads](https://img.shields.io/pepy/dt/nx-arangodb?style=for-the-badge&color=282661
 )](https://pepy.tech/project/nx-arangodb)

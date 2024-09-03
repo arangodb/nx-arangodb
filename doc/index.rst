@@ -98,7 +98,10 @@ of how to use NetworkX, refer to the `NetworkX Documentation <https://networkx.o
 Expect documentation to grow over time:
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
    quickstart
    classes/index
+   dict/index
+   algorithms/index
+   views/index

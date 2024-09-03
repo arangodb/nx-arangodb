@@ -2,7 +2,7 @@
 
 This is an experimental module seeking to provide server-side algorithms for `nx-arangodb` Graphs. The goal is to provide a set of algorithms that can be delegated to the server for processing, rather than having to pull all the data to the client and process it there.
 
-Currently, the module is in a very early stage and only provides a single algorithm: `shortestPath`. This is simply to demonstrate the potential of the module and to provide a starting point for further development.
+Currently, the module is in a very early stage and only provides a single algorithm: `shortest_path`. This is simply to demonstrate the potential of the module and to provide a starting point for further development.
 
 ```python
 import os

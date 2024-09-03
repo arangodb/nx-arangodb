@@ -27,7 +27,7 @@ graph you want to represent.
 +----------------+------------+--------------------+------------------------+
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    graph
    digraph

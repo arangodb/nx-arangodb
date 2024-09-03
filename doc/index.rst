@@ -95,8 +95,10 @@ The UX of NetworkX-ArangoDB is similar to that of NetworkX, but with the
 added functionality of persisting graphs to ArangoDB. For an understanding
 of how to use NetworkX, refer to the `NetworkX Documentation <https://networkx.org/documentation/stable/reference/index.html>`_.
 
+Expect documentation to grow over time:
+
 .. toctree::
    :maxdepth: 1
 
    quickstart
-   specs
+   classes/index

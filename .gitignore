@@ -25,6 +25,15 @@ wheels/
 *.egg
 MANIFEST
 
+# Generated while building documentation.
+doc/auto_examples
+doc/modules
+doc/generated
+doc/algorithms/generated
+doc/classes/generated
+doc/readwrite/generated
+doc/path.to.file
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.

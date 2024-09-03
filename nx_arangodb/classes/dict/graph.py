@@ -226,10 +226,10 @@ class GraphAttrDict(UserDict[str, Any]):
     ----------
     db : arango.database.StandardDatabase
         The ArangoDB database.
-    
+
     graph : arango.graph.Graph
         The ArangoDB graph.
-    
+
     graph_id : str
         The ArangoDB document ID of the graph.
 

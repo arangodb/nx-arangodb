@@ -49,6 +49,121 @@ except Exception:
 
 
 class Graph(nx.Graph):
+    """
+    Base class for undirected graphs. Designed to work with ArangoDB graphs.
+
+    Subclasses ``nx.Graph``.
+
+    In order to connect to an ArangoDB instance, the following environment
+    variables must be set:
+
+    1. ``DATABASE_HOST``
+    2. ``DATABASE_USERNAME``
+    3. ``DATABASE_PASSWORD``
+    4. ``DATABASE_NAME``
+
+    Furthermore, the ``name`` parameter is required to create a new graph
+    or to connect to an existing graph in the database.
+
+    Example
+    -------
+    >>> import os
+    >>> import networkx as nx
+    >>> import nx_arangodb as nxadb
+    >>>
+    >>> os.environ["DATABASE_HOST"] = "http://localhost:8529"
+    >>> os.environ["DATABASE_USERNAME"] = "root"
+    >>> os.environ["DATABASE_PASSWORD"] = "openSesame"
+    >>> os.environ["DATABASE_NAME"] = "_system"
+    >>>
+    >>> G = nxadb.Graph(name="MyGraph")
+    >>> ...
+
+
+    Parameters
+    ----------
+    incoming_graph_data : input graph (optional, default: None)
+        Data to initialize graph. If None (default) an empty
+        graph is created. Must be used in conjunction with **name** if
+        the user wants to persist the graph in ArangoDB. NOTE: It is
+        recommended for incoming_graph_data to be a NetworkX graph due
+        to faster loading times.
+
+    name : str (optional, default: None)
+        Name of the graph in the database. If the graph already exists,
+        the user can pass the name of the graph to connect to it. If
+        the graph does not exist, the user can create a new graph by
+        passing the name. NOTE: Must be used in conjunction with
+        **incoming_graph_data** if the user wants to persist the graph
+        in ArangoDB.
+
+    default_node_type : str (optional, default: None)
+        Default node type for the graph. In ArangoDB terms, this is the
+        default vertex collection. If the graph already exists, the user can
+        omit this parameter and the default node type will be set to the
+        first vertex collection in the graph. If the graph does not exist,
+        the user can pass the default node type to create the default vertex
+        collection.
+
+    edge_type_key : str (optional, default: "_edge_type")
+        Key used to store the edge type when inserting edges into the graph.
+        Useful for working with Heterogeneous Graphs.
+
+    edge_type_func : Callable[[str, str], str] (optional, default: None)
+        Function to determine the edge type between two nodes. If the graph
+        already exists, the user can omit this parameter and the edge type
+        function will be set based on the existing edge definitions. If the
+        graph does not exist, the user can pass a function that determines
+        the edge type between two nodes.
+
+    edge_collections_attributes : set[str] (optional, default: None)
+        Set of edge attributes to fetch when executing a NetworkX algorithm.
+        Useful if the user has edge weights or other edge attributes that
+        they want to use in a NetworkX algorithm.
+
+    db : arango.database.StandardDatabase (optional, default: None)
+        ArangoDB database object. If the user has an existing python-arango
+        connection to the database, they can pass the database object to the graph.
+        If not provided, a database object will be created using the environment
+        variables DATABASE_HOST, DATABASE_USERNAME, DATABASE_PASSWORD, and
+        DATABASE_NAME.
+
+    read_parallelism : int (optional, default: 10)
+        Number of parallel threads to use when reading data from ArangoDB.
+        Used for fetching node and edge data from the database.
+
+    read_batch_size : int (optional, default: 100000)
+        Number of documents to fetch in a single batch when reading data from ArangoDB.
+        Used for fetching node and edge data from the database.
+
+    write_batch_size : int (optional, default: 50000)
+        Number of documents to insert in a single batch when writing data to ArangoDB.
+        Used for inserting node and edge data into the database if and only if
+        **incoming_graph_data** is a NetworkX graph.
+
+    write_async : bool (optional, default: True)
+        Whether to insert data into ArangoDB asynchronously. Used for inserting
+        node and edge data into the database if and only if **incoming_graph_data**
+        is a NetworkX graph.
+
+    symmetrize_edges : bool (optional, default: False)
+        Whether to symmetrize the edges in the graph when fetched from the database.
+        Only applies to directed graphs, thereby converting them to undirected graphs.
+
+    use_arango_views : bool (optional, default: False)
+        Whether to use experimental work-in-progress ArangoDB Views for the
+        nodes, adjacency list, and edges. These views are designed to improve
+        data processing performance by delegating CRUD operations to the database
+        whenever possible. NOTE: This feature is experimental and may not work
+        as expected.
+
+    args: positional arguments for nx.Graph
+        Additional arguments passed to nx.Graph.
+
+    kwargs: keyword arguments for nx.Graph
+        Additional arguments passed to nx.Graph.
+    """
+
     __networkx_backend__: ClassVar[str] = "arangodb"  # nx >=3.2
     __networkx_plugin__: ClassVar[str] = "arangodb"  # nx <3.2
 
@@ -378,6 +493,27 @@ class Graph(nx.Graph):
     def query(
         self, query: str, bind_vars: dict[str, Any] = {}, **kwargs: Any
     ) -> Cursor:
+        """Execute an AQL query on the graph.
+
+        Read more about AQL here:
+        https://www.arangodb.com/docs/stable/aql/
+
+        Parameters
+        ----------
+        query : str
+            AQL query to execute.
+
+        bind_vars : dict[str, Any] (optional, default: {})
+            Bind variables to pass to the query.
+
+        kwargs : dict[str, Any]
+            Additional keyword arguments to pass to the query.
+
+        Returns
+        -------
+        arango.cursor.Cursor
+            Cursor object containing the results of the query.
+        """
         return nxadb.classes.function.aql(self.db, query, bind_vars, **kwargs)
 
     # def pull(self) -> None:
@@ -389,6 +525,26 @@ class Graph(nx.Graph):
     def chat(
         self, prompt: str, verbose: bool = False, llm: BaseLanguageModel | None = None
     ) -> str:
+        """Chat with the graph using an LLM. Use at your own risk.
+
+        Parameters
+        ----------
+        prompt : str
+            Prompt to chat with the graph.
+
+        verbose : bool (optional, default: False)
+            Whether to print the intermediate steps of the conversation.
+
+        llm : langchain_core.language_models.BaseLanguageModel (optional, default: None)
+            Language model to use for the conversation. If None, the default
+            language model is ChatOpenAI with the GPT-4 model, which expects the
+            OpenAI API key to be set in the environment variable OPENAI_API_KEY.
+
+        Returns
+        -------
+        str
+            Response from the Language Model.
+        """
         if not LLM_AVAILABLE:
             m = "LLM dependencies not installed. Install with **pip install nx-arangodb[llm]**"  # noqa: E501
             raise ModuleNotFoundError(m)

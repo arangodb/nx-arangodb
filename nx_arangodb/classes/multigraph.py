@@ -55,6 +55,19 @@ class MultiGraph(Graph, nx.MultiGraph):
         recommended for incoming_graph_data to be a NetworkX graph due
         to faster loading times.
 
+    multigraph_input : bool or None (default None)
+        Note: Only used when `incoming_graph_data` is a dict.
+        If True, `incoming_graph_data` is assumed to be a
+        dict-of-dict-of-dict-of-dict structure keyed by
+        node to neighbor to edge keys to edge data for multi-edges.
+        A NetworkXError is raised if this is not the case.
+        If False, :func:`to_networkx_graph` is used to try to determine
+        the dict's graph data structure as either a dict-of-dict-of-dict
+        keyed by node to neighbor to edge data, or a dict-of-iterable
+        keyed by node to neighbors.
+        If None, the treatment for True is tried, but if it fails,
+        the treatment for False is tried.
+
     name : str (optional, default: None)
         Name of the graph in the database. If the graph already exists,
         the user can pass the name of the graph to connect to it. If

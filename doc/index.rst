@@ -30,8 +30,8 @@ nx-arangodb
    :target: https://dl.circleci.com/status-badge/redirect/gh/arangodb/nx-arangodb/tree/main
    :alt: CircleCI
 
-.. image:: https://github.com/arangodb/nx-arangodb/actions/workflows/analyzee.yaml/badge.svg
-   :target: https://github.com/arangodb/nx-arangodb/actions/workflows/analyzee.yaml
+.. image:: https://github.com/arangodb/nx-arangodb/actions/workflows/analyze.yml/badge.svg
+   :target: https://github.com/arangodb/nx-arangodb/actions/workflows/analyze.yml
    :alt: CodeQL
 
 .. image:: https://github.com/arangodb/nx-arangodb/actions/workflows/docs.yaml/badge.svg

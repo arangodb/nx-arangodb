@@ -20,8 +20,8 @@
 
 <a href="https://colab.research.google.com/github/arangodb/nx-arangodb/blob/main/doc/nx_arangodb.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/arangodb/nx-arangodb/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/arangodb/nx-arangodb/tree/main)
-[![CodeQL](https://github.com/arangodb/nx-arangodb/actions/workflows/analyzee.yaml/badge.svg)](https://github.com/arangodb/nx-arangodb/actions/workflows/analyzee.yaml)
-[![Docs](https://github.com/arangodb/nx-arangodb/actions/workflows/docs.yaml/badge.svg)](https://github.com/arangodb/nx-arangodb/actions/workflows/docs.yaml)
+[![CodeQL](https://github.com/arangodb/nx-arangodb/actions/workflows/analyze.yml/badge.svg)](https://github.com/arangodb/nx-arangodb/actions/workflows/analyze.yml)
+[![Docs](https://readthedocs.org/projects/nx-arangodb/badge/?version=latest)](https://nx-arangodb.readthedocs.io/en/latest/?badge=latest)
 
 [![PyPI version badge](https://img.shields.io/pypi/v/nx-arangodb?color=3775A9&style=for-the-badge&logo=pypi&logoColor=FFD43B)](https://pypi.org/project/nx-arangodb/)
 [![Python versions badge](https://img.shields.io/badge/3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=FFD43B&label=Python)](https://pypi.org/project/nx-arangodb/)

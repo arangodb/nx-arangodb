@@ -30,10 +30,6 @@ class ArangoDBAlgorithmError(NetworkXArangoDBException):
     pass
 
 
-class ShortestPathError(ArangoDBAlgorithmError):
-    pass
-
-
 class MultipleEdgesFound(NetworkXArangoDBException):
     pass
 

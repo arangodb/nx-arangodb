@@ -2,15 +2,23 @@
 
 
 <div style="display: flex; align-items: center; gap: 10px;">
-    <img src="https://avatars.githubusercontent.com/u/388785?s=200&v=4" alt="NetworkX" style="height: 60px;">
-    <img src="https://arangodb.com/wp-content/uploads/2016/05/ArangoDB_logo_avocado_@1.png" alt="ArangoDB" style="height: 60px;">
-    <img src="https://rapids.ai/images/RAPIDS-logo.png" alt="RAPIDS" style="height: 60px;">
-    <img src="https://insights.virti.com/content/images/2021/09/20181218-Nvidia-Inception.png" alt="NVIDIA" style="height: 60px;">
+    <a href="https://networkx.github.io/">
+        <img src="https://avatars.githubusercontent.com/u/388785?s=200&v=4" alt="NetworkX" style="height: 60px;">
+    </a>
+    <a href="https://www.arangodb.com/">
+        <img src="https://arangodb.com/wp-content/uploads/2016/05/ArangoDB_logo_avocado_@1.png" alt="ArangoDB" style="height: 60px;">
+    </a>
+    <a href="https://rapids.ai/">
+        <img src="https://rapids.ai/images/RAPIDS-logo.png" alt="RAPIDS" style="height: 60px;">
+    </a>
+    <a href="https://www.nvidia.com/en-us/startups/">
+        <img src="https://insights.virti.com/content/images/2021/09/20181218-Nvidia-Inception.png" alt="NVIDIA" style="height: 60px;">
+    </a>
 </div>
 
 <br>
 
-<a href="https://colab.research.google.com/github/arangodb/nx-arangodb/blob/main/docs/nx_arangodb.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+<a href="https://colab.research.google.com/github/arangodb/nx-arangodb/blob/main/doc/nx_arangodb.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/arangodb/nx-arangodb/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/arangodb/nx-arangodb/tree/main)
 [![CodeQL](https://github.com/arangodb/nx-arangodb/actions/workflows/analyzee.yaml/badge.svg)](https://github.com/arangodb/nx-arangodb/actions/workflows/analyzee.yaml)
 [![Docs](https://github.com/arangodb/nx-arangodb/actions/workflows/docs.yaml/badge.svg)](https://github.com/arangodb/nx-arangodb/actions/workflows/docs.yaml)
@@ -44,7 +52,7 @@ Benefits of having ArangoDB as a backend to NetworkX include:
 6. Access to efficient distribution of graph data ([ArangoDB SmartGraphs](https://docs.arangodb.com/stable/graphs/smartgraphs/)).
 
 <p align="center">
-    <img src="./docs/_static/nxadb.png" style="height: 200px;">
+    <img src="./doc/_static/nxadb.png" style="height: 200px;">
 </p>
 
 
@@ -169,7 +177,7 @@ nx.config.backends.arangodb.use_gpu = True
 ```
 
 <p align="center">
-    <img src="./docs/_static/dispatch.png" style="height: 200px;">
+    <img src="./doc/_static/dispatch.png" style="height: 200px;">
 </p>
 
 

@@ -4,7 +4,7 @@ import warnings
 from collections import UserDict
 from collections.abc import Iterator
 from itertools import islice
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Union
 
 from arango.database import StandardDatabase
 from arango.exceptions import DocumentDeleteError
@@ -32,7 +32,7 @@ from ..function import (
     aql_edge_get,
     aql_edge_id,
     aql_fetch_data_edge,
-    check_list_for_errors,
+    check_update_list_for_errors,
     doc_insert,
     doc_update,
     edge_get,
@@ -52,6 +52,8 @@ from ..function import (
     upsert_collection_edges,
 )
 
+AdjDict = Union[GraphAdjDict, DiGraphAdjDict, MultiGraphAdjDict, MultiDiGraphAdjDict]
+
 #############
 # Factories #
 #############
@@ -60,6 +62,7 @@ from ..function import (
 def edge_attr_dict_factory(
     db: StandardDatabase, graph: Graph
 ) -> Callable[..., EdgeAttrDict]:
+    """Factory function for creating an EdgeAttrDict."""
     return lambda: EdgeAttrDict(db, graph)
 
 
@@ -71,6 +74,7 @@ def edge_key_dict_factory(
     is_directed: bool,
     adjlist_inner_dict: AdjListInnerDict | None = None,
 ) -> Callable[..., EdgeKeyDict]:
+    """Factory function for creating an EdgeKeyDict."""
     return lambda: EdgeKeyDict(
         db, graph, edge_type_key, edge_type_func, is_directed, adjlist_inner_dict
     )
@@ -85,6 +89,7 @@ def adjlist_inner_dict_factory(
     graph_type: str,
     adjlist_outer_dict: AdjListOuterDict | None = None,
 ) -> Callable[..., AdjListInnerDict]:
+    """Factory function for creating an AdjListInnerDict."""
     return lambda: AdjListInnerDict(
         db,
         graph,
@@ -105,6 +110,7 @@ def adjlist_outer_dict_factory(
     graph_type: str,
     symmetrize_edges_if_directed: bool,
 ) -> Callable[..., AdjListOuterDict]:
+    """Factory function for creating an AdjListOuterDict."""
     return lambda: AdjListOuterDict(
         db,
         graph,
@@ -129,10 +135,17 @@ def build_edge_attr_dict_data(
     It's possible that **value** is a nested dict, so we need to
     recursively build a EdgeAttrDict for each nested dict.
 
-    :param parent: The parent EdgeAttrDict.
-    :type parent: EdgeAttrDict
-    :param data: The data to build the EdgeAttrDict from.
-    :type data: dict[str, Any]
+    Parameters
+    ----------
+    parent : EdgeAttrDict
+        The parent EdgeAttrDict.
+    data : dict[str, Any]
+        The data to build the EdgeAttrDict from.
+
+    Returns
+    -------
+    dict[str, Any | EdgeAttrDict]
+        The data for the new EdgeAttrDict.
     """
     edge_attr_dict_data = {}
     for key, value in data.items():
@@ -143,6 +156,25 @@ def build_edge_attr_dict_data(
 
 
 def process_edge_attr_dict_value(parent: EdgeAttrDict, key: str, value: Any) -> Any:
+    """Process the value of a particular key in an EdgeAttrDict.
+
+    If the value is a dict, then we need to recursively build an EdgeAttrDict.
+    Otherwise, we return the value as is.
+
+    Parameters
+    ----------
+    parent : EdgeAttrDict
+        The parent EdgeAttrDict.
+    key : str
+        The key of the value.
+    value : Any
+        The value to process.
+
+    Returns
+    -------
+    Any
+        The processed value.
+    """
     if not isinstance(value, dict):
         return value
 
@@ -161,10 +193,20 @@ class EdgeAttrDict(UserDict[str, Any]):
 
     EdgeAttrDict is keyed by the edge attribute key.
 
-    :param db: The ArangoDB database.
-    :type db: StandardDatabase
-    :param graph: The ArangoDB graph.
-    :type graph: Graph
+    Parameters
+    ----------
+    db : arango.database.StandardDatabase
+        The ArangoDB database.
+
+    graph : arango.graph.Graph
+        The ArangoDB graph.
+
+    Examples
+    --------
+    >>> g = nxadb.Graph(name="MyGraph")
+    >>> g.add_edge("node/1", "node/2", foo="bar")
+    >>> g["node/1"]["node/2"]
+    EdgeAttrDict({'foo': 'bar', '_key': ..., '_id': ...})
     """
 
     def __init__(
@@ -179,7 +221,7 @@ class EdgeAttrDict(UserDict[str, Any]):
 
         self.db = db
         self.graph = graph
-        self.edge_id: str | None = None
+        self.edge_id: str | None = None  # established in __setitem__
 
         # EdgeAttrDict may be a child of another EdgeAttrDict
         # e.g G._adj['node/1']['node/2']['object']['foo'] = 'bar'
@@ -191,7 +233,10 @@ class EdgeAttrDict(UserDict[str, Any]):
         raise NotImplementedError("Cannot clear EdgeAttrDict")
 
     def copy(self) -> Any:
-        return self.data.copy()
+        return {
+            key: value.copy() if hasattr(value, "copy") else value
+            for key, value in self.data.items()
+        }
 
     @key_is_string
     def __contains__(self, key: str) -> bool:
@@ -275,10 +320,33 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
     - keys must be ArangoDB Edge IDs
     - key-to-edge mapping is 1-to-1
 
-    :param db: The ArangoDB database.
-    :type db: StandardDatabase
-    :param graph: The ArangoDB graph.
-    :type graph: Graph
+    Parameters
+    ----------
+    db : arango.database.StandardDatabase
+        The ArangoDB database.
+
+    graph : arango.graph.Graph
+        The ArangoDB graph.
+
+    edge_type_key : str
+        The key used to store the edge type in the edge attribute dictionary.
+
+    edge_type_func : Callable[[str, str], str]
+        The function to generate the edge type from the source and
+        destination node types.
+
+    is_directed : bool
+        Whether the graph is directed or not.
+
+    adjlist_inner_dict : AdjListInnerDict | None
+        The parent AdjListInnerDict.
+
+    Examples
+    --------
+    >>> g = nxadb.MultiGraph(name="MyGraph")
+    >>> edge_id = g.add_edge("node/1", "node/2", foo="bar")
+    >>> g["node/1"]["node/2"][edge_id]
+    EdgeAttrDict({'foo': 'bar', '_key': ..., '_id': ...})
     """
 
     def __init__(
@@ -352,14 +420,14 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         return next(islice(self.data.keys(), key, key + 1))
 
     def __is_valid_edge_outbound(self, edge: dict[str, Any]) -> bool:
-        return bool(
-            edge["_from"] == self.src_node_id and edge["_to"] == self.dst_node_id
-        )
+        a = edge["_from"] == self.src_node_id
+        b = edge["_to"] == self.dst_node_id
+        return bool(a and b)
 
     def __is_valid_edge_inbound(self, edge: dict[str, Any]) -> bool:
-        return bool(
-            edge["_from"] == self.dst_node_id and edge["_to"] == self.src_node_id
-        )
+        a = edge["_from"] == self.dst_node_id
+        b = edge["_to"] == self.src_node_id
+        return bool(a and b)
 
     def __is_valid_edge_any(self, edge: dict[str, Any]) -> bool:
         return self.__is_valid_edge_outbound(edge) or self.__is_valid_edge_inbound(edge)
@@ -381,10 +449,15 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         - The "mirror" is the "reverse" adjlist_outer_dict because
             the adjacency list is different in both directions (i.e _pred and _succ)
 
-        :param dst_node_id: The destination node ID.
-        :type dst_node_id: str
-        :return: The edge attribute dictionary if it exists.
-        :rtype: EdgeAttrDict | None
+        Parameters
+        ----------
+        edge_id : str
+            The edge ID.
+
+        Returns
+        -------
+        EdgeAttrDict | None
+            The edge attribute dictionary if it exists.
         """
         if self.adjlist_inner_dict is None:
             return None
@@ -426,8 +499,10 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
     @key_is_adb_id_or_int
     def __contains__(self, key: str | int) -> bool:
         """
-        'edge/1' in G._adj['node/1']['node/2']
-        0 in G._adj['node/1']['node/2']
+        Examples
+        --------
+        >>> 'edge/1' in G._adj['node/1']['node/2']
+        >>> 0 in G._adj['node/1']['node/2']
         """
         # HACK: This is a workaround for the fact that
         # nxadb.MultiGraph does not yet support custom edge keys
@@ -459,11 +534,17 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         # the entire edge from the database to check if it is valid.
         edge_attr_dict = self._create_edge_attr_dict(edge)
         self.data[key] = edge_attr_dict
+
         return True
 
     @key_is_adb_id_or_int
     def __getitem__(self, key: str | int) -> EdgeAttrDict:
-        """G._adj['node/1']['node/2']['edge/1']"""
+        """
+        Examples
+        --------
+        >>> G._adj['node/1']['node/2']['edge/1']
+        >>> G._adj['node/1']['node/2'][0]
+        """
         # HACK: This is a workaround for the fact that
         # nxadb.MultiGraph does not yet support custom edge keys
         if key == "-1":
@@ -553,11 +634,18 @@ class EdgeKeyDict(UserDict[str, EdgeAttrDict]):
         # for any nested EdgeAttrDicts within edge_attr_dict
         edge_id = edge["_id"]
         edge_attr_dict = self._create_edge_attr_dict(edge_data)
+
         self.data[edge_id] = edge_attr_dict
+
         del self.data[str(key)]
 
     def __delitem__(self, key: str) -> None:
-        """del G._adj['node/1']['node/2']['edge/1']"""
+        """
+        Examples
+        --------
+        >>> del G._adj['node/1']['node/2']['edge/1']
+        >>> del G._adj['node/1']['node/2'][0]
+        """
         if isinstance(key, int):
             key = self.__process_int_edge_key(key)
 
@@ -704,14 +792,36 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
 
     AdjListInnerDict is keyed by the node ID of the destination node.
 
-    :param db: The ArangoDB database.
-    :type db: StandardDatabase
-    :param graph: The ArangoDB graph.
-    :type graph: Graph
-    :param default_node_type: The default node type.
-    :type default_node_type: str
-    :param edge_type_func: The function to generate the edge type.
-    :type edge_type_func: Callable[[str, str], str]
+    Parameters
+    ----------
+    db : arango.database.StandardDatabase
+        The ArangoDB database.
+
+    graph : arango.graph.Graph
+        The ArangoDB graph.
+
+    default_node_type : str
+        The default node type.
+
+    edge_type_key : str
+        The key used to store the edge type in the edge attribute dictionary.
+
+    edge_type_func : Callable[[str, str], str]
+        The function to generate the edge type from the source and
+        destination node types.
+
+    graph_type : str
+        The type of graph (e.g. 'Graph', 'DiGraph', 'MultiGraph', 'MultiDiGraph').
+
+    adjlist_outer_dict : AdjListOuterDict | None
+        The parent AdjListOuterDict.
+
+    Examples
+    --------
+    >>> g = nxadb.Graph(name="MyGraph")
+    >>> g.add_edge("node/1", "node/2", foo="bar")
+    >>> g['node/1']
+    AdjListInnerDict('node/1')
     """
 
     def __init__(
@@ -824,10 +934,15 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         - The "mirror" is the "reverse" adjlist_outer_dict because
             the adjacency list is different in both directions (i.e _pred and _succ)
 
-        :param dst_node_id: The destination node ID.
-        :type dst_node_id: str
-        :return: The edge attribute dictionary if it exists.
-        :rtype: EdgeAttrDict | None
+        Parameters
+        ----------
+        dst_node_id : str
+            The destination node ID.
+
+        Returns
+        -------
+        EdgeAttrDict | EdgeKeyDict | None
+            The edge attribute dictionary or key dictionary if it exists.
         """
         if self.adjlist_outer_dict is None:
             return None
@@ -1205,7 +1320,7 @@ class AdjListInnerDict(UserDict[str, EdgeAttrDict | EdgeKeyDict]):
         # perform write to ArangoDB
         result = upsert_collection_edges(self.db, to_upsert)
 
-        all_good = check_list_for_errors(result)
+        all_good = check_update_list_for_errors(result)
         if all_good:
             # Means no single operation failed, in this case we update the local cache
             self.__set_adj_elements(edges)
@@ -1315,14 +1430,36 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
 
     AdjListOuterDict is keyed by the node ID of the source node.
 
-    :param db: The ArangoDB database.
-    :type db: StandardDatabase
-    :param graph: The ArangoDB graph.
-    :type graph: Graph
-    :param default_node_type: The default node type.
-    :type default_node_type: str
-    :param edge_type_func: The function to generate the edge type.
-    :type edge_type_func: Callable[[str, str], str]
+    Parameters
+    ----------
+    db : arango.database.StandardDatabase
+        The ArangoDB database.
+
+    graph : arango.graph.Graph
+        The ArangoDB graph.
+
+    default_node_type : str
+        The default node type.
+
+    edge_type_key : str
+        The key used to store the edge type in the edge attribute dictionary.
+
+    edge_type_func : Callable[[str, str], str]
+        The function to generate the edge type from the source and
+        destination node types.
+
+    graph_type : str
+        The type of graph (e.g. 'Graph', 'DiGraph', 'MultiGraph', 'MultiDiGraph').
+
+    symmetrize_edges_if_directed : bool
+        Whether to add the reverse edge if the graph is directed.
+
+    Example
+    -------
+    >>> g = nxadb.Graph(name="MyGraph")
+    >>> g.add_edge("node/1", "node/2", foo="bar")
+    >>> g._adj
+    AdjListOuterDict('MyGraph')
     """
 
     def __init__(
@@ -1539,7 +1676,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         )
         result = upsert_collection_edges(self.db, separated_by_edge_collection)
 
-        all_good = check_list_for_errors(result)
+        all_good = check_update_list_for_errors(result)
         if all_good:
             # Means no single operation failed, in this case we update the local cache
             self.__set_adj_elements(edges)
@@ -1578,11 +1715,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             yield from aql_fetch_data_edge(self.db, e_cols, data, default)
 
     def __set_adj_elements(
-        self,
-        adj_dict: (
-            GraphAdjDict | DiGraphAdjDict | MultiGraphAdjDict | MultiDiGraphAdjDict
-        ),
-        node_dict: NodeDict | None = None,
+        self, adj_dict: AdjDict, node_dict: NodeDict | None = None
     ) -> None:
         def set_edge_graph(
             src_node_id: str, dst_node_id: str, edge: dict[str, Any]

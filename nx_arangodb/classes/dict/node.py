@@ -15,7 +15,7 @@ from ..function import (
     aql_doc_get_key,
     aql_doc_has_key,
     aql_fetch_data,
-    check_list_for_errors,
+    check_update_list_for_errors,
     doc_delete,
     doc_insert,
     doc_update,
@@ -42,12 +42,14 @@ from ..function import (
 def node_dict_factory(
     db: StandardDatabase, graph: Graph, default_node_type: str
 ) -> Callable[..., NodeDict]:
+    """Factory function for creating a NodeDict."""
     return lambda: NodeDict(db, graph, default_node_type)
 
 
 def node_attr_dict_factory(
     db: StandardDatabase, graph: Graph
 ) -> Callable[..., NodeAttrDict]:
+    """Factory function for creating a NodeAttrDict."""
     return lambda: NodeAttrDict(db, graph)
 
 
@@ -64,7 +66,17 @@ def build_node_attr_dict_data(
     It's possible that **value** is a nested dict, so we need to
     recursively build a NodeAttrDict for each nested dict.
 
-    Returns the parent NodeAttrDict.
+    Parameters
+    ----------
+    parent : NodeAttrDict
+        The parent NodeAttrDict.
+    data : dict[str, Any]
+        The data to build the NodeAttrDict from.
+
+    Returns
+    -------
+    dict[str, Any | NodeAttrDict]
+        The data for the new NodeAttrDict.
     """
     node_attr_dict_data = {}
     for key, value in data.items():
@@ -75,6 +87,25 @@ def build_node_attr_dict_data(
 
 
 def process_node_attr_dict_value(parent: NodeAttrDict, key: str, value: Any) -> Any:
+    """Process the value of a particular key in a NodeAttrDict.
+
+    If the value is a dict, then we need to recursively build an NodeAttrDict.
+    Otherwise, we return the value as is.
+
+    Parameters
+    ----------
+    parent : NodeAttrDict
+        The parent NodeAttrDict.
+    key : str
+        The key of the value.
+    value : Any
+        The value to process.
+
+    Returns
+    -------
+    Any
+        The processed value.
+    """
     if not isinstance(value, dict):
         return value
 
@@ -91,10 +122,20 @@ class NodeAttrDict(UserDict[str, Any]):
     """The inner-level of the dict of dict structure
     representing the nodes (vertices) of a graph.
 
-    :param db: The ArangoDB database.
-    :type db: StandardDatabase
-    :param graph: The ArangoDB graph.
-    :type graph: Graph
+    Parameters
+    ----------
+    db : arango.database.StandardDatabase
+        The ArangoDB database.
+
+    graph : arango.graph.Graph
+        The ArangoDB graph object.
+
+    Example
+    -------
+    >>> G = nxadb.Graph("MyGraph")
+    >>> G.add_node('node/1', foo='bar')
+    >>> G.nodes['node/1']['foo']
+    'bar'
     """
 
     def __init__(self, db: StandardDatabase, graph: Graph, *args: Any, **kwargs: Any):
@@ -197,13 +238,22 @@ class NodeDict(UserDict[str, NodeAttrDict]):
     The outer dict is keyed by ArangoDB Vertex IDs and the inner dict
     is keyed by Vertex attributes.
 
-    :param db: The ArangoDB database.
-    :type db: StandardDatabase
-    :param graph: The ArangoDB graph.
-    :type graph: Graph
-    :param default_node_type: The default node type. Used if the node ID
-        is not formatted as 'type/id'.
-    :type default_node_type: str
+    Parameters
+    ----------
+    db : arango.database.StandardDatabase
+        The ArangoDB database.
+
+    graph : arango.graph.Graph
+        The ArangoDB graph object.
+
+    default_node_type : str
+        The default node type for the graph.
+
+    Example
+    -------
+    >>> G = nxadb.Graph("MyGraph")
+    >>> G.add_node('node/1', foo='bar')
+    >>> G.nodes
     """
 
     def __init__(
@@ -370,7 +420,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         result = upsert_collection_documents(self.db, separated_by_collection)
 
-        all_good = check_list_for_errors(result)
+        all_good = check_update_list_for_errors(result)
         if all_good:
             # Means no single operation failed, in this case we update the local cache
             self.__update_local_nodes(nodes)

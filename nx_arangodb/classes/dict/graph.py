@@ -24,12 +24,14 @@ from ..function import (
 
 
 def graph_dict_factory(db: StandardDatabase, graph: Graph) -> Callable[..., GraphDict]:
+    """Factory function for creating a GraphDict."""
     return lambda: GraphDict(db, graph)
 
 
 def graph_attr_dict_factory(
     db: StandardDatabase, graph: Graph, graph_id: str
 ) -> Callable[..., GraphAttrDict]:
+    """Factory function for creating a GraphAttrDict."""
     return lambda: GraphAttrDict(db, graph, graph_id)
 
 
@@ -41,12 +43,22 @@ def graph_attr_dict_factory(
 def build_graph_attr_dict_data(
     parent: GraphAttrDict, data: dict[str, Any]
 ) -> dict[str, Any | GraphAttrDict]:
-    """Recursively build a GraphAttrDict from a dict.
+    """Recursively build an GraphAttrDict from a dict.
 
     It's possible that **value** is a nested dict, so we need to
     recursively build a GraphAttrDict for each nested dict.
 
-    Returns the parent GraphAttrDict.
+    Parameters
+    ----------
+    parent : GraphAttrDict
+        The parent GraphAttrDict.
+    data : dict[str, Any]
+        The data to build the GraphAttrDict from.
+
+    Returns
+    -------
+    dict[str, Any | GraphAttrDict]
+        The data for the new GraphAttrDict.
     """
     graph_attr_dict_data = {}
     for key, value in data.items():
@@ -57,6 +69,25 @@ def build_graph_attr_dict_data(
 
 
 def process_graph_attr_dict_value(parent: GraphAttrDict, key: str, value: Any) -> Any:
+    """Process the value of a particular key in an GraphAttrDict.
+
+    If the value is a dict, then we need to recursively build an GraphAttrDict.
+    Otherwise, we return the value as is.
+
+    Parameters
+    ----------
+    parent : GraphAttrDict
+        The parent GraphAttrDict.
+    key : str
+        The key of the value.
+    value : Any
+        The value to process.
+
+    Returns
+    -------
+    Any
+        The processed value.
+    """
     if not isinstance(value, dict):
         return value
 
@@ -73,10 +104,23 @@ class GraphDict(UserDict[str, Any]):
     Given that ArangoDB does not have a concept of graph attributes, this class
     stores the attributes in a collection with the graph name as the document key.
 
-    :param db: The ArangoDB database.
-    :type db: StandardDatabase
-    :param graph_name: The graph name.
-    :type graph_name: str
+    For now, the collection is called 'nxadb_graphs'.
+
+    Parameters
+    ----------
+    db : arango.database.StandardDatabase
+        The ArangoDB database.
+
+    graph : arango.graph.Graph
+        The ArangoDB graph.
+
+    Example
+    -------
+    >>> G = nxadb.Graph(name='MyGraph', foo='bar')
+    >>> G.graph['foo']
+    'bar'
+    >>> G.graph['foo'] = 'baz'
+    >>> del G.graph['foo']
     """
 
     def __init__(self, db: StandardDatabase, graph: Graph, *args: Any, **kwargs: Any):
@@ -178,12 +222,23 @@ class GraphAttrDict(UserDict[str, Any]):
 
     Only used if the value associated with a GraphDict key is a dict.
 
-    :param db: The ArangoDB database.
-    :type db: StandardDatabase
-    :param graph: The ArangoDB graph.
-    :type graph: Graph
-    :param graph_id: The ArangoDB graph ID.
-    :type graph_id: str
+    Parameters
+    ----------
+    db : arango.database.StandardDatabase
+        The ArangoDB database.
+
+    graph : arango.graph.Graph
+        The ArangoDB graph.
+
+    graph_id : str
+        The ArangoDB document ID of the graph.
+
+    Example
+    -------
+    >>> G = nxadb.Graph(name='MyGraph', foo={'bar': 'baz'})
+    >>> G.graph['foo']['bar']
+    'baz'
+    >>> G.graph['foo']['bar'] = 'qux'
     """
 
     def __init__(

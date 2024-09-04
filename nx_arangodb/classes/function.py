@@ -27,6 +27,7 @@ from phenolrs.networkx.typings import (
     NodeDict,
     SrcIndices,
 )
+from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from nx_arangodb.logger import logger
 
@@ -148,30 +149,38 @@ def get_arangodb_graph(
     assert config.username
     assert config.password
 
-    (
-        node_dict,
-        adj_dict,
-        src_indices,
-        dst_indices,
-        edge_indices,
-        vertex_ids_to_index,
-        edge_values,
-    ) = NetworkXLoader.load_into_networkx(
-        config.db_name,
-        metagraph=metagraph,
-        hosts=[config.host],
-        username=config.username,
-        password=config.password,
-        load_adj_dict=load_adj_dict,
-        load_coo=load_coo,
-        load_all_vertex_attributes=load_all_vertex_attributes,
-        load_all_edge_attributes=load_all_edge_attributes,
-        is_directed=is_directed,
-        is_multigraph=is_multigraph,
-        symmetrize_edges_if_directed=symmetrize_edges_if_directed,
-        parallelism=config.read_parallelism,
-        batch_size=config.read_batch_size,
-    )
+    with Progress(
+        TextColumn(f"Fetching '{adb_graph.name}'"),
+        SpinnerColumn(),
+        TimeElapsedColumn(),
+        transient=True,
+    ) as progress:
+        progress.add_task("")
+
+        (
+            node_dict,
+            adj_dict,
+            src_indices,
+            dst_indices,
+            edge_indices,
+            vertex_ids_to_index,
+            edge_values,
+        ) = NetworkXLoader.load_into_networkx(
+            config.db_name,
+            metagraph=metagraph,
+            hosts=[config.host],
+            username=config.username,
+            password=config.password,
+            load_adj_dict=load_adj_dict,
+            load_coo=load_coo,
+            load_all_vertex_attributes=load_all_vertex_attributes,
+            load_all_edge_attributes=load_all_edge_attributes,
+            is_directed=is_directed,
+            is_multigraph=is_multigraph,
+            symmetrize_edges_if_directed=symmetrize_edges_if_directed,
+            parallelism=config.read_parallelism,
+            batch_size=config.read_batch_size,
+        )
 
     return (
         node_dict,

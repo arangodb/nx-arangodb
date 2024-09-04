@@ -34,8 +34,8 @@ nx-arangodb
    :target: https://github.com/arangodb/nx-arangodb/actions/workflows/analyze.yml
    :alt: CodeQL
 
-.. image:: https://github.com/arangodb/nx-arangodb/actions/workflows/docs.yaml/badge.svg
-   :target: https://github.com/arangodb/nx-arangodb/actions/workflows/docs.yaml
+.. image:: https://readthedocs.org/projects/nx-arangodb/badge/?version=latest
+   :target: https://nx-arangodb.readthedocs.io/en/latest/?badge=latest
    :alt: Docs
 
 .. raw:: html

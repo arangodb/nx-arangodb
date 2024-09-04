@@ -153,8 +153,10 @@ def get_arangodb_graph(
         TextColumn(f"Fetching '{adb_graph.name}'"),
         SpinnerColumn(),
         TimeElapsedColumn(),
-        transient=False,
-    ):
+        transient=True,
+    ) as progress:
+        progress.add_task("")
+
         (
             node_dict,
             adj_dict,

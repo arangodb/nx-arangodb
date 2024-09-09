@@ -81,7 +81,7 @@ def get_info():
         "db_name": None,
         "read_parallelism": None,
         "read_batch_size": None,
-        "use_gpu": True,
+        "use_gpu": True,  # Only usable if nx-cugraph is available
     }
 
     return d

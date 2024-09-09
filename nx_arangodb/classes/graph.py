@@ -10,6 +10,7 @@ from arango.database import StandardDatabase
 from networkx.exception import NetworkXError
 
 import nx_arangodb as nxadb
+from _nx_arangodb import get_info
 from nx_arangodb.exceptions import (
     DatabaseNotSet,
     EdgeTypeAmbiguity,
@@ -379,6 +380,10 @@ class Graph(nx.Graph):
             m = "Must set all environment variables to use the ArangoDB Backend with an existing graph"  # noqa: E501
             raise OSError(m)
 
+        if "arangodb" not in nx.config.backends:
+            default_config = get_info()["default_config"]
+            nx.config.backends.arangodb = nx.utils.Config(**default_config)
+
         config = nx.config.backends.arangodb
         config.host = self._host
         config.username = self._username
@@ -386,7 +391,6 @@ class Graph(nx.Graph):
         config.db_name = self._db_name
         config.read_parallelism = read_parallelism
         config.read_batch_size = read_batch_size
-        config.use_gpu = True  # Only used by default if nx-cugraph is available
 
     def __set_edge_collections_attributes(self, attributes: set[str] | None) -> None:
         if not attributes:

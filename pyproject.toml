@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nx-arangodb"
 dynamic = ["version"]
-description = "ArangoDB backend for NetworkX"
+description = "ArangoDB backend to NetworkX"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
     { name = "ArangoDB" },

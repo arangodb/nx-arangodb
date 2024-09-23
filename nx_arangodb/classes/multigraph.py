@@ -215,6 +215,8 @@ class MultiGraph(Graph, nx.MultiGraph):
             else:
                 nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)
 
+            self._loaded_incoming_graph_data = True
+
     #######################
     # Init helper methods #
     #######################

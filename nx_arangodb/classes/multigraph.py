@@ -136,6 +136,12 @@ class MultiGraph(Graph, nx.MultiGraph):
         whenever possible. NOTE: This feature is experimental and may not work
         as expected.
 
+    overwrite_graph : bool (optional, default: False)
+        Whether to truncate the graph collections when the graph is loaded from
+        the database. If set to True, the graph collections will be truncated
+        before loading the graph data. NOTE: This parameter only applies if the
+        graph already exists in the database.
+
     args: positional arguments for nx.Graph
         Additional arguments passed to nx.Graph.
 

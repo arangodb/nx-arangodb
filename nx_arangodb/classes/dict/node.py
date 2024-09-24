@@ -221,7 +221,8 @@ class NodeAttrDict(UserDict[str, Any]):
         if not attrs:
             return
 
-        self.data.update(build_node_attr_dict_data(self, attrs))
+        node_attr_dict_data = build_node_attr_dict_data(self, attrs)
+        self.data.update(node_attr_dict_data)
 
         if not self.node_id:
             logger.debug("Node ID not set, skipping NodeAttrDict(?).update()")
@@ -275,10 +276,12 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         self.FETCHED_ALL_DATA = False
         self.FETCHED_ALL_IDS = False
 
-    def _create_node_attr_dict(self, vertex: dict[str, Any]) -> NodeAttrDict:
+    def _create_node_attr_dict(
+        self, node_id: str, node_data: dict[str, Any]
+    ) -> NodeAttrDict:
         node_attr_dict = self.node_attr_dict_factory()
-        node_attr_dict.node_id = vertex["_id"]
-        node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, vertex)
+        node_attr_dict.node_id = node_id
+        node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, node_data)
 
         return node_attr_dict
 
@@ -322,7 +325,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             raise KeyError(key)
 
         if vertex_db := vertex_get(self.graph, node_id):
-            node_attr_dict = self._create_node_attr_dict(vertex_db)
+            node_attr_dict = self._create_node_attr_dict(vertex_db["_id"], vertex_db)
             self.data[node_id] = node_attr_dict
 
             return node_attr_dict
@@ -342,7 +345,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         result = doc_insert(self.db, node_type, node_id, value.data)
 
-        node_attr_dict = self._create_node_attr_dict(result)
+        node_attr_dict = self._create_node_attr_dict(result["_id"], value.data)
 
         self.data[node_id] = node_attr_dict
 
@@ -405,10 +408,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
     @keys_are_strings
     def __update_local_nodes(self, nodes: Any) -> None:
         for node_id, node_data in nodes.items():
-            node_attr_dict = self.node_attr_dict_factory()
-            node_attr_dict.node_id = node_id
-            node_attr_dict.data = build_node_attr_dict_data(node_attr_dict, node_data)
-
+            node_attr_dict = self._create_node_attr_dict(node_id, node_data)
             self.data[node_id] = node_attr_dict
 
     @keys_are_strings
@@ -478,7 +478,7 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
         for node_id, node_data in node_dict.items():
             del node_data["_rev"]  # TODO: Optimize away via phenolrs
-            node_attr_dict = self._create_node_attr_dict(node_data)
+            node_attr_dict = self._create_node_attr_dict(node_data["_id"], node_data)
             self.data[node_id] = node_attr_dict
 
         self.FETCHED_ALL_DATA = True

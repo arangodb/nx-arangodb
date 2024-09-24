@@ -125,6 +125,8 @@ def test_load_graph_from_nxadb_as_smart_graph():
         ],
     )
 
+    # Small preprocessing to remove whitespaces from club names,
+    # as smart graphs do not allow whitespaces in smart fields
     G_NX_copy = G_NX.copy()
     for _, node in G_NX_copy.nodes(data=True):
         node["club"] = node["club"].replace(" ", "")

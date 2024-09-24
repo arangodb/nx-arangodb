@@ -248,7 +248,7 @@ class Graph(nx.Graph):
             self.clear = self.clear_override
             self.clear_edges = self.clear_edges_override
             self.add_node = self.add_node_override
-            # self.add_nodes_from = self.add_nodes_from_override
+            self.add_nodes_from = self.add_nodes_from_override
             self.number_of_edges = self.number_of_edges_override
             self.nbunch_iter = self.nbunch_iter_override
 
@@ -710,9 +710,48 @@ class Graph(nx.Graph):
 
         nx._clear_cache(self)
 
-    # TODO: Address in separate PR
-    # def add_nodes_from_override(self, nodes_for_adding, **attr):
-    #     raise NotImplementedError("Not yet implemented")
+    def add_nodes_from_override(self, nodes_for_adding, **attr):
+        for n in nodes_for_adding:
+            try:
+                newnode = n not in self._node
+                newdict = attr
+            except TypeError:
+                n, ndict = n
+                newnode = n not in self._node
+                newdict = attr.copy()
+                newdict.update(ndict)
+            if newnode:
+                if n is None:
+                    raise ValueError("None cannot be a node")
+                self._adj[n] = self.adjlist_inner_dict_factory()
+
+                ######################
+                # NOTE: monkey patch #
+                ######################
+
+                # Old:
+                #   self._node[n] = self.node_attr_dict_factory()
+                #
+                # self._node[n].update(newdict)
+
+                # New:
+                node_attr_dict = self.node_attr_dict_factory()
+                node_attr_dict.data = newdict
+                self._node[n] = node_attr_dict
+
+            else:
+
+                self._node[n].update(newdict)
+
+                # Reason:
+                # We can optimize the process of adding a node by creating avoiding
+                # the creation of a new dictionary and updating it with the attributes.
+                # Instead, we can create a new node_attr_dict object and set the attributes
+                # directly. This only makes 1 network call to the database instead of 2.
+
+                ###########################
+
+        nx._clear_cache(self)
 
     def number_of_edges_override(self, u=None, v=None):
         if u is not None:

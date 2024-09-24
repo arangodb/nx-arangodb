@@ -334,18 +334,16 @@ class NodeDict(UserDict[str, NodeAttrDict]):
 
     @key_is_string
     def __setitem__(self, key: str, value: NodeAttrDict) -> None:
-        """G._node['node/1'] = {'foo': 'bar'}
-
-        Not to be confused with:
-        - G.add_node('node/1', foo='bar')
-        """
+        """G._node['node/1'] = {'foo': 'bar'}"""
         assert isinstance(value, NodeAttrDict)
 
         node_type, node_id = get_node_type_and_id(key, self.default_node_type)
 
         result = doc_insert(self.db, node_type, node_id, value.data)
 
-        node_attr_dict = self._create_node_attr_dict(result["_id"], value.data)
+        node_attr_dict = self._create_node_attr_dict(
+            result["_id"], {**value.data, **result}
+        )
 
         self.data[node_id] = node_attr_dict
 

@@ -746,7 +746,7 @@ class Graph(nx.Graph):
                 # Reason:
                 # We can optimize the process of adding a node by creating avoiding
                 # the creation of a new dictionary and updating it with the attributes.
-                # Instead, we can create a new node_attr_dict object and set the attributes
+                # Instead, we create a new node_attr_dict object and set the attributes
                 # directly. This only makes 1 network call to the database instead of 2.
 
                 ###########################

@@ -232,15 +232,6 @@ class DiGraph(Graph, nx.DiGraph):
         if node_for_adding is None:
             raise ValueError("None cannot be a node")
 
-        # New:
-        # if self.is_smart:
-        # node_for_adding = self._get_smart_id(node_for_adding, attr)
-
-        # Reason:
-        # Support for ArangoDB Smart Graphs requires the smart field
-        # to be set before adding the node to the graph. This is because
-        # the smart field is used to generate the node's key.
-
         if node_for_adding not in self._succ:
 
             self._succ[node_for_adding] = self.adjlist_inner_dict_factory()

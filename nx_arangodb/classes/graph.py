@@ -29,7 +29,7 @@ from .dict import (
     node_attr_dict_factory,
     node_dict_factory,
 )
-from .function import cast_to_string, get_node_id
+from .function import get_node_id
 from .reportviews import ArangoEdgeView, ArangoNodeView
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.Graph)  # type: ignore
@@ -614,24 +614,6 @@ class Graph(nx.Graph):
 
         return str(response["result"])
 
-    def _get_smart_id(self, node_for_adding: str, attr: dict[Any, Any]) -> str:
-        raise NotImplementedError(
-            "This is broken if node_for_adding is structured like an ArangoDB ID"
-        )  # noqa: E501
-        # Should we really be doing this? Database would catch this error anyways...
-
-        if self.smart_field not in attr:
-            m = f"Node {node_for_adding} missing smart field '{self.smart_field}'"  # noqa: E501
-            raise KeyError(m)
-
-        # TODO: Revisit this behaviour.
-        # Too magical? Raise error instead? Let ArangoDB handle it?
-        node_for_adding = cast_to_string(node_for_adding)
-        if ":" not in node_for_adding:
-            node_for_adding = f"{attr[self.smart_field]}:{node_for_adding}"
-
-        return node_for_adding
-
     #####################
     # nx.Graph Overides #
     #####################
@@ -698,15 +680,6 @@ class Graph(nx.Graph):
     def add_node_override(self, node_for_adding, **attr):
         if node_for_adding is None:
             raise ValueError("None cannot be a node")
-
-        # New:
-        # if self.is_smart:
-        # node_for_adding = self._get_smart_id(node_for_adding, attr)
-
-        # Reason:
-        # Support for ArangoDB Smart Graphs requires the smart field
-        # to be set before adding the node to the graph. This is because
-        # the smart field is used to generate the node's key.
 
         if node_for_adding not in self._node:
             self._adj[node_for_adding] = self.adjlist_inner_dict_factory()

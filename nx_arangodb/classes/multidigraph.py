@@ -165,6 +165,7 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         write_async: bool = True,
         symmetrize_edges: bool = False,
         use_arango_views: bool = False,
+        overwrite_graph: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
@@ -183,6 +184,7 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
             write_async,
             symmetrize_edges,
             use_arango_views,
+            overwrite_graph,
             *args,
             **kwargs,
         )

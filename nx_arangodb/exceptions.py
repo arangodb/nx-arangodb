@@ -14,6 +14,10 @@ class GraphNameNotSet(NetworkXArangoDBException):
     pass
 
 
+class GraphNotEmpty(NetworkXArangoDBException):
+    pass
+
+
 class InvalidTraversalDirection(NetworkXArangoDBException):
     pass
 

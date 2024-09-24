@@ -167,7 +167,7 @@ def test_load_graph_from_nxadb_as_smart_graph():
     assert G["Mr.Hi:0"]["Officer:35"]["weight"] == 5
 
     G.add_nodes_from(
-        [("Officer:36", {"club": "Officer"}), ("Mr.Hi:37", {"club": "Mr.Hibl"})]
+        [("Officer:36", {"club": "Officer"}), ("Mr.Hi:37", {"club": "Mr.Hi"})]
     )
     assert G.has_node("Officer:36")
     assert G.has_node("Mr.Hi:37")

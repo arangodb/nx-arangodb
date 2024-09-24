@@ -28,7 +28,7 @@ from .dict import (
     node_attr_dict_factory,
     node_dict_factory,
 )
-from .function import get_node_id
+from .function import cast_to_string, get_node_id
 from .reportviews import ArangoEdgeView, ArangoNodeView
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.Graph)  # type: ignore
@@ -247,6 +247,7 @@ class Graph(nx.Graph):
             self.clear = self.clear_override
             self.clear_edges = self.clear_edges_override
             self.add_node = self.add_node_override
+            # self.add_nodes_from = self.add_nodes_from_override
             self.number_of_edges = self.number_of_edges_override
             self.nbunch_iter = self.nbunch_iter_override
 
@@ -599,6 +600,24 @@ class Graph(nx.Graph):
 
         return str(response["result"])
 
+    def _get_smart_id(self, node_for_adding: str, attr: dict[Any, Any]) -> str:
+        raise NotImplementedError(
+            "This is broken if node_for_adding is structured like an ArangoDB ID"
+        )  # noqa: E501
+        # Should we really be doing this? Database would catch this error anyways...
+
+        if self.smart_field not in attr:
+            m = f"Node {node_for_adding} missing smart field '{self.smart_field}'"  # noqa: E501
+            raise KeyError(m)
+
+        # TODO: Revisit this behaviour.
+        # Too magical? Raise error instead? Let ArangoDB handle it?
+        node_for_adding = cast_to_string(node_for_adding)
+        if ":" not in node_for_adding:
+            node_for_adding = f"{attr[self.smart_field]}:{node_for_adding}"
+
+        return node_for_adding
+
     #####################
     # nx.Graph Overides #
     #####################
@@ -663,10 +682,19 @@ class Graph(nx.Graph):
         nx._clear_cache(self)
 
     def add_node_override(self, node_for_adding, **attr):
-        if node_for_adding not in self._node:
-            if node_for_adding is None:
-                raise ValueError("None cannot be a node")
+        if node_for_adding is None:
+            raise ValueError("None cannot be a node")
 
+        # New:
+        # if self.is_smart:
+        # node_for_adding = self._get_smart_id(node_for_adding, attr)
+
+        # Reason:
+        # Support for ArangoDB Smart Graphs requires the smart field
+        # to be set before adding the node to the graph. This is because
+        # the smart field is used to generate the node's key.
+
+        if node_for_adding not in self._node:
             self._adj[node_for_adding] = self.adjlist_inner_dict_factory()
 
             ######################
@@ -679,23 +707,14 @@ class Graph(nx.Graph):
 
             # New:
             node_attr_dict = self.node_attr_dict_factory()
-
-            if self.is_smart:
-                if self.smart_field not in attr:
-                    m = f"Node {node_for_adding} missing smart field '{self.smart_field}'"  # noqa: E501
-                    raise KeyError(m)
-
-                node_attr_dict.data[self.smart_field] = attr[self.smart_field]
-
+            node_attr_dict.data = attr
             self._node[node_for_adding] = node_attr_dict
-            self._node[node_for_adding].update(attr)
 
             # Reason:
-            # Invoking `update` on the `attr_dict` without `attr_dict.node_id` being set
-            # i.e trying to update a node's attributes before we know _which_ node it is
-            # Furthermore, support for ArangoDB Smart Graphs requires the smart field
-            # to be set before adding the node to the graph. This is because the smart
-            # field is used to generate the node's key.
+            # We can optimize the process of adding a node by creating avoiding
+            # the creation of a new dictionary and updating it with the attributes.
+            # Instead, we can create a new node_attr_dict object and set the attributes
+            # directly. This only makes 1 network call to the database instead of 2.
 
             ###########################
 
@@ -703,6 +722,10 @@ class Graph(nx.Graph):
             self._node[node_for_adding].update(attr)
 
         nx._clear_cache(self)
+
+    # TODO: Address in separate PR
+    # def add_nodes_from_override(self, nodes_for_adding, **attr):
+        # raise NotImplementedError("Not yet implemented")
 
     def number_of_edges_override(self, u=None, v=None):
         if u is not None:

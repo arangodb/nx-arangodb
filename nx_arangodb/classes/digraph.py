@@ -178,6 +178,7 @@ class DiGraph(Graph, nx.DiGraph):
         if self.graph_exists_in_db:
             self.clear_edges = self.clear_edges_override
             self.add_node = self.add_node_override
+            # self.add_nodes_from = self.add_nodes_from_override
             self.remove_node = self.remove_node_override
             self.reverse = self.reverse_override
 
@@ -226,9 +227,19 @@ class DiGraph(Graph, nx.DiGraph):
         super().clear_edges()
 
     def add_node_override(self, node_for_adding, **attr):
+        if node_for_adding is None:
+            raise ValueError("None cannot be a node")
+
+        # New:
+        # if self.is_smart:
+        # node_for_adding = self._get_smart_id(node_for_adding, attr)
+
+        # Reason:
+        # Support for ArangoDB Smart Graphs requires the smart field
+        # to be set before adding the node to the graph. This is because
+        # the smart field is used to generate the node's key.
+
         if node_for_adding not in self._succ:
-            if node_for_adding is None:
-                raise ValueError("None cannot be a node")
 
             self._succ[node_for_adding] = self.adjlist_inner_dict_factory()
             self._pred[node_for_adding] = self.adjlist_inner_dict_factory()
@@ -242,25 +253,15 @@ class DiGraph(Graph, nx.DiGraph):
             # attr_dict.update(attr)
 
             # New:
-
             node_attr_dict = self.node_attr_dict_factory()
-
-            if self.is_smart:
-                if self.smart_field not in attr:
-                    m = f"Node {node_for_adding} missing smart field '{self.smart_field}'"  # noqa: E501
-                    raise KeyError(m)
-
-                node_attr_dict.data[self.smart_field] = attr[self.smart_field]
-
-            self._node[node_for_adding] = self.node_attr_dict_factory()
-            self._node[node_for_adding].update(attr)
+            node_attr_dict.data = attr
+            self._node[node_for_adding] = node_attr_dict
 
             # Reason:
-            # Invoking `update` on the `attr_dict` without `attr_dict.node_id` being set
-            # i.e trying to update a node's attributes before we know _which_ node it is
-            # Furthermore, support for ArangoDB Smart Graphs requires the smart field
-            # to be set before adding the node to the graph. This is because the smart
-            # field is used to generate the node's key.
+            # We can optimize the process of adding a node by creating avoiding
+            # the creation of a new dictionary and updating it with the attributes.
+            # Instead, we can create a new node_attr_dict object and set the attributes
+            # directly. This only makes 1 network call to the database instead of 2.
 
             ###########################
 
@@ -268,6 +269,10 @@ class DiGraph(Graph, nx.DiGraph):
             self._node[node_for_adding].update(attr)
 
         nx._clear_cache(self)
+
+    # TODO: Address in separate PR
+    # def add_nodes_from_override(self, nodes_for_adding, **attr):
+        # raise NotImplementedError("Not yet implemented")
 
     def remove_node_override(self, n):
         if isinstance(n, (str, int)):

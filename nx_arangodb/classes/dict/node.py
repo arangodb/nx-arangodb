@@ -324,8 +324,8 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         if node_id not in self.data and self.FETCHED_ALL_IDS:
             raise KeyError(key)
 
-        if vertex_db := vertex_get(self.graph, node_id):
-            node_attr_dict = self._create_node_attr_dict(vertex_db["_id"], vertex_db)
+        if node := vertex_get(self.graph, node_id):
+            node_attr_dict = self._create_node_attr_dict(node["_id"], node)
             self.data[node_id] = node_attr_dict
 
             return node_attr_dict

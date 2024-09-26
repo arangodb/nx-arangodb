@@ -746,7 +746,6 @@ class Graph(nx.Graph):
                 self._node[n] = node_attr_dict
 
             else:
-
                 self._node[n].update(newdict)
 
                 # Reason:

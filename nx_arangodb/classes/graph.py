@@ -446,18 +446,18 @@ class Graph(nx.Graph):
     def _load_nx_graph(
         self, nx_graph: nx.Graph, write_batch_size: int, write_async: bool
     ) -> None:
-        v_count = sum(
-            self.db.collection(v).count() for v in self.adb_graph.vertex_collections()
-        )
+        collections = list(self.adb_graph.vertex_collections())
+        collections += [e["edge_collection"] for e in self.adb_graph.edge_definitions()]
 
-        e_count = sum(
-            self.db.collection(e["edge_collection"]).count()
-            for e in self.adb_graph.edge_definitions()
-        )
+        for col in collections:
+            cursor = self.db.aql.execute(
+                "FOR doc IN @@collection LIMIT 1 RETURN 1",
+                bind_vars={"@collection": col},
+            )
 
-        if v_count > 0 or e_count > 0:
-            m = f"Graph '{self.adb_graph.name}' already has data. Use **overwrite_graph=True** to clear it."  # noqa: E501
-            raise GraphNotEmpty(m)
+            if not cursor.empty():
+                m = f"Graph '{self.adb_graph.name}' already has data (in '{col}'). Use **overwrite_graph=True** to clear it."  # noqa: E501
+                raise GraphNotEmpty(m)
 
         controller = ADBNX_Controller
 

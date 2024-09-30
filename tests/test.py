@@ -174,6 +174,18 @@ def test_load_graph_from_nxadb_as_smart_graph():
     assert G.has_node("Officer:36")
     assert G.has_node("Mr.Hi:37")
 
+    assert db.collection("smart_person").properties()["smart"]
+
+    G = nxadb.Graph(
+        name=graph_name,
+        incoming_graph_data=G_NX_copy,
+        write_async=False,
+        overwrite_graph=True,
+    )
+
+    assert db.collection("smart_person").properties()["smart"]
+    assert G.nodes["Mr.Hi:0"]["club"] == "Mr.Hi"
+
     db.delete_graph(graph_name, drop_collections=True)
 
 

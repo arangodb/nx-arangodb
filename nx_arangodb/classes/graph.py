@@ -160,11 +160,10 @@ class Graph(nx.Graph):
         as expected.
 
     overwrite_graph : bool (optional, default: False)
-        Whether to drop & re-create the graph collections before loading
-        **incoming_graph_data** into the graph. NOTE: This parameter only
-        applies if the graph already exists in the database. NOTE: Dropping
-        the graph collections will erase all properties of the collections, including
-        created indexes.
+        Whether to truncate the graph collections when the graph is loaded from
+        the database. If set to True, the graph collections will be truncated
+        before loading the graph data. NOTE: This parameter only applies if the
+        graph already exists in the database.
 
     args: positional arguments for nx.Graph
         Additional arguments passed to nx.Graph.
@@ -232,16 +231,13 @@ class Graph(nx.Graph):
             self.__set_arangodb_backend_config(read_parallelism, read_batch_size)
 
             if overwrite_graph:
-                logger.info("Overwriting graph collections...")
+                logger.info("Truncating graph collections...")
 
                 for col in self.adb_graph.vertex_collections():
-                    self.db.delete_collection(col)
-                    self.db.create_collection(col)
+                    self.db.collection(col).truncate()
 
-                for ed in self.adb_graph.edge_definitions():
-                    col = ed["edge_collection"]
-                    self.db.delete_collection(col)
-                    self.db.create_collection(col, edge=True)
+                for col in self.adb_graph.edge_definitions():
+                    self.db.collection(col["edge_collection"]).truncate()
 
             if isinstance(incoming_graph_data, nx.Graph):
                 self._load_nx_graph(incoming_graph_data, write_batch_size, write_async)

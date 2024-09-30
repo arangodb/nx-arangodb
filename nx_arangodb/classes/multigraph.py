@@ -137,11 +137,10 @@ class MultiGraph(Graph, nx.MultiGraph):
         as expected.
 
     overwrite_graph : bool (optional, default: False)
-        Whether to drop & re-create the graph collections before loading
-        **incoming_graph_data** into the graph. NOTE: This parameter only
-        applies if the graph already exists in the database. NOTE: Dropping
-        the graph collections will erase all properties of the collections, including
-        created indexes.
+        Whether to truncate the graph collections when the graph is loaded from
+        the database. If set to True, the graph collections will be truncated
+        before loading the graph data. NOTE: This parameter only applies if the
+        graph already exists in the database.
 
     args: positional arguments for nx.Graph
         Additional arguments passed to nx.Graph.

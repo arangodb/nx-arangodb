@@ -136,10 +136,10 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         as expected.
 
     overwrite_graph : bool (optional, default: False)
-        Whether to truncate the graph collections when the graph is loaded from
-        the database. If set to True, the graph collections will be truncated
-        before loading the graph data. NOTE: This parameter only applies if the
-        graph already exists in the database.
+        Whether to overwrite the graph in the database if it already exists. If
+        set to True, the graph collections will be dropped and recreated. Note that
+        this operation is irreversible and will result in the loss of all data in
+        the graph. NOTE: If set to True, Collection Indexes will also be lost.
 
     args: positional arguments for nx.Graph
         Additional arguments passed to nx.Graph.

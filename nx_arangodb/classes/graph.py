@@ -231,13 +231,21 @@ class Graph(nx.Graph):
             self.__set_arangodb_backend_config(read_parallelism, read_batch_size)
 
             if overwrite_graph:
-                logger.info("Truncating graph collections...")
+                logger.info("Overwriting graph...")
 
-                for col in self.adb_graph.vertex_collections():
-                    self.db.collection(col).truncate()
-
-                for col in self.adb_graph.edge_definitions():
-                    self.db.collection(col["edge_collection"]).truncate()
+                properties = self.adb_graph.properties()
+                self.db.delete_graph(name, drop_collections=True)
+                self.db.create_graph(
+                    name=name,
+                    edge_definitions=properties["edge_definitions"],
+                    orphan_collections=properties["orphan_collections"],
+                    smart=properties.get("smart"),
+                    disjoint=properties.get("disjoint"),
+                    smart_field=properties.get("smart_field"),
+                    shard_count=properties.get("shard_count"),
+                    replication_factor=properties.get("replication_factor"),
+                    write_concern=properties.get("write_concern"),
+                )
 
             if isinstance(incoming_graph_data, nx.Graph):
                 self._load_nx_graph(incoming_graph_data, write_batch_size, write_async)

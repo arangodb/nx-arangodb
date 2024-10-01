@@ -70,8 +70,8 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
     name : str (optional, default: None)
         Name of the graph in the database. If the graph already exists,
         the user can pass the name of the graph to connect to it. If
-        the graph does not exist, the user can create a new graph by
-        passing the name. NOTE: Must be used in conjunction with
+        the graph does not exist, a General Graph will be created by
+        passing the **name**. NOTE: Must be used in conjunction with
         **incoming_graph_data** if the user wants to persist the graph
         in ArangoDB.
 

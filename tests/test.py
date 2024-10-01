@@ -3,7 +3,7 @@ from typing import Any, Callable, Dict, Union
 
 import networkx as nx
 import pytest
-from arango import DocumentDeleteError
+from arango.exceptions import DocumentInsertError
 from phenolrs.networkx.typings import (
     DiGraphAdjDict,
     GraphAdjDict,
@@ -17,7 +17,7 @@ from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 
 from .conftest import create_grid_graph, create_line_graph, db, run_gpu_tests
 
-G_NX = nx.karate_club_graph()
+G_NX: nx.Graph = nx.karate_club_graph()
 G_NX_digraph = nx.DiGraph(G_NX)
 G_NX_multigraph = nx.MultiGraph(G_NX)
 G_NX_multidigraph = nx.MultiDiGraph(G_NX)
@@ -104,6 +104,87 @@ def test_load_graph_from_nxadb():
     assert db.has_collection("person_to_person")
     assert db.collection("person").count() == len(G_NX.nodes)
     assert db.collection("person_to_person").count() == len(G_NX.edges)
+
+    db.delete_graph(graph_name, drop_collections=True)
+
+
+def test_load_graph_from_nxadb_as_smart_graph():
+    graph_name = "SmartKarateGraph"
+
+    db.delete_graph(graph_name, drop_collections=True, ignore_missing=True)
+    db.create_graph(
+        graph_name,
+        smart=True,
+        smart_field="club",
+        edge_definitions=[
+            {
+                "edge_collection": "smart_person_to_smart_person",
+                "from_vertex_collections": ["smart_person"],
+                "to_vertex_collections": ["smart_person"],
+            }
+        ],
+    )
+
+    # Small preprocessing to remove whitespaces from club names,
+    # as smart graphs do not allow whitespaces in smart fields
+    G_NX_copy = G_NX.copy()
+    for _, node in G_NX_copy.nodes(data=True):
+        node["club"] = node["club"].replace(" ", "")
+
+    G = nxadb.Graph(
+        name=graph_name,
+        incoming_graph_data=G_NX_copy,
+        write_async=False,
+    )
+
+    assert db.has_graph(graph_name)
+    assert db.has_collection("smart_person")
+    assert db.has_collection("smart_person_to_smart_person")
+    assert db.collection("smart_person").count() == len(G_NX_copy.nodes)
+    assert db.collection("smart_person_to_smart_person").count() == len(G_NX_copy.edges)
+
+    assert db.has_document("smart_person/Mr.Hi:0")
+
+    with pytest.raises(DocumentInsertError):
+        G.add_node(35, club="Officer")
+
+    with pytest.raises(DocumentInsertError):
+        G.add_node("35", club="Officer")
+
+    with pytest.raises(DocumentInsertError):
+        G.add_node("smart_person/35", club="Officer")
+
+    with pytest.raises(DocumentInsertError):
+        G.add_node("smart_person/Officer:35", club="officer")
+
+    with pytest.raises(DocumentInsertError):
+        G.add_node("smart_person/Officer", club="Officer")
+
+    assert G.nodes["Mr.Hi:0"]["club"] == "Mr.Hi"
+    G.add_node("Officer:35", club="Officer")
+    assert G.nodes["smart_person/Officer:35"]["club"] == "Officer"
+
+    assert G["Mr.Hi:0"]["Mr.Hi:1"]["weight"] == 4
+    G.add_edge("Mr.Hi:0", "Officer:35", weight=5)
+    assert G["Mr.Hi:0"]["Officer:35"]["weight"] == 5
+
+    G.add_nodes_from(
+        [("Officer:36", {"club": "Officer"}), ("Mr.Hi:37", {"club": "Mr.Hi"})]
+    )
+    assert G.has_node("Officer:36")
+    assert G.has_node("Mr.Hi:37")
+
+    assert db.collection("smart_person").properties()["smart"]
+
+    G = nxadb.Graph(
+        name=graph_name,
+        incoming_graph_data=G_NX_copy,
+        write_async=False,
+        overwrite_graph=True,
+    )
+
+    assert db.collection("smart_person").properties()["smart"]
+    assert G.nodes["Mr.Hi:0"]["club"] == "Mr.Hi"
 
     db.delete_graph(graph_name, drop_collections=True)
 

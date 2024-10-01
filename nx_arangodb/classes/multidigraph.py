@@ -70,8 +70,8 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
     name : str (optional, default: None)
         Name of the graph in the database. If the graph already exists,
         the user can pass the name of the graph to connect to it. If
-        the graph does not exist, the user can create a new graph by
-        passing the name. NOTE: Must be used in conjunction with
+        the graph does not exist, a General Graph will be created by
+        passing the **name**. NOTE: Must be used in conjunction with
         **incoming_graph_data** if the user wants to persist the graph
         in ArangoDB.
 
@@ -135,6 +135,12 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         whenever possible. NOTE: This feature is experimental and may not work
         as expected.
 
+    overwrite_graph : bool (optional, default: False)
+        Whether to overwrite the graph in the database if it already exists. If
+        set to True, the graph collections will be dropped and recreated. Note that
+        this operation is irreversible and will result in the loss of all data in
+        the graph. NOTE: If set to True, Collection Indexes will also be lost.
+
     args: positional arguments for nx.Graph
         Additional arguments passed to nx.Graph.
 
@@ -165,6 +171,7 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         write_async: bool = True,
         symmetrize_edges: bool = False,
         use_arango_views: bool = False,
+        overwrite_graph: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
@@ -183,6 +190,7 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
             write_async,
             symmetrize_edges,
             use_arango_views,
+            overwrite_graph,
             *args,
             **kwargs,
         )

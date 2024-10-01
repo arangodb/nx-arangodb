@@ -199,6 +199,17 @@ def json_serializable(cls):
     return cls
 
 
+def cast_to_string(value: Any) -> str:
+    """Casts a value to a string."""
+    if isinstance(value, str):
+        return value
+
+    if isinstance(value, (int, float)):
+        return str(value)
+
+    raise TypeError(f"{value} cannot be casted to string.")
+
+
 def key_is_string(func: Callable[..., Any]) -> Any:
     """Decorator to check if the key is a string.
     Will attempt to cast the key to a string if it is not.
@@ -208,12 +219,7 @@ def key_is_string(func: Callable[..., Any]) -> Any:
         if key is None:
             raise ValueError("Key cannot be None.")
 
-        if not isinstance(key, str):
-            if not isinstance(key, (int, float)):
-                raise TypeError(f"{key} cannot be casted to string.")
-
-            key = str(key)
-
+        key = cast_to_string(key)
         return func(self, key, *args, **kwargs)
 
     return wrapper
@@ -270,12 +276,7 @@ def keys_are_strings(func: Callable[..., Any]) -> Any:
             raise TypeError(f"Decorator found unsupported type: {type(data)}.")
 
         for key, value in items:
-            if not isinstance(key, str):
-                if not isinstance(key, (int, float)):
-                    raise TypeError(f"{key} cannot be casted to string.")
-
-                key = str(key)
-
+            key = cast_to_string(key)
             data_dict[key] = value
 
         return func(self, data_dict, *args, **kwargs)
@@ -655,7 +656,7 @@ def doc_insert(
     data: dict[str, Any] = {},
     **kwargs: Any,
 ) -> dict[str, Any]:
-    """Inserts a document into a collection."""
+    """Inserts a document into a collection. Returns document metadata."""
     result: dict[str, Any] = db.insert_document(
         collection, {**data, "_id": id}, overwrite=True, **kwargs
     )

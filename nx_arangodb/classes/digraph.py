@@ -60,8 +60,8 @@ class DiGraph(Graph, nx.DiGraph):
     name : str (optional, default: None)
         Name of the graph in the database. If the graph already exists,
         the user can pass the name of the graph to connect to it. If
-        the graph does not exist, the user can create a new graph by
-        passing the name. NOTE: Must be used in conjunction with
+        the graph does not exist, a General Graph will be created by
+        passing the **name**. NOTE: Must be used in conjunction with
         **incoming_graph_data** if the user wants to persist the graph
         in ArangoDB.
 
@@ -125,6 +125,12 @@ class DiGraph(Graph, nx.DiGraph):
         whenever possible. NOTE: This feature is experimental and may not work
         as expected.
 
+    overwrite_graph : bool (optional, default: False)
+        Whether to overwrite the graph in the database if it already exists. If
+        set to True, the graph collections will be dropped and recreated. Note that
+        this operation is irreversible and will result in the loss of all data in
+        the graph. NOTE: If set to True, Collection Indexes will also be lost.
+
     args: positional arguments for nx.Graph
         Additional arguments passed to nx.Graph.
 
@@ -154,6 +160,7 @@ class DiGraph(Graph, nx.DiGraph):
         write_async: bool = True,
         symmetrize_edges: bool = False,
         use_arango_views: bool = False,
+        overwrite_graph: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
@@ -171,6 +178,7 @@ class DiGraph(Graph, nx.DiGraph):
             write_async,
             symmetrize_edges,
             use_arango_views,
+            overwrite_graph,
             *args,
             **kwargs,
         )
@@ -178,6 +186,7 @@ class DiGraph(Graph, nx.DiGraph):
         if self.graph_exists_in_db:
             self.clear_edges = self.clear_edges_override
             self.add_node = self.add_node_override
+            self.add_nodes_from = self.add_nodes_from_override
             self.remove_node = self.remove_node_override
             self.reverse = self.reverse_override
 
@@ -194,6 +203,7 @@ class DiGraph(Graph, nx.DiGraph):
             and not self._loaded_incoming_graph_data
         ):
             nx.convert.to_networkx_graph(incoming_graph_data, create_using=self)
+            self._loaded_incoming_graph_data = True
 
     #######################
     # nx.DiGraph Overides #
@@ -225,9 +235,10 @@ class DiGraph(Graph, nx.DiGraph):
         super().clear_edges()
 
     def add_node_override(self, node_for_adding, **attr):
+        if node_for_adding is None:
+            raise ValueError("None cannot be a node")
+
         if node_for_adding not in self._succ:
-            if node_for_adding is None:
-                raise ValueError("None cannot be a node")
 
             self._succ[node_for_adding] = self.adjlist_inner_dict_factory()
             self._pred[node_for_adding] = self.adjlist_inner_dict_factory()
@@ -241,17 +252,63 @@ class DiGraph(Graph, nx.DiGraph):
             # attr_dict.update(attr)
 
             # New:
-            self._node[node_for_adding] = self.node_attr_dict_factory()
-            self._node[node_for_adding].update(attr)
+            node_attr_dict = self.node_attr_dict_factory()
+            node_attr_dict.data = attr
+            self._node[node_for_adding] = node_attr_dict
 
             # Reason:
-            # Invoking `update` on the `attr_dict` without `attr_dict.node_id` being set
-            # i.e trying to update a node's attributes before we know _which_ node it is
+            # We can optimize the process of adding a node by creating avoiding
+            # the creation of a new dictionary and updating it with the attributes.
+            # Instead, we can create a new node_attr_dict object and set the attributes
+            # directly. This only makes 1 network call to the database instead of 2.
 
             ###########################
 
         else:
             self._node[node_for_adding].update(attr)
+
+        nx._clear_cache(self)
+
+    def add_nodes_from_override(self, nodes_for_adding, **attr):
+        for n in nodes_for_adding:
+            try:
+                newnode = n not in self._node
+                newdict = attr
+            except TypeError:
+                n, ndict = n
+                newnode = n not in self._node
+                newdict = attr.copy()
+                newdict.update(ndict)
+            if newnode:
+                if n is None:
+                    raise ValueError("None cannot be a node")
+                self._succ[n] = self.adjlist_inner_dict_factory()
+                self._pred[n] = self.adjlist_inner_dict_factory()
+
+                ######################
+                # NOTE: monkey patch #
+                ######################
+
+                # Old:
+                #   self._node[n] = self.node_attr_dict_factory()
+                #
+                # self._node[n].update(newdict)
+
+                # New:
+                node_attr_dict = self.node_attr_dict_factory()
+                node_attr_dict.data = newdict
+                self._node[n] = node_attr_dict
+
+            else:
+                self._node[n].update(newdict)
+
+                # Reason:
+                # We can optimize the process of adding a node by creating avoiding
+                # the creation of a new dictionary and updating it with the attributes.
+                # Instead, we create a new node_attr_dict object and set the attributes
+                # directly. This only makes 1 network call to the database instead of 2.
+
+                ###########################
 
         nx._clear_cache(self)
 

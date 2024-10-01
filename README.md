@@ -10,7 +10,7 @@
     <img src="https://rapids.ai/images/RAPIDS-logo.png" alt="RAPIDS" height="60">
 </a>
 <a href="https://www.nvidia.com/en-us/startups/">
-    <img src="https://insights.virti.com/content/images/2021/09/20181218-Nvidia-Inception.png" alt="NVIDIA" height="60">
+    <img src="https://www.serversimply.com/media/20181218-Nvidia-Inception.png" alt="NVIDIA" height="60">
 </a>
 
 <br>

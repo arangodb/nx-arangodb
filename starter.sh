@@ -1,12 +1,6 @@
 #!/bin/bash
 
-# Starts a local ArangoDB server or cluster (community or enterprise).
-# Useful for testing the python-arango driver against a local ArangoDB setup.
-
-# Usage:
-#   ./starter.sh [single|cluster] [community|enterprise]
-# Example:
-#   ./starter.sh cluster enterprise
+# Starts a local ArangoDB cluster (enterprise).
 
 extra_ports="-p 8539:8539 -p 8549:8549"
 image_name="enterprise"

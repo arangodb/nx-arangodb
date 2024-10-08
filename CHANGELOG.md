@@ -1,3 +1,82 @@
+1.1.0 (2024-10-08)
+------------------
+
+New
+~~~
+- License, version badge. [Anthony Mahanna]
+
+Fix
+~~~
+- Update version. [Anthony Mahanna]
+- Comment. [Anthony Mahanna]
+- Readme image link. [Anthony Mahanna]
+- `index.rst` [Anthony Mahanna]
+- Typo (again) [Anthony Mahanna]
+- Typo. [Anthony Mahanna]
+- Notebook alg. [Anthony Mahanna]
+
+Other
+~~~~~
+- Smart graph support (#61) [Anthony Mahanna]
+
+  * smart graph support | initial commit
+
+  * cleanup: `_create_node_attr_dict`
+
+  * new: `cast_to_string`
+
+  * cleanup: overrides
+
+  * fix: lint
+
+  * fix: `overwrite_graph`
+
+  * new: `GraphNotEmpty` exception
+
+  * lock deps
+
+  * remove: `_get_smart_id`
+
+  * new: `test_load_graph_from_nxadb_as_smart_graph`
+
+  * new: `add_nodes_from_override`
+
+  * fix: typo
+
+  * fix: lint
+
+  * fix: pyproject
+
+  * add comment
+
+  * `overwrite_graph` docstring
+
+  * update `adbnx-adapter` version
+
+  * fix: var name
+
+  * fix: `GraphNotEmpty` logic
+
+  * fix: whitespace
+
+  * fix: drop instead of truncate
+
+  * Revert "fix: drop instead of truncate"
+
+  This reverts commit 11347c91d521a246f4e1a5694d278f6d32137d8b.
+
+  * add `overwrite_graph` coverage
+
+  * fix: drop graph instead of truncate
+
+  * fix: docstring
+
+  * fix: `name` docstring
+- Merge branch 'main' of https://github.com/arangodb/nx-arangodb.
+  [Anthony Mahanna]
+- !gitchangelog (#58) [aMahanna, github-actions[bot]]
+
+
 1.0.1 (2024-09-03)
 ------------------
 - Bump: version. [Anthony Mahanna]

@@ -192,11 +192,6 @@ class DiGraph(Graph, nx.DiGraph):
             self.add_node = self.add_node_override
             self.add_nodes_from = self.add_nodes_from_override
             self.remove_node = self.remove_node_override
-            self.remove_nodes_from = self.remove_nodes_from_override
-            self.add_edge = self.add_edge_override
-            self.add_edges_from = self.add_edges_from_override
-            self.remove_edge = self.remove_edge_override
-            self.remove_edges_from = self.remove_edges_from_override
 
             assert isinstance(self._succ, AdjListOuterDict)
             assert isinstance(self._pred, AdjListOuterDict)

@@ -203,9 +203,7 @@ class MultiGraph(Graph, nx.MultiGraph):
             self.copy = self.copy_override
 
             self.add_edge = self.add_edge_override
-            self.add_edges_from = self.add_edges_from_override
             self.remove_edge = self.remove_edge_override
-            self.remove_edges_from = self.remove_edges_from_override
 
         if incoming_graph_data is not None and not self._loaded_incoming_graph_data:
             # Taken from networkx.MultiGraph.__init__

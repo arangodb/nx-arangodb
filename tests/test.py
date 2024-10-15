@@ -1754,7 +1754,9 @@ def test_graph_dict_nested_2(load_karate_graph: Any) -> None:
     G.graph["x"]["y"]["amount_of_goals"] = 1337
 
     assert G.graph["x"]["y"]["amount_of_goals"] == 1337
-    assert db.document(G.graph.graph_id)["networkx"]["x"]["y"]["amount_of_goals"] == 1337
+    assert (
+        db.document(G.graph.graph_id)["networkx"]["x"]["y"]["amount_of_goals"] == 1337
+    )
 
 
 def test_graph_dict_empty_values(load_karate_graph: Any) -> None:
@@ -1779,12 +1781,17 @@ def test_graph_dict_nested_overwrite(load_karate_graph: Any) -> None:
     G.graph["a"] = {"b": icon1}
     G.graph["a"]["b"]["football_icon"] = "ChangedIcon"
     assert G.graph["a"]["b"]["football_icon"] == "ChangedIcon"
-    assert db.document(G.graph.graph_id)["networkx"]["a"]["b"]["football_icon"] == "ChangedIcon"
+    assert (
+        db.document(G.graph.graph_id)["networkx"]["a"]["b"]["football_icon"]
+        == "ChangedIcon"
+    )
 
     # Overwrite entire nested dictionary
     G.graph["a"] = {"b": icon2}
     assert G.graph["a"]["b"]["basketball_icon"] == "MJ23"
-    assert db.document(G.graph.graph_id)["networkx"]["a"]["b"]["basketball_icon"] == "MJ23"
+    assert (
+        db.document(G.graph.graph_id)["networkx"]["a"]["b"]["basketball_icon"] == "MJ23"
+    )
 
 
 def test_graph_dict_complex_nested(load_karate_graph: Any) -> None:
@@ -1796,7 +1803,9 @@ def test_graph_dict_complex_nested(load_karate_graph: Any) -> None:
     G.graph["complex"] = complex_structure
     assert G.graph["complex"]["level1"]["level2"]["level3"]["key"] == "value"
     assert (
-        db.document(G.graph.graph_id)["networkx"]["complex"]["level1"]["level2"]["level3"]["key"]
+        db.document(G.graph.graph_id)["networkx"]["complex"]["level1"]["level2"][
+            "level3"
+        ]["key"]
         == "value"
     )
 

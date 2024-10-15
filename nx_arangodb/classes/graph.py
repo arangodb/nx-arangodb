@@ -29,7 +29,7 @@ from .dict import (
     node_attr_dict_factory,
     node_dict_factory,
 )
-from .function import get_node_id
+from .function import get_node_id, mirror_to_nxcg
 from .reportviews import ArangoEdgeView, ArangoNodeView
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.Graph)  # type: ignore
@@ -195,12 +195,14 @@ class Graph(nx.Graph):
         symmetrize_edges: bool = False,
         use_arango_views: bool = False,
         overwrite_graph: bool = False,
+        mirror_crud_to_nxcg: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
         self.__db = None
         self.__use_arango_views = use_arango_views
         self.__graph_exists_in_db = False
+        self.__mirror_crud_to_nxcg = mirror_crud_to_nxcg
 
         self.__set_db(db)
         if all([self.__db, name]):
@@ -261,10 +263,18 @@ class Graph(nx.Graph):
             self.subgraph = self.subgraph_override
             self.clear = self.clear_override
             self.clear_edges = self.clear_edges_override
-            self.add_node = self.add_node_override
-            self.add_nodes_from = self.add_nodes_from_override
             self.number_of_edges = self.number_of_edges_override
             self.nbunch_iter = self.nbunch_iter_override
+
+            self.add_node = self.add_node_override
+            self.add_nodes_from = self.add_nodes_from_override
+            self.remove_node = self.remove_node_override
+            self.remove_nodes_from = self.remove_nodes_from_override
+            self.add_edge = self.add_edge_override
+            self.add_edges_from = self.add_edges_from_override
+            self.remove_edge = self.remove_edge_override
+            self.remove_edges_from = self.remove_edges_from_override
+            self.update = self.update_override
 
         # If incoming_graph_data wasn't loaded by the NetworkX Adapter,
         # then we can rely on the CRUD operations of the modified dictionaries
@@ -541,6 +551,10 @@ class Graph(nx.Graph):
     def smart_field(self) -> str | None:
         return self.__smart_field
 
+    @property
+    def mirror_crud_to_nxcg(self) -> bool:
+        return self.__mirror_crud_to_nxcg
+
     ###########
     # Setters #
     ###########
@@ -691,81 +705,6 @@ class Graph(nx.Graph):
             nbr_dict.clear()
         nx._clear_cache(self)
 
-    def add_node_override(self, node_for_adding, **attr):
-        if node_for_adding is None:
-            raise ValueError("None cannot be a node")
-
-        if node_for_adding not in self._node:
-            self._adj[node_for_adding] = self.adjlist_inner_dict_factory()
-
-            ######################
-            # NOTE: monkey patch #
-            ######################
-
-            # Old:
-            # attr_dict = self._node[node_for_adding] = self.node_attr_dict_factory()
-            # attr_dict.update(attr)
-
-            # New:
-            node_attr_dict = self.node_attr_dict_factory()
-            node_attr_dict.data = attr
-            self._node[node_for_adding] = node_attr_dict
-
-            # Reason:
-            # We can optimize the process of adding a node by creating avoiding
-            # the creation of a new dictionary and updating it with the attributes.
-            # Instead, we can create a new node_attr_dict object and set the attributes
-            # directly. This only makes 1 network call to the database instead of 2.
-
-            ###########################
-
-        else:
-            self._node[node_for_adding].update(attr)
-
-        nx._clear_cache(self)
-
-    def add_nodes_from_override(self, nodes_for_adding, **attr):
-        for n in nodes_for_adding:
-            try:
-                newnode = n not in self._node
-                newdict = attr
-            except TypeError:
-                n, ndict = n
-                newnode = n not in self._node
-                newdict = attr.copy()
-                newdict.update(ndict)
-            if newnode:
-                if n is None:
-                    raise ValueError("None cannot be a node")
-                self._adj[n] = self.adjlist_inner_dict_factory()
-
-                ######################
-                # NOTE: monkey patch #
-                ######################
-
-                # Old:
-                #   self._node[n] = self.node_attr_dict_factory()
-                #
-                # self._node[n].update(newdict)
-
-                # New:
-                node_attr_dict = self.node_attr_dict_factory()
-                node_attr_dict.data = newdict
-                self._node[n] = node_attr_dict
-
-            else:
-                self._node[n].update(newdict)
-
-                # Reason:
-                # We can optimize the process of adding a node by creating avoiding
-                # the creation of a new dictionary and updating it with the attributes.
-                # Instead, we create a new node_attr_dict object and set the attributes
-                # directly. This only makes 1 network call to the database instead of 2.
-
-                ###########################
-
-        nx._clear_cache(self)
-
     def number_of_edges_override(self, u=None, v=None):
         if u is not None:
             return super().number_of_edges(u, v)
@@ -847,3 +786,108 @@ class Graph(nx.Graph):
 
             bunch = bunch_iter(nbunch, self._adj)
         return bunch
+
+    @mirror_to_nxcg
+    def add_node_override(self, node_for_adding, **attr):
+        if node_for_adding is None:
+            raise ValueError("None cannot be a node")
+
+        if node_for_adding not in self._node:
+            self._adj[node_for_adding] = self.adjlist_inner_dict_factory()
+
+            ######################
+            # NOTE: monkey patch #
+            ######################
+
+            # Old:
+            # attr_dict = self._node[node_for_adding] = self.node_attr_dict_factory()
+            # attr_dict.update(attr)
+
+            # New:
+            node_attr_dict = self.node_attr_dict_factory()
+            node_attr_dict.data = attr
+            self._node[node_for_adding] = node_attr_dict
+
+            # Reason:
+            # We can optimize the process of adding a node by creating avoiding
+            # the creation of a new dictionary and updating it with the attributes.
+            # Instead, we can create a new node_attr_dict object and set the attributes
+            # directly. This only makes 1 network call to the database instead of 2.
+
+            ###########################
+
+        else:
+            self._node[node_for_adding].update(attr)
+
+        nx._clear_cache(self)
+
+    @mirror_to_nxcg
+    def add_nodes_from_override(self, nodes_for_adding, **attr):
+        for n in nodes_for_adding:
+            try:
+                newnode = n not in self._node
+                newdict = attr
+            except TypeError:
+                n, ndict = n
+                newnode = n not in self._node
+                newdict = attr.copy()
+                newdict.update(ndict)
+            if newnode:
+                if n is None:
+                    raise ValueError("None cannot be a node")
+                self._adj[n] = self.adjlist_inner_dict_factory()
+
+                ######################
+                # NOTE: monkey patch #
+                ######################
+
+                # Old:
+                #   self._node[n] = self.node_attr_dict_factory()
+                #
+                # self._node[n].update(newdict)
+
+                # New:
+                node_attr_dict = self.node_attr_dict_factory()
+                node_attr_dict.data = newdict
+                self._node[n] = node_attr_dict
+
+            else:
+                self._node[n].update(newdict)
+
+                # Reason:
+                # We can optimize the process of adding a node by creating avoiding
+                # the creation of a new dictionary and updating it with the attributes.
+                # Instead, we create a new node_attr_dict object and set the attributes
+                # directly. This only makes 1 network call to the database instead of 2.
+
+                ###########################
+
+        nx._clear_cache(self)
+
+    @mirror_to_nxcg
+    def remove_node_override(self, n):
+        super().remove_node(n)
+
+    @mirror_to_nxcg
+    def remove_nodes_from_override(self, nodes):
+        super().remove_nodes_from(nodes)
+
+    @mirror_to_nxcg
+    def add_edge_override(self, u, v, **attr):
+        super().add_edge(u, v, **attr)
+
+    @mirror_to_nxcg
+    def add_edges_from_override(self, ebunch_to_add, **attr):
+        super().add_edges_from(ebunch_to_add, **attr)
+
+    @mirror_to_nxcg
+    def remove_edge_override(self, u, v):
+        super().remove_edge(u, v)
+
+    @mirror_to_nxcg
+    def remove_edges_from_override(self, ebunch):
+        super().remove_edges_from(ebunch)
+
+    @mirror_to_nxcg
+    def update_override(self, *args, **kwargs):
+        super().update(*args, **kwargs)

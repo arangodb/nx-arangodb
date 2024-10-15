@@ -8,6 +8,8 @@ import nx_arangodb as nxadb
 from nx_arangodb.classes.digraph import DiGraph
 from nx_arangodb.classes.multigraph import MultiGraph
 
+from .function import mirror_to_nxcg
+
 networkx_api = nxadb.utils.decorators.networkx_class(nx.MultiDiGraph)  # type: ignore
 
 __all__ = ["MultiDiGraph"]
@@ -172,6 +174,7 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         symmetrize_edges: bool = False,
         use_arango_views: bool = False,
         overwrite_graph: bool = False,
+        mirror_crud_to_nxcg: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
@@ -191,6 +194,7 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
             symmetrize_edges,
             use_arango_views,
             overwrite_graph,
+            mirror_crud_to_nxcg,
             *args,
             **kwargs,
         )
@@ -198,6 +202,9 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         if self.graph_exists_in_db:
             self.reverse = self.reverse_override
             self.to_undirected = self.to_undirected_override
+
+            self.add_edge = self.add_edge_override
+            self.remove_edge = self.remove_edge_override
 
     #######################
     # Init helper methods #
@@ -211,11 +218,13 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         if copy is False:
             raise NotImplementedError("In-place reverse is not supported yet.")
 
-        return super().reverse(copy=True)
+        return nx.MultiDiGraph.reverse(self, copy=True)
 
     def to_undirected_override(self, reciprocal=False, as_view=False):
         if reciprocal is False:
-            return super().to_undirected(reciprocal=False, as_view=as_view)
+            return nx.MultiDiGraph.to_undirected(
+                self, reciprocal=False, as_view=as_view
+            )
 
         graph_class = self.to_undirected_class()
         if as_view is True:
@@ -257,3 +266,11 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         ###########################
 
         return G
+
+    @mirror_to_nxcg
+    def add_edge_override(self, u, v, key=None, **attr):
+        nx.MultiDiGraph.add_edge(self, u, v, key, **attr)
+
+    @mirror_to_nxcg
+    def remove_edge_override(self, u, v, key=None):
+        nx.MultiDiGraph.remove_edge(self, u, v, key)

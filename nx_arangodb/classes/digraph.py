@@ -9,7 +9,7 @@ from nx_arangodb.logger import logger
 
 from .dict.adj import AdjListOuterDict
 from .enum import TraversalDirection
-from .function import get_node_id
+from .function import get_node_id, mirror_to_nxcg
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.DiGraph)  # type: ignore
 
@@ -161,6 +161,7 @@ class DiGraph(Graph, nx.DiGraph):
         symmetrize_edges: bool = False,
         use_arango_views: bool = False,
         overwrite_graph: bool = False,
+        mirror_crud_to_nxcg: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
@@ -179,16 +180,23 @@ class DiGraph(Graph, nx.DiGraph):
             symmetrize_edges,
             use_arango_views,
             overwrite_graph,
+            mirror_crud_to_nxcg,
             *args,
             **kwargs,
         )
 
         if self.graph_exists_in_db:
             self.clear_edges = self.clear_edges_override
+            self.reverse = self.reverse_override
+
             self.add_node = self.add_node_override
             self.add_nodes_from = self.add_nodes_from_override
             self.remove_node = self.remove_node_override
-            self.reverse = self.reverse_override
+            self.remove_nodes_from = self.remove_nodes_from_override
+            self.add_edge = self.add_edge_override
+            self.add_edges_from = self.add_edges_from_override
+            self.remove_edge = self.remove_edge_override
+            self.remove_edges_from = self.remove_edges_from_override
 
             assert isinstance(self._succ, AdjListOuterDict)
             assert isinstance(self._pred, AdjListOuterDict)
@@ -234,6 +242,7 @@ class DiGraph(Graph, nx.DiGraph):
 
         super().clear_edges()
 
+    @mirror_to_nxcg
     def add_node_override(self, node_for_adding, **attr):
         if node_for_adding is None:
             raise ValueError("None cannot be a node")
@@ -269,6 +278,7 @@ class DiGraph(Graph, nx.DiGraph):
 
         nx._clear_cache(self)
 
+    @mirror_to_nxcg
     def add_nodes_from_override(self, nodes_for_adding, **attr):
         for n in nodes_for_adding:
             try:
@@ -312,6 +322,7 @@ class DiGraph(Graph, nx.DiGraph):
 
         nx._clear_cache(self)
 
+    @mirror_to_nxcg
     def remove_node_override(self, n):
         if isinstance(n, (str, int)):
             n = get_node_id(str(n), self.default_node_type)
@@ -361,3 +372,23 @@ class DiGraph(Graph, nx.DiGraph):
             del self._succ[u][n]  # remove all edges n-u in digraph
         del self._pred[n]  # remove node from pred
         nx._clear_cache(self)
+
+    @mirror_to_nxcg
+    def remove_nodes_from_override(self, nodes):
+        nx.DiGraph.remove_nodes_from(self, nodes)
+
+    @mirror_to_nxcg
+    def add_edge_override(self, u, v, **attr):
+        nx.DiGraph.add_edge(self, u, v, **attr)
+
+    @mirror_to_nxcg
+    def add_edges_from_override(self, ebunch_to_add, **attr):
+        nx.DiGraph.add_edges_from(self, ebunch_to_add, **attr)
+
+    @mirror_to_nxcg
+    def remove_edge_override(self, u, v):
+        nx.DiGraph.remove_edge(self, u, v)
+
+    @mirror_to_nxcg
+    def remove_edges_from_override(self, ebunch):
+        nx.DiGraph.remove_edges_from(self, ebunch)

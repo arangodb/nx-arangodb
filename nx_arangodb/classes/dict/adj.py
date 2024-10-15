@@ -1815,7 +1815,7 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
                 set_adj_inner_dict_mirror(src_node_id)
                 set_adj_inner_dict_mirror(dst_node_id)
 
-                edge_attr_or_key_dict = set_edge_func(  # type: ignore[operator]
+                edge_attr_or_key_dict = set_edge_func(
                     src_node_id, dst_node_id, edge_or_edges
                 )
 

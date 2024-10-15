@@ -6,6 +6,7 @@ Used across the nx_arangodb package to interact with ArangoDB.
 
 from __future__ import annotations
 
+from functools import wraps
 from typing import Any, Callable, Generator, Tuple
 
 import networkx as nx
@@ -932,3 +933,14 @@ def upsert_collection_edges(
         )
 
     return results
+
+
+def mirror_to_nxcg(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        result = func(self, *args, **kwargs)
+        if self.mirror_to_nxcg and self.nxcg_graph is not None:
+            getattr(self.nxcg_graph, func.__name__)(*args, **kwargs)
+        return result
+
+    return wrapper

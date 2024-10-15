@@ -8,6 +8,7 @@ from nx_arangodb.classes.graph import Graph
 from nx_arangodb.logger import logger
 
 from .dict import edge_key_dict_factory
+from .function import mirror_to_nxcg
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.MultiGraph)  # type: ignore
 
@@ -173,6 +174,7 @@ class MultiGraph(Graph, nx.MultiGraph):
         symmetrize_edges: bool = False,
         use_arango_views: bool = False,
         overwrite_graph: bool = False,
+        mirror_crud_to_nxcg: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
@@ -191,14 +193,19 @@ class MultiGraph(Graph, nx.MultiGraph):
             symmetrize_edges,
             use_arango_views,
             overwrite_graph,
+            mirror_crud_to_nxcg,
             *args,
             **kwargs,
         )
 
         if self.graph_exists_in_db:
-            self.add_edge = self.add_edge_override
             self.has_edge = self.has_edge_override
             self.copy = self.copy_override
+
+            self.add_edge = self.add_edge_override
+            self.add_edges_from = self.add_edges_from_override
+            self.remove_edge = self.remove_edge_override
+            self.remove_edges_from = self.remove_edges_from_override
 
         if incoming_graph_data is not None and not self._loaded_incoming_graph_data:
             # Taken from networkx.MultiGraph.__init__
@@ -230,7 +237,7 @@ class MultiGraph(Graph, nx.MultiGraph):
     #######################
 
     def _set_factory_methods(self) -> None:
-        super()._set_factory_methods()
+        Graph._set_factory_methods(self)
         self.edge_key_dict_factory = edge_key_dict_factory(
             self.db,
             self.adb_graph,
@@ -242,34 +249,6 @@ class MultiGraph(Graph, nx.MultiGraph):
     ##########################
     # nx.MultiGraph Overides #
     ##########################
-
-    def add_edge_override(self, u_for_edge, v_for_edge, key=None, **attr):
-        if key is not None:
-            m = "ArangoDB MultiGraph does not support custom edge keys yet."
-            logger.warning(m)
-
-        _ = super().add_edge(u_for_edge, v_for_edge, key="-1", **attr)
-
-        ######################
-        # NOTE: monkey patch #
-        ######################
-
-        # Old:
-        # return key
-
-        # New:
-        keys = list(self._adj[u_for_edge][v_for_edge].data.keys())
-        last_key = keys[-1]
-        return last_key
-
-        # Reason:
-        # nxadb.MultiGraph does not yet support the ability to work
-        # with custom edge keys. As a Database, we must rely on the official
-        # ArangoDB Edge _id to uniquely identify edges. The EdgeKeyDict.__setitem__
-        # method will be responsible for setting the edge key to the _id of the edge
-        # document. This will allow us to use the edge key as a unique identifier
-
-        ###########################
 
     def has_edge_override(self, u, v, key=None):
         try:
@@ -299,6 +278,47 @@ class MultiGraph(Graph, nx.MultiGraph):
 
     def copy_override(self, *args, **kwargs):
         logger.warning("Note that copying a graph loses the connection to the database")
-        G = super().copy(*args, **kwargs)
+        G = Graph.copy(self, *args, **kwargs)
         G.edge_key_dict_factory = nx.MultiGraph.edge_key_dict_factory
         return G
+
+    @mirror_to_nxcg
+    def add_edge_override(self, u_for_edge, v_for_edge, key=None, **attr):
+        if key is not None:
+            m = "ArangoDB MultiGraph does not support custom edge keys yet."
+            logger.warning(m)
+
+        _ = nx.MultiGraph.add_edge(self, u_for_edge, v_for_edge, key="-1", **attr)
+
+        ######################
+        # NOTE: monkey patch #
+        ######################
+
+        # Old:
+        # return key
+
+        # New:
+        keys = list(self._adj[u_for_edge][v_for_edge].data.keys())
+        last_key = keys[-1]
+        return last_key
+
+        # Reason:
+        # nxadb.MultiGraph does not yet support the ability to work
+        # with custom edge keys. As a Database, we must rely on the official
+        # ArangoDB Edge _id to uniquely identify edges. The EdgeKeyDict.__setitem__
+        # method will be responsible for setting the edge key to the _id of the edge
+        # document. This will allow us to use the edge key as a unique identifier
+
+        ###########################
+
+    @mirror_to_nxcg
+    def add_edges_from_override(self, ebunch_to_add, **attr):
+        nx.MultiGraph.add_edges_from(self, ebunch_to_add, **attr)
+
+    @mirror_to_nxcg
+    def remove_edge_override(self, u, v):
+        nx.MultiGraph.remove_edge(self, u, v)
+
+    @mirror_to_nxcg
+    def remove_edges_from_override(self, ebunch):
+        nx.MultiGraph.remove_edges_from(self, ebunch)

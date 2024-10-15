@@ -62,13 +62,12 @@ def _auto_func(func_name: str, /, *args: Any, **kwargs: Any) -> Any:
     """
     dfunc = _registered_algorithms[func_name]
 
-    backend_priority = []
+    backend_priority: list[str] = []
     if nxadb.convert.GPU_AVAILABLE and nx.config.backends.arangodb.use_gpu:
         backend_priority.append("cugraph")
 
     for backend in backend_priority:
-        if not dfunc.__wrapped__._should_backend_run(backend, *args, **kwargs):
-            logger.warning(f"'{func_name}' cannot be run on backend '{backend}'")
+        if not _should_backend_run(backend, func_name, *args, **kwargs):
             continue
 
         try:
@@ -80,12 +79,46 @@ def _auto_func(func_name: str, /, *args: Any, **kwargs: Any) -> Any:
             )
 
         except NotImplementedError:
-            logger.warning(f"'{func_name}' not implemented for backend '{backend}'")
+            logger.debug(f"'{func_name}' not implemented for backend '{backend}'")
             pass
 
     default_backend = "networkx"
     logger.debug(f"'{func_name}' running on default backend '{default_backend}'")
     return _run_with_backend(default_backend, dfunc, args, kwargs)
+
+
+def _should_backend_run(
+    backend_name: str, func_name: str, *args: Any, **kwargs: Any
+) -> bool:
+    """
+    Determine if a specific backend should be used for a given algorithm.
+
+    Copied from networkx-3.4.1/networkx/utils/backends.py#L1514-L1535
+    to patch the implementation for backwards compatibility, as the signature of
+    this function in NetworkX 3.3 is different from the one in NetworkX 3.4.
+
+    :param backend_name: The name of the backend to check.
+    :type backend_name: str
+    :param func_name: The name of the algorithm/function to be run.
+    :type func_name: str
+    :param args: Variable length argument list for the function.
+    :type args: Any
+    :param kwargs: Arbitrary keyword arguments for the function.
+    :type kwargs: Any
+    :returns: Whether the backend should be used.
+    :rtype: bool
+    """
+    if backend_name == "networkx":
+        return True
+
+    backend = _load_backend(backend_name)
+    should_run = backend.should_run(func_name, args, kwargs)
+    if isinstance(should_run, str) or not should_run:
+        reason = f", because: {should_run}" if isinstance(should_run, str) else ""
+        logger.debug(f"Backend '{backend_name}' not used for '{func_name}' ({reason})")
+        return False
+
+    return True
 
 
 def _run_with_backend(

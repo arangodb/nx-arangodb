@@ -1655,32 +1655,32 @@ def test_graph_dict_init_extended(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", foo="bar", bar={"baz": True})
     G.graph["foo"] = "!!!"
     G.graph["bar"]["baz"] = False
-    assert db.document(G.graph.graph_id)["foo"] == "!!!"
-    assert db.document(G.graph.graph_id)["bar"]["baz"] is False
-    assert "baz" not in db.document(G.graph.graph_id)
+    assert db.document(G.graph.graph_id)["networkx"]["foo"] == "!!!"
+    assert db.document(G.graph.graph_id)["networkx"]["bar"]["baz"] is False
+    assert "baz" not in db.document(G.graph.graph_id)["networkx"]
 
 
 def test_graph_dict_clear_will_not_remove_remote_data(load_karate_graph: Any) -> None:
-    G_adb = nxadb.Graph(
+    G = nxadb.Graph(
         name="KarateGraph",
         foo="bar",
         bar={"a": 4},
     )
 
-    G_adb.graph["ant"] = {"b": 5}
-    G_adb.graph["ant"]["b"] = 6
-    G_adb.clear()
+    G.graph["ant"] = {"b": 5}
+    G.graph["ant"]["b"] = 6
+    G.clear()
     try:
-        G_adb.graph["ant"]
+        G.graph["ant"]
     except KeyError:
         raise AssertionError("Not allowed to fail.")
 
-    assert db.document(G_adb.graph.graph_id)["ant"] == {"b": 6}
+    assert db.document(G.graph.graph_id)["networkx"]["ant"] == {"b": 6}
 
 
 def test_graph_dict_set_item(load_karate_graph: Any) -> None:
     name = "KarateGraph"
-    db.collection("nxadb_graphs").delete(name, ignore_missing=True)
+    db.collection("_graphs").delete(name, ignore_missing=True)
     G = nxadb.Graph(name=name, default_node_type="person")
 
     json_values = [
@@ -1699,10 +1699,10 @@ def test_graph_dict_set_item(load_karate_graph: Any) -> None:
         G.graph["json"] = value
 
         if value is None:
-            assert "json" not in db.document(G.graph.graph_id)
+            assert "json" not in db.document(G.graph.graph_id)["networkx"]
         else:
             assert G.graph["json"] == value
-            assert db.document(G.graph.graph_id)["json"] == value
+            assert db.document(G.graph.graph_id)["networkx"]["json"] == value
 
 
 def test_graph_dict_update(load_karate_graph: Any) -> None:
@@ -1718,7 +1718,7 @@ def test_graph_dict_update(load_karate_graph: Any) -> None:
     assert G.graph["c"] == "d"
 
     # remote
-    adb_doc = db.collection("nxadb_graphs").get(G.name)
+    adb_doc = db.collection("_graphs").get(G.name)
     assert adb_doc["a"] == "b"
     assert adb_doc["c"] == "d"
 
@@ -1731,8 +1731,8 @@ def test_graph_attr_dict_nested_update(load_karate_graph: Any) -> None:
     G.graph["a"].update({"d": "e"})
     assert G.graph["a"]["b"] == "c"
     assert G.graph["a"]["d"] == "e"
-    assert db.document(G.graph.graph_id)["a"]["b"] == "c"
-    assert db.document(G.graph.graph_id)["a"]["d"] == "e"
+    assert db.document(G.graph.graph_id)["networkx"]["a"]["b"] == "c"
+    assert db.document(G.graph.graph_id)["networkx"]["a"]["d"] == "e"
 
 
 def test_graph_dict_nested_1(load_karate_graph: Any) -> None:
@@ -1742,7 +1742,7 @@ def test_graph_dict_nested_1(load_karate_graph: Any) -> None:
 
     G.graph["a"] = {"b": icon}
     assert G.graph["a"]["b"] == icon
-    assert db.document(G.graph.graph_id)["a"]["b"] == icon
+    assert db.document(G.graph.graph_id)["networkx"]["a"]["b"] == icon
 
 
 def test_graph_dict_nested_2(load_karate_graph: Any) -> None:
@@ -1754,7 +1754,7 @@ def test_graph_dict_nested_2(load_karate_graph: Any) -> None:
     G.graph["x"]["y"]["amount_of_goals"] = 1337
 
     assert G.graph["x"]["y"]["amount_of_goals"] == 1337
-    assert db.document(G.graph.graph_id)["x"]["y"]["amount_of_goals"] == 1337
+    assert db.document(G.graph.graph_id)["networkx"]["x"]["y"]["amount_of_goals"] == 1337
 
 
 def test_graph_dict_empty_values(load_karate_graph: Any) -> None:
@@ -1763,10 +1763,10 @@ def test_graph_dict_empty_values(load_karate_graph: Any) -> None:
 
     G.graph["empty"] = {}
     assert G.graph["empty"] == {}
-    assert db.document(G.graph.graph_id)["empty"] == {}
+    assert db.document(G.graph.graph_id)["networkx"]["empty"] == {}
 
     G.graph["none"] = None
-    assert "none" not in db.document(G.graph.graph_id)
+    assert "none" not in db.document(G.graph.graph_id)["networkx"]
     assert "none" not in G.graph
 
 
@@ -1779,12 +1779,12 @@ def test_graph_dict_nested_overwrite(load_karate_graph: Any) -> None:
     G.graph["a"] = {"b": icon1}
     G.graph["a"]["b"]["football_icon"] = "ChangedIcon"
     assert G.graph["a"]["b"]["football_icon"] == "ChangedIcon"
-    assert db.document(G.graph.graph_id)["a"]["b"]["football_icon"] == "ChangedIcon"
+    assert db.document(G.graph.graph_id)["networkx"]["a"]["b"]["football_icon"] == "ChangedIcon"
 
     # Overwrite entire nested dictionary
     G.graph["a"] = {"b": icon2}
     assert G.graph["a"]["b"]["basketball_icon"] == "MJ23"
-    assert db.document(G.graph.graph_id)["a"]["b"]["basketball_icon"] == "MJ23"
+    assert db.document(G.graph.graph_id)["networkx"]["a"]["b"]["basketball_icon"] == "MJ23"
 
 
 def test_graph_dict_complex_nested(load_karate_graph: Any) -> None:
@@ -1796,7 +1796,7 @@ def test_graph_dict_complex_nested(load_karate_graph: Any) -> None:
     G.graph["complex"] = complex_structure
     assert G.graph["complex"]["level1"]["level2"]["level3"]["key"] == "value"
     assert (
-        db.document(G.graph.graph_id)["complex"]["level1"]["level2"]["level3"]["key"]
+        db.document(G.graph.graph_id)["networkx"]["complex"]["level1"]["level2"]["level3"]["key"]
         == "value"
     )
 
@@ -1809,12 +1809,12 @@ def test_graph_dict_nested_deletion(load_karate_graph: Any) -> None:
     G.graph["x"] = {"y": icon}
     del G.graph["x"]["y"]["amount_of_goals"]
     assert "amount_of_goals" not in G.graph["x"]["y"]
-    assert "amount_of_goals" not in db.document(G.graph.graph_id)["x"]["y"]
+    assert "amount_of_goals" not in db.document(G.graph.graph_id)["networkx"]["x"]["y"]
 
     # Delete top-level key
     del G.graph["x"]
     assert "x" not in G.graph
-    assert "x" not in db.document(G.graph.graph_id)
+    assert "x" not in db.document(G.graph.graph_id)["networkx"]
 
 
 def test_readme(load_karate_graph: Any) -> None:

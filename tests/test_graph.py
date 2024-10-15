@@ -463,11 +463,11 @@ class BaseAttrGraphTester(BaseGraphTester):
         assert isinstance(G.graph, GraphDict)
         assert G.graph["foo"] == "bar"
         del G.graph["foo"]
-        graph_doc = get_doc(f"nxadb_graphs/{GRAPH_NAME}")
+        graph_doc = get_doc(f"_graphs/{GRAPH_NAME}")
         assert G.graph == graph_doc
         H = self.K3Graph(foo="bar")
         assert H.graph["foo"] == "bar"
-        graph_doc = get_doc(f"nxadb_graphs/{GRAPH_NAME}")
+        graph_doc = get_doc(f"_graphs/{GRAPH_NAME}")
         assert H.graph == graph_doc
 
     def test_node_attr(self):

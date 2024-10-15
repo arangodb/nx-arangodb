@@ -940,7 +940,12 @@ def mirror_to_nxcg(func):
     def wrapper(self, *args, **kwargs):
         result = func(self, *args, **kwargs)
         if self.mirror_crud_to_nxcg and self.nxcg_graph is not None:
-            getattr(self.nxcg_graph, func.__name__)(*args, **kwargs)
+            if "_override" not in func.__name__:
+                m = f"Function '{func.__name__}' is not an override function."
+                raise ValueError(m)
+
+            func_name = func.__name__.replace("_override", "")
+            getattr(self.nxcg_graph, func_name)(*args, **kwargs)
         return result
 
     return wrapper

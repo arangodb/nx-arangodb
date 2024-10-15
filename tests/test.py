@@ -1638,7 +1638,7 @@ def test_multidigraph_edges_crud(load_karate_graph: Any) -> None:
 def test_graph_dict_init(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
     assert db.collection("_graphs").has("KarateGraph")
-    graph_document = db.collection("_graphs").get("KarateGraph")
+    graph_document = db.document(f"_graphs/{G.name}")
     assert graph_document["_key"] == "KarateGraph"
     assert graph_document["edgeDefinitions"] == [
         {"collection": "knows", "from": ["person"], "to": ["person"]},
@@ -1679,9 +1679,7 @@ def test_graph_dict_clear_will_not_remove_remote_data(load_karate_graph: Any) ->
 
 
 def test_graph_dict_set_item(load_karate_graph: Any) -> None:
-    name = "KarateGraph"
-    db.collection("_graphs").delete(name, ignore_missing=True)
-    G = nxadb.Graph(name=name, default_node_type="person")
+    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
 
     json_values = [
         "aString",
@@ -1707,25 +1705,23 @@ def test_graph_dict_set_item(load_karate_graph: Any) -> None:
 
 def test_graph_dict_update(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
 
     G.graph["a"] = "b"
     to_update = {"c": "d"}
     G.graph.update(to_update)
 
     # local
-    assert G.graph["a"] == "b"
-    assert G.graph["c"] == "d"
+    assert G.graph.data["a"] == G.graph["a"] == "b"
+    assert G.graph.data["c"] == G.graph["c"] == "d"
 
     # remote
-    adb_doc = db.collection("_graphs").get(G.name)
+    adb_doc = db.document(f"_graphs/{G.name}")["networkx"]
     assert adb_doc["a"] == "b"
     assert adb_doc["c"] == "d"
 
 
 def test_graph_attr_dict_nested_update(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
 
     G.graph["a"] = {"b": "c"}
     G.graph["a"].update({"d": "e"})
@@ -1737,7 +1733,6 @@ def test_graph_attr_dict_nested_update(load_karate_graph: Any) -> None:
 
 def test_graph_dict_nested_1(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
     icon = {"football_icon": "MJ7"}
 
     G.graph["a"] = {"b": icon}
@@ -1747,7 +1742,6 @@ def test_graph_dict_nested_1(load_karate_graph: Any) -> None:
 
 def test_graph_dict_nested_2(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
     icon = {"football_icon": "MJ7"}
 
     G.graph["x"] = {"y": icon}
@@ -1761,7 +1755,6 @@ def test_graph_dict_nested_2(load_karate_graph: Any) -> None:
 
 def test_graph_dict_empty_values(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
 
     G.graph["empty"] = {}
     assert G.graph["empty"] == {}
@@ -1774,7 +1767,6 @@ def test_graph_dict_empty_values(load_karate_graph: Any) -> None:
 
 def test_graph_dict_nested_overwrite(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
     icon1 = {"football_icon": "MJ7"}
     icon2 = {"basketball_icon": "MJ23"}
 
@@ -1796,7 +1788,6 @@ def test_graph_dict_nested_overwrite(load_karate_graph: Any) -> None:
 
 def test_graph_dict_complex_nested(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
 
     complex_structure = {"level1": {"level2": {"level3": {"key": "value"}}}}
 
@@ -1812,7 +1803,6 @@ def test_graph_dict_complex_nested(load_karate_graph: Any) -> None:
 
 def test_graph_dict_nested_deletion(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
     icon = {"football_icon": "MJ7", "amount_of_goals": 1337}
 
     G.graph["x"] = {"y": icon}

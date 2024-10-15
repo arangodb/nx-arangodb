@@ -278,7 +278,7 @@ class MultiGraph(Graph, nx.MultiGraph):
 
     def copy_override(self, *args, **kwargs):
         logger.warning("Note that copying a graph loses the connection to the database")
-        G = Graph.copy(self, *args, **kwargs)
+        G = super().copy(*args, **kwargs)
         G.edge_key_dict_factory = nx.MultiGraph.edge_key_dict_factory
         return G
 

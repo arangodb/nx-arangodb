@@ -40,7 +40,7 @@ def graph_attr_dict_factory(
 # Graph #
 #########
 
-GRAPH_KEY = "networkx"
+GRAPH_FIELD = "networkx"
 
 
 def build_graph_attr_dict_data(
@@ -148,7 +148,7 @@ class GraphDict(UserDict[str, Any]):
         )
 
         self.graph_id = f"{self.collection_name}/{self.graph_name}"
-        self.parent_keys = [GRAPH_KEY]
+        self.parent_keys = [GRAPH_FIELD]
 
         self.collection = create_collection(db, self.collection_name)
         self.graph_attr_dict_factory = graph_attr_dict_factory(
@@ -156,7 +156,7 @@ class GraphDict(UserDict[str, Any]):
         )
 
         result = doc_get_or_insert(self.db, self.collection_name, self.graph_id)
-        for k, v in result.get(GRAPH_KEY, {}).items():
+        for k, v in result.get(GRAPH_FIELD, {}).items():
             self.data[k] = self.__process_graph_dict_value(k, v)
 
     def __process_graph_dict_value(self, key: str, value: Any) -> Any:
@@ -277,7 +277,7 @@ class GraphAttrDict(UserDict[str, Any]):
         self.graph = graph
         self.graph_id: str = graph_id
 
-        self.parent_keys: list[str] = [GRAPH_KEY]
+        self.parent_keys: list[str] = [GRAPH_FIELD]
         self.graph_attr_dict_factory = graph_attr_dict_factory(
             self.db, self.graph, self.graph_id
         )

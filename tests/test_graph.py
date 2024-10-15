@@ -17,7 +17,7 @@ from nx_arangodb.classes.dict.adj import (
     AdjListOuterDict,
     EdgeAttrDict,
 )
-from nx_arangodb.classes.dict.graph import GraphDict
+from nx_arangodb.classes.dict.graph import GRAPH_FIELD, GraphDict
 from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 
 from .conftest import db
@@ -463,11 +463,11 @@ class BaseAttrGraphTester(BaseGraphTester):
         assert isinstance(G.graph, GraphDict)
         assert G.graph["foo"] == "bar"
         del G.graph["foo"]
-        graph_doc = get_doc(f"_graphs/{GRAPH_NAME}")["networkx"]
+        graph_doc = get_doc(f"_graphs/{GRAPH_NAME}")[GRAPH_FIELD]
         assert G.graph == graph_doc
         H = self.K3Graph(foo="bar")
         assert H.graph["foo"] == "bar"
-        graph_doc = get_doc(f"_graphs/{GRAPH_NAME}")["networkx"]
+        graph_doc = get_doc(f"_graphs/{GRAPH_NAME}")[GRAPH_FIELD]
         assert H.graph == graph_doc
 
     def test_node_attr(self):
@@ -1105,7 +1105,7 @@ class TestGraph(BaseAttrGraphTester):
         else:
             for src, dst in G.edges():
                 assert G.adj[dst][src] == G.adj[src][dst]
-        assert G.graph == get_doc(G.graph.graph_id)["networkx"]
+        assert G.graph == get_doc(G.graph.graph_id)[GRAPH_FIELD]
 
         # no keywords -- order is edges, nodes
         G = self.K3Graph()
@@ -1126,7 +1126,7 @@ class TestGraph(BaseAttrGraphTester):
         else:
             for src, dst in G.edges():
                 assert G.adj[dst][src] == G.adj[src][dst]
-        assert G.graph == get_doc(G.graph.graph_id)["networkx"]
+        assert G.graph == get_doc(G.graph.graph_id)[GRAPH_FIELD]
 
         # update using only a graph
         G = self.K3Graph()

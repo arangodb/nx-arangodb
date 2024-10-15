@@ -375,20 +375,20 @@ class DiGraph(Graph, nx.DiGraph):
 
     @mirror_to_nxcg
     def remove_nodes_from_override(self, nodes):
-        nx.DiGraph.remove_nodes_from(self, nodes)
+        super().remove_nodes_from(nodes)
 
     @mirror_to_nxcg
     def add_edge_override(self, u, v, **attr):
-        nx.DiGraph.add_edge(self, u, v, **attr)
+        super().add_edge(u, v, **attr)
 
     @mirror_to_nxcg
     def add_edges_from_override(self, ebunch_to_add, **attr):
-        nx.DiGraph.add_edges_from(self, ebunch_to_add, **attr)
+        super().add_edges_from(ebunch_to_add, **attr)
 
     @mirror_to_nxcg
     def remove_edge_override(self, u, v):
-        nx.DiGraph.remove_edge(self, u, v)
+        super().remove_edge(u, v)
 
     @mirror_to_nxcg
     def remove_edges_from_override(self, ebunch):
-        nx.DiGraph.remove_edges_from(self, ebunch)
+        super().remove_edges_from(ebunch)

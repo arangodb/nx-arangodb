@@ -237,7 +237,7 @@ class MultiGraph(Graph, nx.MultiGraph):
     #######################
 
     def _set_factory_methods(self) -> None:
-        Graph._set_factory_methods(self)
+        super()._set_factory_methods(self)
         self.edge_key_dict_factory = edge_key_dict_factory(
             self.db,
             self.adb_graph,
@@ -288,7 +288,7 @@ class MultiGraph(Graph, nx.MultiGraph):
             m = "ArangoDB MultiGraph does not support custom edge keys yet."
             logger.warning(m)
 
-        _ = nx.MultiGraph.add_edge(self, u_for_edge, v_for_edge, key="-1", **attr)
+        _ = super().add_edge(u_for_edge, v_for_edge, key="-1", **attr)
 
         ######################
         # NOTE: monkey patch #
@@ -313,12 +313,12 @@ class MultiGraph(Graph, nx.MultiGraph):
 
     @mirror_to_nxcg
     def add_edges_from_override(self, ebunch_to_add, **attr):
-        nx.MultiGraph.add_edges_from(self, ebunch_to_add, **attr)
+        super().add_edges_from(ebunch_to_add, **attr)
 
     @mirror_to_nxcg
-    def remove_edge_override(self, u, v):
-        nx.MultiGraph.remove_edge(self, u, v)
+    def remove_edge_override(self, u, v, key=None):
+        super().remove_edge(u, v, key)
 
     @mirror_to_nxcg
     def remove_edges_from_override(self, ebunch):
-        nx.MultiGraph.remove_edges_from(self, ebunch)
+        super().remove_edges_from(ebunch)

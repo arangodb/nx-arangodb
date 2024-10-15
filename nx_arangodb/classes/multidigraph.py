@@ -7,6 +7,7 @@ from arango.database import StandardDatabase
 import nx_arangodb as nxadb
 from nx_arangodb.classes.digraph import DiGraph
 from nx_arangodb.classes.multigraph import MultiGraph
+from nx_arangodb.logger import logger
 
 from .function import mirror_to_nxcg
 
@@ -203,9 +204,6 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
             self.reverse = self.reverse_override
             self.to_undirected = self.to_undirected_override
 
-            self.add_edge = self.add_edge_override
-            self.remove_edge = self.remove_edge_override
-
     #######################
     # Init helper methods #
     #######################
@@ -218,13 +216,11 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         if copy is False:
             raise NotImplementedError("In-place reverse is not supported yet.")
 
-        return nx.MultiDiGraph.reverse(self, copy=True)
+        return super().reverse(copy=True)
 
     def to_undirected_override(self, reciprocal=False, as_view=False):
         if reciprocal is False:
-            return nx.MultiDiGraph.to_undirected(
-                self, reciprocal=False, as_view=as_view
-            )
+            return super().to_undirected(reciprocal=False, as_view=as_view)
 
         graph_class = self.to_undirected_class()
         if as_view is True:
@@ -266,11 +262,3 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         ###########################
 
         return G
-
-    @mirror_to_nxcg
-    def add_edge_override(self, u, v, key=None, **attr):
-        nx.MultiDiGraph.add_edge(self, u, v, key, **attr)
-
-    @mirror_to_nxcg
-    def remove_edge_override(self, u, v, key=None):
-        nx.MultiDiGraph.remove_edge(self, u, v, key)

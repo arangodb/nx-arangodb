@@ -939,7 +939,7 @@ def mirror_to_nxcg(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         result = func(self, *args, **kwargs)
-        if self.mirror_to_nxcg and self.nxcg_graph is not None:
+        if self.mirror_crud_to_nxcg and self.nxcg_graph is not None:
             getattr(self.nxcg_graph, func.__name__)(*args, **kwargs)
         return result
 

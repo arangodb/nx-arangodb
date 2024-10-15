@@ -312,13 +312,5 @@ class MultiGraph(Graph, nx.MultiGraph):
         ###########################
 
     @mirror_to_nxcg
-    def add_edges_from_override(self, ebunch_to_add, **attr):
-        super().add_edges_from(ebunch_to_add, **attr)
-
-    @mirror_to_nxcg
     def remove_edge_override(self, u, v, key=None):
         super().remove_edge(u, v, key)
-
-    @mirror_to_nxcg
-    def remove_edges_from_override(self, ebunch):
-        super().remove_edges_from(ebunch)

@@ -372,23 +372,3 @@ class DiGraph(Graph, nx.DiGraph):
             del self._succ[u][n]  # remove all edges n-u in digraph
         del self._pred[n]  # remove node from pred
         nx._clear_cache(self)
-
-    @mirror_to_nxcg
-    def remove_nodes_from_override(self, nodes):
-        super().remove_nodes_from(nodes)
-
-    @mirror_to_nxcg
-    def add_edge_override(self, u, v, **attr):
-        super().add_edge(u, v, **attr)
-
-    @mirror_to_nxcg
-    def add_edges_from_override(self, ebunch_to_add, **attr):
-        super().add_edges_from(ebunch_to_add, **attr)
-
-    @mirror_to_nxcg
-    def remove_edge_override(self, u, v):
-        super().remove_edge(u, v)
-
-    @mirror_to_nxcg
-    def remove_edges_from_override(self, ebunch):
-        super().remove_edges_from(ebunch)

@@ -237,7 +237,7 @@ class MultiGraph(Graph, nx.MultiGraph):
     #######################
 
     def _set_factory_methods(self) -> None:
-        super()._set_factory_methods(self)
+        super()._set_factory_methods()
         self.edge_key_dict_factory = edge_key_dict_factory(
             self.db,
             self.adb_graph,

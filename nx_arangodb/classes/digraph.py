@@ -9,7 +9,7 @@ from nx_arangodb.logger import logger
 
 from .dict.adj import AdjListOuterDict
 from .enum import TraversalDirection
-from .function import get_node_id
+from .function import get_node_id, mirror_to_nxcg
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.DiGraph)  # type: ignore
 
@@ -131,6 +131,15 @@ class DiGraph(Graph, nx.DiGraph):
         this operation is irreversible and will result in the loss of all data in
         the graph. NOTE: If set to True, Collection Indexes will also be lost.
 
+    mirror_crud_to_nxcg : bool (optional, default: False)
+        Whether to mirror any CRUD operations performed on the NetworkX-ArangoDB Graph
+        to the cached NetworkX-cuGraph Graph (if available). This allows you to maintain
+        an up-to-date in-memory NetworkX-cuGraph graph while performing CRUD operations
+        on the NetworkX-ArangoDB Graph. NOTE: The first time you perform a CRUD
+        operation on the NetworkX-ArangoDB Graph with an existing NetworkX-cuGraph cache
+        will require downtime to copy the NetworkX-cuGraph Graph from GPU memory to CPU
+        memory. Subsequent CRUD operations will not require this downtime.
+
     args: positional arguments for nx.Graph
         Additional arguments passed to nx.Graph.
 
@@ -161,6 +170,7 @@ class DiGraph(Graph, nx.DiGraph):
         symmetrize_edges: bool = False,
         use_arango_views: bool = False,
         overwrite_graph: bool = False,
+        mirror_crud_to_nxcg: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
@@ -179,16 +189,18 @@ class DiGraph(Graph, nx.DiGraph):
             symmetrize_edges,
             use_arango_views,
             overwrite_graph,
+            mirror_crud_to_nxcg,
             *args,
             **kwargs,
         )
 
         if self.graph_exists_in_db:
             self.clear_edges = self.clear_edges_override
+            self.reverse = self.reverse_override
+
             self.add_node = self.add_node_override
             self.add_nodes_from = self.add_nodes_from_override
             self.remove_node = self.remove_node_override
-            self.reverse = self.reverse_override
 
             assert isinstance(self._succ, AdjListOuterDict)
             assert isinstance(self._pred, AdjListOuterDict)
@@ -234,6 +246,7 @@ class DiGraph(Graph, nx.DiGraph):
 
         super().clear_edges()
 
+    @mirror_to_nxcg
     def add_node_override(self, node_for_adding, **attr):
         if node_for_adding is None:
             raise ValueError("None cannot be a node")
@@ -269,6 +282,7 @@ class DiGraph(Graph, nx.DiGraph):
 
         nx._clear_cache(self)
 
+    @mirror_to_nxcg
     def add_nodes_from_override(self, nodes_for_adding, **attr):
         for n in nodes_for_adding:
             try:
@@ -312,6 +326,7 @@ class DiGraph(Graph, nx.DiGraph):
 
         nx._clear_cache(self)
 
+    @mirror_to_nxcg
     def remove_node_override(self, n):
         if isinstance(n, (str, int)):
             n = get_node_id(str(n), self.default_node_type)

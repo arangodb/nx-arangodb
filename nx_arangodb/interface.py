@@ -98,9 +98,9 @@ def _should_backend_run(backend: str, dfunc: Any, *args: Any, **kwargs: Any) -> 
     - https://github.com/networkx/networkx/blob/networkx-3.4.1/networkx/utils/backends.py#L1514  # noqa: E501
     """
     try:
-        return dfunc.__wrapped__._should_backend_run(backend, *args, **kwargs)
+        return bool(dfunc.__wrapped__._should_backend_run(backend, *args, **kwargs))
     except TypeError:
-        return dfunc.__wrapped__._should_backend_run(backend, args, kwargs)
+        return bool(dfunc.__wrapped__._should_backend_run(backend, args, kwargs))
 
 
 def _can_backend_run(backend: str, dfunc: Any, *args: Any, **kwargs: Any) -> bool:
@@ -111,9 +111,9 @@ def _can_backend_run(backend: str, dfunc: Any, *args: Any, **kwargs: Any) -> boo
     - https://github.com/networkx/networkx/blob/networkx-3.4.1/networkx/utils/backends.py#L1489  # noqa: E501
     """
     try:
-        return dfunc.__wrapped__._can_backend_run(backend, *args, **kwargs)
+        return bool(dfunc.__wrapped__._can_backend_run(backend, *args, **kwargs))
     except TypeError:
-        return dfunc.__wrapped__._can_backend_run(backend, args, kwargs)
+        return bool(dfunc.__wrapped__._can_backend_run(backend, args, kwargs))
 
 
 def _run_with_backend(

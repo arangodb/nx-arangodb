@@ -62,13 +62,15 @@ def _auto_func(func_name: str, /, *args: Any, **kwargs: Any) -> Any:
     """
     dfunc = _registered_algorithms[func_name]
 
-    backend_priority = []
+    backend_priority: list[str] = []
     if nxadb.convert.GPU_AVAILABLE and nx.config.backends.arangodb.use_gpu:
         backend_priority.append("cugraph")
 
     for backend in backend_priority:
-        if not dfunc.__wrapped__._should_backend_run(backend, *args, **kwargs):
-            logger.warning(f"'{func_name}' cannot be run on backend '{backend}'")
+        if not _should_backend_run(backend, dfunc, *args, **kwargs):
+            continue
+
+        if not _can_backend_run(backend, dfunc, *args, **kwargs):
             continue
 
         try:
@@ -80,12 +82,38 @@ def _auto_func(func_name: str, /, *args: Any, **kwargs: Any) -> Any:
             )
 
         except NotImplementedError:
-            logger.warning(f"'{func_name}' not implemented for backend '{backend}'")
+            logger.debug(f"'{func_name}' not implemented for backend '{backend}'")
             pass
 
     default_backend = "networkx"
     logger.debug(f"'{func_name}' running on default backend '{default_backend}'")
     return _run_with_backend(default_backend, dfunc, args, kwargs)
+
+
+def _should_backend_run(backend: str, dfunc: Any, *args: Any, **kwargs: Any) -> bool:
+    """Wrapper around NetworkX's should_backend_run function, because
+    the signature is different for NetworkX <=3.3 and 3.4:
+
+    - https://github.com/networkx/networkx/blob/networkx-3.3/networkx/utils/backends.py#L821  # noqa: E501
+    - https://github.com/networkx/networkx/blob/networkx-3.4.1/networkx/utils/backends.py#L1514  # noqa: E501
+    """
+    try:
+        return bool(dfunc.__wrapped__._should_backend_run(backend, *args, **kwargs))
+    except TypeError:
+        return bool(dfunc.__wrapped__._should_backend_run(backend, args, kwargs))
+
+
+def _can_backend_run(backend: str, dfunc: Any, *args: Any, **kwargs: Any) -> bool:
+    """Wrapper around NetworkX's _can_backend_run function, because
+    the signature is different for NetworkX <=3.3 and 3.4:
+
+    - https://github.com/networkx/networkx/blob/networkx-3.3/networkx/utils/backends.py#L810  # noqa: E501
+    - https://github.com/networkx/networkx/blob/networkx-3.4.1/networkx/utils/backends.py#L1489  # noqa: E501
+    """
+    try:
+        return bool(dfunc.__wrapped__._can_backend_run(backend, *args, **kwargs))
+    except TypeError:
+        return bool(dfunc.__wrapped__._can_backend_run(backend, args, kwargs))
 
 
 def _run_with_backend(

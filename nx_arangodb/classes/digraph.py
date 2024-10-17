@@ -131,6 +131,15 @@ class DiGraph(Graph, nx.DiGraph):
         this operation is irreversible and will result in the loss of all data in
         the graph. NOTE: If set to True, Collection Indexes will also be lost.
 
+    mirror_crud_to_nxcg : bool (optional, default: False)
+        Whether to mirror any CRUD operations performed on the NetworkX-ArangoDB Graph
+        to the cached NetworkX-cuGraph Graph (if available). This allows you to maintain
+        an up-to-date in-memory NetworkX-cuGraph graph while performing CRUD operations
+        on the NetworkX-ArangoDB Graph. NOTE: The first time you perform a CRUD
+        operation on the NetworkX-ArangoDB Graph with an existing NetworkX-cuGraph cache
+        will require downtime to copy the NetworkX-cuGraph Graph from GPU memory to CPU
+        memory. Subsequent CRUD operations will not require this downtime.
+
     args: positional arguments for nx.Graph
         Additional arguments passed to nx.Graph.
 

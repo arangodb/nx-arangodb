@@ -143,9 +143,7 @@ class GraphDict(UserDict[str, Any]):
         self.db = db
         self.adb_graph = graph
         self.graph_name = graph.name
-        self.collection_name = os.environ.get(
-            "DATABASE_GRAPH_COLLECTION", "_graphs"
-        )
+        self.collection_name = os.environ.get("DATABASE_GRAPH_COLLECTION", "_graphs")
 
         self.graph_id = f"{self.collection_name}/{self.graph_name}"
         self.parent_keys = [GRAPH_FIELD]

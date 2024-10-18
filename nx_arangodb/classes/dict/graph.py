@@ -108,7 +108,7 @@ class GraphDict(UserDict[str, Any]):
     stores the attributes in a collection with the graph name as the document key.
 
     The default collection is called `_graphs`. However, if the
-    `DATABASE_GRAPH_COLLECTION_NAME` environment variable is specified,
+    `DATABASE_GRAPH_COLLECTION` environment variable is specified,
     then that collection will be used. This variable is useful when the
     database user does not have permission to access the `_graphs`
     system collection.
@@ -144,7 +144,7 @@ class GraphDict(UserDict[str, Any]):
         self.adb_graph = graph
         self.graph_name = graph.name
         self.collection_name = os.environ.get(
-            "DATABASE_GRAPHS_COLLECTION_NAME", "_graphs"
+            "DATABASE_GRAPH_COLLECTION", "_graphs"
         )
 
         self.graph_id = f"{self.collection_name}/{self.graph_name}"

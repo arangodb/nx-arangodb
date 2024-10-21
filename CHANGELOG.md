@@ -1,3 +1,50 @@
+1.2.0 (2024-10-21)
+------------------
+
+New
+~~~
+- Use `_graphs` instead of `nxadb_graphs` (#66) [Anthony Mahanna]
+
+  * new: use `_graphs` instead of `nxadb_graphs`
+
+  * fix: lint
+
+  * fix: typo
+
+  * cleanup
+
+  * cleanup: use `GRAPH_FIELD`
+
+  * fix: env var
+
+  * fix: lint
+
+  * bump version
+
+Other
+~~~~~
+- Bump: networkx dep (#64) [Anthony Mahanna]
+
+  * bump: networkx dep
+
+  * fix: `mypy`
+
+  * new: `_should_backend_run`
+
+  overriding https://github.com/networkx/networkx/blob/networkx-3.4.1/networkx/utils/backends.py#L1514-L1535 to support backwards compatibility
+
+  * Update VERSION
+
+  * fix: use `from_networkx` if graph does not exist in db
+
+  * remove demo.py
+
+  * new: `_should_backend_run`, `_can_backend_run`
+
+  * fix: lint
+- !gitchangelog (#62) [aMahanna, github-actions[bot]]
+
+
 1.1.0 (2024-10-08)
 ------------------
 

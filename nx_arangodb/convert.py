@@ -138,11 +138,11 @@ if GPU_AVAILABLE:
             return G
 
         if isinstance(G, nxadb.Graph):
-            if not G.graph_exists_in_db:
-                m = "nx_arangodb.Graph does not exist in ArangoDB. Cannot pull graph."
-                raise ValueError(m)
-
             logger.debug("converting nx_arangodb graph to nx_cugraph graph")
+
+            if not G.graph_exists_in_db:
+                return nxcg.convert.from_networkx(G)
+
             return nxadb_to_nxcg(G, as_directed=as_directed)
 
         raise TypeError(f"Expected nx_arangodb.Graph or nxcg.Graph; got {type(G)}")

@@ -13,6 +13,7 @@ from phenolrs.networkx.typings import (
 
 import nx_arangodb as nxadb
 from nx_arangodb.classes.dict.adj import AdjListOuterDict, EdgeAttrDict, EdgeKeyDict
+from nx_arangodb.classes.dict.graph import GRAPH_FIELD
 from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 
 from .conftest import create_grid_graph, create_line_graph, db, run_gpu_tests
@@ -1638,7 +1639,7 @@ def test_multidigraph_edges_crud(load_karate_graph: Any) -> None:
 def test_graph_dict_init(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
     assert db.collection("_graphs").has("KarateGraph")
-    graph_document = db.collection("_graphs").get("KarateGraph")
+    graph_document = db.document(f"_graphs/{G.name}")
     assert graph_document["_key"] == "KarateGraph"
     assert graph_document["edgeDefinitions"] == [
         {"collection": "knows", "from": ["person"], "to": ["person"]},
@@ -1655,33 +1656,31 @@ def test_graph_dict_init_extended(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", foo="bar", bar={"baz": True})
     G.graph["foo"] = "!!!"
     G.graph["bar"]["baz"] = False
-    assert db.document(G.graph.graph_id)["foo"] == "!!!"
-    assert db.document(G.graph.graph_id)["bar"]["baz"] is False
-    assert "baz" not in db.document(G.graph.graph_id)
+    assert db.document(G.graph.graph_id)[GRAPH_FIELD]["foo"] == "!!!"
+    assert db.document(G.graph.graph_id)[GRAPH_FIELD]["bar"]["baz"] is False
+    assert "baz" not in db.document(G.graph.graph_id)[GRAPH_FIELD]
 
 
 def test_graph_dict_clear_will_not_remove_remote_data(load_karate_graph: Any) -> None:
-    G_adb = nxadb.Graph(
+    G = nxadb.Graph(
         name="KarateGraph",
         foo="bar",
         bar={"a": 4},
     )
 
-    G_adb.graph["ant"] = {"b": 5}
-    G_adb.graph["ant"]["b"] = 6
-    G_adb.clear()
+    G.graph["ant"] = {"b": 5}
+    G.graph["ant"]["b"] = 6
+    G.clear()
     try:
-        G_adb.graph["ant"]
+        G.graph["ant"]
     except KeyError:
         raise AssertionError("Not allowed to fail.")
 
-    assert db.document(G_adb.graph.graph_id)["ant"] == {"b": 6}
+    assert db.document(G.graph.graph_id)[GRAPH_FIELD]["ant"] == {"b": 6}
 
 
 def test_graph_dict_set_item(load_karate_graph: Any) -> None:
-    name = "KarateGraph"
-    db.collection("nxadb_graphs").delete(name, ignore_missing=True)
-    G = nxadb.Graph(name=name, default_node_type="person")
+    G = nxadb.Graph(name="KarateGraph", default_node_type="person")
 
     json_values = [
         "aString",
@@ -1699,122 +1698,124 @@ def test_graph_dict_set_item(load_karate_graph: Any) -> None:
         G.graph["json"] = value
 
         if value is None:
-            assert "json" not in db.document(G.graph.graph_id)
+            assert "json" not in db.document(G.graph.graph_id)[GRAPH_FIELD]
         else:
             assert G.graph["json"] == value
-            assert db.document(G.graph.graph_id)["json"] == value
+            assert db.document(G.graph.graph_id)[GRAPH_FIELD]["json"] == value
 
 
 def test_graph_dict_update(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
 
     G.graph["a"] = "b"
     to_update = {"c": "d"}
     G.graph.update(to_update)
 
     # local
-    assert G.graph["a"] == "b"
-    assert G.graph["c"] == "d"
+    assert G.graph.data["a"] == G.graph["a"] == "b"
+    assert G.graph.data["c"] == G.graph["c"] == "d"
 
     # remote
-    adb_doc = db.collection("nxadb_graphs").get(G.name)
+    adb_doc = db.document(f"_graphs/{G.name}")[GRAPH_FIELD]
     assert adb_doc["a"] == "b"
     assert adb_doc["c"] == "d"
 
 
 def test_graph_attr_dict_nested_update(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
 
     G.graph["a"] = {"b": "c"}
     G.graph["a"].update({"d": "e"})
     assert G.graph["a"]["b"] == "c"
     assert G.graph["a"]["d"] == "e"
-    assert db.document(G.graph.graph_id)["a"]["b"] == "c"
-    assert db.document(G.graph.graph_id)["a"]["d"] == "e"
+    assert db.document(G.graph.graph_id)[GRAPH_FIELD]["a"]["b"] == "c"
+    assert db.document(G.graph.graph_id)[GRAPH_FIELD]["a"]["d"] == "e"
 
 
 def test_graph_dict_nested_1(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
     icon = {"football_icon": "MJ7"}
 
     G.graph["a"] = {"b": icon}
     assert G.graph["a"]["b"] == icon
-    assert db.document(G.graph.graph_id)["a"]["b"] == icon
+    assert db.document(G.graph.graph_id)[GRAPH_FIELD]["a"]["b"] == icon
 
 
 def test_graph_dict_nested_2(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
     icon = {"football_icon": "MJ7"}
 
     G.graph["x"] = {"y": icon}
     G.graph["x"]["y"]["amount_of_goals"] = 1337
 
     assert G.graph["x"]["y"]["amount_of_goals"] == 1337
-    assert db.document(G.graph.graph_id)["x"]["y"]["amount_of_goals"] == 1337
+    assert (
+        db.document(G.graph.graph_id)[GRAPH_FIELD]["x"]["y"]["amount_of_goals"] == 1337
+    )
 
 
 def test_graph_dict_empty_values(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
 
     G.graph["empty"] = {}
     assert G.graph["empty"] == {}
-    assert db.document(G.graph.graph_id)["empty"] == {}
+    assert db.document(G.graph.graph_id)[GRAPH_FIELD]["empty"] == {}
 
     G.graph["none"] = None
-    assert "none" not in db.document(G.graph.graph_id)
+    assert "none" not in db.document(G.graph.graph_id)[GRAPH_FIELD]
     assert "none" not in G.graph
 
 
 def test_graph_dict_nested_overwrite(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
     icon1 = {"football_icon": "MJ7"}
     icon2 = {"basketball_icon": "MJ23"}
 
     G.graph["a"] = {"b": icon1}
     G.graph["a"]["b"]["football_icon"] = "ChangedIcon"
     assert G.graph["a"]["b"]["football_icon"] == "ChangedIcon"
-    assert db.document(G.graph.graph_id)["a"]["b"]["football_icon"] == "ChangedIcon"
+    assert (
+        db.document(G.graph.graph_id)[GRAPH_FIELD]["a"]["b"]["football_icon"]
+        == "ChangedIcon"
+    )
 
     # Overwrite entire nested dictionary
     G.graph["a"] = {"b": icon2}
     assert G.graph["a"]["b"]["basketball_icon"] == "MJ23"
-    assert db.document(G.graph.graph_id)["a"]["b"]["basketball_icon"] == "MJ23"
+    assert (
+        db.document(G.graph.graph_id)[GRAPH_FIELD]["a"]["b"]["basketball_icon"]
+        == "MJ23"
+    )
 
 
 def test_graph_dict_complex_nested(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
 
     complex_structure = {"level1": {"level2": {"level3": {"key": "value"}}}}
 
     G.graph["complex"] = complex_structure
     assert G.graph["complex"]["level1"]["level2"]["level3"]["key"] == "value"
     assert (
-        db.document(G.graph.graph_id)["complex"]["level1"]["level2"]["level3"]["key"]
+        db.document(G.graph.graph_id)[GRAPH_FIELD]["complex"]["level1"]["level2"][
+            "level3"
+        ]["key"]
         == "value"
     )
 
 
 def test_graph_dict_nested_deletion(load_karate_graph: Any) -> None:
     G = nxadb.Graph(name="KarateGraph", default_node_type="person")
-    G.clear()
     icon = {"football_icon": "MJ7", "amount_of_goals": 1337}
 
     G.graph["x"] = {"y": icon}
     del G.graph["x"]["y"]["amount_of_goals"]
     assert "amount_of_goals" not in G.graph["x"]["y"]
-    assert "amount_of_goals" not in db.document(G.graph.graph_id)["x"]["y"]
+    assert "amount_of_goals" not in db.document(G.graph.graph_id)[GRAPH_FIELD]["x"]["y"]
 
     # Delete top-level key
     del G.graph["x"]
     assert "x" not in G.graph
-    assert "x" not in db.document(G.graph.graph_id)
+    assert "x" not in db.document(G.graph.graph_id)[GRAPH_FIELD]
 
 
 def test_readme(load_karate_graph: Any) -> None:

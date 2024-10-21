@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections import UserDict
 from typing import Any, Callable
 
@@ -38,6 +39,8 @@ def graph_attr_dict_factory(
 #########
 # Graph #
 #########
+
+GRAPH_FIELD = "networkx"
 
 
 def build_graph_attr_dict_data(
@@ -104,7 +107,11 @@ class GraphDict(UserDict[str, Any]):
     Given that ArangoDB does not have a concept of graph attributes, this class
     stores the attributes in a collection with the graph name as the document key.
 
-    For now, the collection is called 'nxadb_graphs'.
+    The default collection is called `_graphs`. However, if the
+    `DATABASE_GRAPH_COLLECTION` environment variable is specified,
+    then that collection will be used. This variable is useful when the
+    database user does not have permission to access the `_graphs`
+    system collection.
 
     Parameters
     ----------
@@ -123,23 +130,31 @@ class GraphDict(UserDict[str, Any]):
     >>> del G.graph['foo']
     """
 
-    def __init__(self, db: StandardDatabase, graph: Graph, *args: Any, **kwargs: Any):
+    def __init__(
+        self,
+        db: StandardDatabase,
+        graph: Graph,
+        *args: Any,
+        **kwargs: Any,
+    ):
         super().__init__(*args, **kwargs)
         self.data: dict[str, Any] = {}
 
         self.db = db
         self.adb_graph = graph
         self.graph_name = graph.name
-        self.COLLECTION_NAME = "nxadb_graphs"
-        self.graph_id = f"{self.COLLECTION_NAME}/{self.graph_name}"
+        self.collection_name = os.environ.get("DATABASE_GRAPH_COLLECTION", "_graphs")
 
-        self.collection = create_collection(db, self.COLLECTION_NAME)
+        self.graph_id = f"{self.collection_name}/{self.graph_name}"
+        self.parent_keys = [GRAPH_FIELD]
+
+        self.collection = create_collection(db, self.collection_name)
         self.graph_attr_dict_factory = graph_attr_dict_factory(
             self.db, self.adb_graph, self.graph_id
         )
 
-        result = doc_get_or_insert(self.db, self.COLLECTION_NAME, self.graph_id)
-        for k, v in result.items():
+        result = doc_get_or_insert(self.db, self.collection_name, self.graph_id)
+        for k, v in result.get(GRAPH_FIELD, {}).items():
             self.data[k] = self.__process_graph_dict_value(k, v)
 
     def __process_graph_dict_value(self, key: str, value: Any) -> Any:
@@ -147,7 +162,7 @@ class GraphDict(UserDict[str, Any]):
             return value
 
         graph_attr_dict = self.graph_attr_dict_factory()
-        graph_attr_dict.parent_keys = [key]
+        graph_attr_dict.parent_keys += [key]
         graph_attr_dict.data = build_graph_attr_dict_data(graph_attr_dict, value)
 
         return graph_attr_dict
@@ -158,7 +173,7 @@ class GraphDict(UserDict[str, Any]):
         if key in self.data:
             return True
 
-        return aql_doc_has_key(self.db, self.graph_id, key)
+        return aql_doc_has_key(self.db, self.graph_id, key, self.parent_keys)
 
     @key_is_string
     def __getitem__(self, key: str) -> Any:
@@ -167,7 +182,7 @@ class GraphDict(UserDict[str, Any]):
         if value := self.data.get(key):
             return value
 
-        result = aql_doc_get_key(self.db, self.graph_id, key)
+        result = aql_doc_get_key(self.db, self.graph_id, key, self.parent_keys)
 
         if result is None:
             raise KeyError(key)
@@ -187,14 +202,17 @@ class GraphDict(UserDict[str, Any]):
 
         graph_dict_value = self.__process_graph_dict_value(key, value)
         self.data[key] = graph_dict_value
-        doc_update(self.db, self.graph_id, {key: value})
+
+        update_dict = get_update_dict(self.parent_keys, {key: value})
+        doc_update(self.db, self.graph_id, update_dict)
 
     @key_is_string
     @key_is_not_reserved
     def __delitem__(self, key: str) -> None:
         """del G.graph['foo']"""
         self.data.pop(key, None)
-        doc_update(self.db, self.graph_id, {key: None})
+        update_dict = get_update_dict(self.parent_keys, {key: None})
+        doc_update(self.db, self.graph_id, update_dict)
 
     # @values_are_json_serializable # TODO?
     def update(self, attrs: Any) -> None:  # type: ignore
@@ -208,7 +226,8 @@ class GraphDict(UserDict[str, Any]):
         graph_attr_dict.data = graph_attr_dict_data
 
         self.data.update(graph_attr_dict_data)
-        doc_update(self.db, self.graph_id, attrs)
+        update_dict = get_update_dict(self.parent_keys, attrs)
+        doc_update(self.db, self.graph_id, update_dict)
 
     def clear(self) -> None:
         """G.graph.clear()"""
@@ -256,7 +275,7 @@ class GraphAttrDict(UserDict[str, Any]):
         self.graph = graph
         self.graph_id: str = graph_id
 
-        self.parent_keys: list[str] = []
+        self.parent_keys: list[str] = [GRAPH_FIELD]
         self.graph_attr_dict_factory = graph_attr_dict_factory(
             self.db, self.graph, self.graph_id
         )

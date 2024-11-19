@@ -44,7 +44,7 @@ This is a [backend to NetworkX](https://networkx.org/documentation/stable/refere
 
 Benefits of having ArangoDB as a backend to NetworkX include:
 1. No need to re-create the graph every time you start a new session.
-2. Access to GPU-accelerated graph analytics ([nx-cugraph](https://docs.rapids.ai/api/cugraph/nightly/nx_cugraph/nx_cugraph/)).
+2. Access to GPU-accelerated graph analytics ([nx-cugraph](https://rapids.ai/nx-cugraph/)).
 3. Access to a database query language ([Arango Query Language](https://arangodb.com/sql-aql-comparison/)).
 4. Access to a visual interface for graph exploration ([ArangoDB Web UI](https://docs.arangodb.com/stable/components/web-interface/graphs/)).
 5. Access to cross-collaboration on the same graph ([ArangoDB Cloud](https://docs.arangodb.com/stable/get-started/set-up-a-cloud-instance/)).
@@ -153,7 +153,7 @@ os.environ["DATABASE_NAME"] = credentials["dbName"]
 
 ## How does algorithm dispatching work?
 
-`nx-arangodb` will automatically dispatch algorithm calls to either CPU or GPU based on if `nx-cugraph` is installed. We rely on a rust-based library called [phenolrs](https://github.com/arangoml/phenolrs) to retrieve ArangoDB Graphs as fast as possible.
+`nx-arangodb` will automatically dispatch algorithm calls to either CPU or GPU based on if [nx-cugraph](https://rapids.ai/nx-cugraph/) is installed. We rely on a rust-based library called [phenolrs](https://github.com/arangoml/phenolrs) to retrieve ArangoDB Graphs as fast as possible.
 
 You can also force-run algorithms on CPU even if `nx-cugraph` is installed:
 

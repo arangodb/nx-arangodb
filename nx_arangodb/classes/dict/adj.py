@@ -105,6 +105,8 @@ def adjlist_outer_dict_factory(
     db: StandardDatabase,
     graph: Graph,
     default_node_type: str,
+    read_parallelism: int,
+    read_batch_size: int,
     edge_type_key: str,
     edge_type_func: Callable[[str, str], str],
     graph_type: str,
@@ -115,6 +117,8 @@ def adjlist_outer_dict_factory(
         db,
         graph,
         default_node_type,
+        read_parallelism,
+        read_batch_size,
         edge_type_key,
         edge_type_func,
         graph_type,
@@ -1467,6 +1471,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         db: StandardDatabase,
         graph: Graph,
         default_node_type: str,
+        read_parallelism: int,
+        read_batch_size: int,
         edge_type_key: str,
         edge_type_func: Callable[[str, str], str],
         graph_type: str,
@@ -1489,6 +1495,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
         self.edge_type_key = edge_type_key
         self.edge_type_func = edge_type_func
         self.default_node_type = default_node_type
+        self.read_parallelism = read_parallelism
+        self.read_batch_size = read_batch_size
         self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(
             db,
             graph,
@@ -1853,6 +1861,8 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
             is_directed=True,
             is_multigraph=self.is_multigraph,
             symmetrize_edges_if_directed=self.symmetrize_edges_if_directed,
+            read_parallelism=self.read_parallelism,
+            read_batch_size=self.read_batch_size,
         )
 
         # Even if the Graph is undirected,

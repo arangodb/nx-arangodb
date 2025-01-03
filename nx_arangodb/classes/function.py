@@ -47,6 +47,8 @@ def get_arangodb_graph(
     is_directed: bool,
     is_multigraph: bool,
     symmetrize_edges_if_directed: bool,
+    read_parallelism: int,
+    read_batch_size: int,
 ) -> Tuple[
     NodeDict,
     GraphAdjDict | DiGraphAdjDict | MultiGraphAdjDict | MultiDiGraphAdjDict,
@@ -142,11 +144,9 @@ def get_arangodb_graph(
     if not load_adj_dict and not load_coo:
         metagraph["edgeCollections"] = {}
 
-    config = nx.config.backends.arangodb
-    assert config.db_name
-    assert config.host
-    assert config.username
-    assert config.password
+    hosts = adb_graph._conn._hosts
+    db_name = adb_graph._conn._db_name
+    username, password = adb_graph._conn._auth
 
     (
         node_dict,
@@ -157,11 +157,11 @@ def get_arangodb_graph(
         vertex_ids_to_index,
         edge_values,
     ) = NetworkXLoader.load_into_networkx(
-        config.db_name,
+        database=db_name,
         metagraph=metagraph,
-        hosts=[config.host],
-        username=config.username,
-        password=config.password,
+        hosts=hosts,
+        username=username,
+        password=password,
         load_adj_dict=load_adj_dict,
         load_coo=load_coo,
         load_all_vertex_attributes=load_all_vertex_attributes,
@@ -169,8 +169,8 @@ def get_arangodb_graph(
         is_directed=is_directed,
         is_multigraph=is_multigraph,
         symmetrize_edges_if_directed=symmetrize_edges_if_directed,
-        parallelism=config.read_parallelism,
-        batch_size=config.read_batch_size,
+        parallelism=read_parallelism,
+        batch_size=read_batch_size,
     )
 
     return (

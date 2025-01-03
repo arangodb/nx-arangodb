@@ -40,10 +40,20 @@ from ..function import (
 
 
 def node_dict_factory(
-    db: StandardDatabase, graph: Graph, default_node_type: str
+    db: StandardDatabase,
+    graph: Graph,
+    default_node_type: str,
+    read_parallelism: int,
+    read_batch_size: int,
 ) -> Callable[..., NodeDict]:
     """Factory function for creating a NodeDict."""
-    return lambda: NodeDict(db, graph, default_node_type)
+    return lambda: NodeDict(
+        db,
+        graph,
+        default_node_type,
+        read_parallelism,
+        read_batch_size,
+    )
 
 
 def node_attr_dict_factory(
@@ -262,6 +272,8 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         db: StandardDatabase,
         graph: Graph,
         default_node_type: str,
+        read_parallelism: int,
+        read_batch_size: int,
         *args: Any,
         **kwargs: Any,
     ):
@@ -271,6 +283,9 @@ class NodeDict(UserDict[str, NodeAttrDict]):
         self.db = db
         self.graph = graph
         self.default_node_type = default_node_type
+        self.read_parallelism = read_parallelism
+        self.read_batch_size = read_batch_size
+
         self.node_attr_dict_factory = node_attr_dict_factory(self.db, self.graph)
 
         self.FETCHED_ALL_DATA = False
@@ -472,6 +487,8 @@ class NodeDict(UserDict[str, NodeAttrDict]):
             is_directed=False,  # not used
             is_multigraph=False,  # not used
             symmetrize_edges_if_directed=False,  # not used
+            read_parallelism=self.read_parallelism,
+            read_batch_size=self.read_batch_size,
         )
 
         for node_id, node_data in node_dict.items():

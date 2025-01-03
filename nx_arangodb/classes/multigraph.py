@@ -229,8 +229,8 @@ class MultiGraph(Graph, nx.MultiGraph):
     # Init helper methods #
     #######################
 
-    def _set_factory_methods(self) -> None:
-        super()._set_factory_methods()
+    def _set_factory_methods(self, read_parallelism: int, read_batch_size: int) -> None:
+        super()._set_factory_methods(read_parallelism, read_batch_size)
         self.edge_key_dict_factory = edge_key_dict_factory(
             self.db,
             self.adb_graph,

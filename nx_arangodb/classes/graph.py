@@ -228,7 +228,7 @@ class Graph(nx.Graph):
         self._loaded_incoming_graph_data = False
         if self.graph_exists_in_db:
             self._set_factory_methods()
-            self.__set_arangodb_backend_config(read_parallelism, read_batch_size)               
+            self.__set_arangodb_backend_config(read_parallelism, read_batch_size)
 
             if isinstance(incoming_graph_data, nx.Graph):
                 self._load_nx_graph(incoming_graph_data, write_batch_size, write_async)
@@ -367,7 +367,7 @@ class Graph(nx.Graph):
         if graph_exists and overwrite_graph:
             logger.info(f"Overwriting graph '{name}'")
 
-            properties = self.adb_graph.properties()
+            properties = self.db.graph(name).properties()
             self.db.delete_graph(name, drop_collections=True)
             self.db.create_graph(
                 name=name,

@@ -621,9 +621,11 @@ class Graph(nx.Graph):
         if llm is None:
             llm = ChatOpenAI(temperature=0, model_name="gpt-4")
 
+        graph = ArangoGraph(self.db, graph_name=self.name)
+
         chain = ArangoGraphQAChain.from_llm(
             llm=llm,
-            graph=ArangoGraph(self.db),
+            graph=graph,
             verbose=verbose,
         )
 

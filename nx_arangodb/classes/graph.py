@@ -204,7 +204,7 @@ class Graph(nx.Graph):
 
         self.__set_db(db)
         if all([self.__db, name]):
-            self.__set_graph(name, default_node_type, edge_type_func)
+            self.__set_graph(name, overwrite_graph, default_node_type, edge_type_func)
             self.__set_edge_collections_attributes(edge_collections_attributes)
 
         # NOTE: Need to revisit these...
@@ -228,24 +228,7 @@ class Graph(nx.Graph):
         self._loaded_incoming_graph_data = False
         if self.graph_exists_in_db:
             self._set_factory_methods()
-            self.__set_arangodb_backend_config(read_parallelism, read_batch_size)
-
-            if overwrite_graph:
-                logger.info("Overwriting graph...")
-
-                properties = self.adb_graph.properties()
-                self.db.delete_graph(name, drop_collections=True)
-                self.db.create_graph(
-                    name=name,
-                    edge_definitions=properties["edge_definitions"],
-                    orphan_collections=properties["orphan_collections"],
-                    smart=properties.get("smart"),
-                    disjoint=properties.get("disjoint"),
-                    smart_field=properties.get("smart_field"),
-                    shard_count=properties.get("shard_count"),
-                    replication_factor=properties.get("replication_factor"),
-                    write_concern=properties.get("write_concern"),
-                )
+            self.__set_arangodb_backend_config(read_parallelism, read_batch_size)               
 
             if isinstance(incoming_graph_data, nx.Graph):
                 self._load_nx_graph(incoming_graph_data, write_batch_size, write_async)
@@ -372,13 +355,33 @@ class Graph(nx.Graph):
     def __set_graph(
         self,
         name: Any,
+        overwrite_graph: bool,
         default_node_type: str | None = None,
         edge_type_func: Callable[[str, str], str] | None = None,
     ) -> None:
         if not isinstance(name, str):
             raise TypeError("**name** must be a string")
 
-        if self.db.has_graph(name):
+        graph_exists = self.db.has_graph(name)
+
+        if graph_exists and overwrite_graph:
+            logger.info(f"Overwriting graph '{name}'")
+
+            properties = self.adb_graph.properties()
+            self.db.delete_graph(name, drop_collections=True)
+            self.db.create_graph(
+                name=name,
+                edge_definitions=properties["edge_definitions"],
+                orphan_collections=properties["orphan_collections"],
+                smart=properties.get("smart"),
+                disjoint=properties.get("disjoint"),
+                smart_field=properties.get("smart_field"),
+                shard_count=properties.get("shard_count"),
+                replication_factor=properties.get("replication_factor"),
+                write_concern=properties.get("write_concern"),
+            )
+
+        if graph_exists:
             logger.info(f"Graph '{name}' exists.")
 
             if edge_type_func is not None:

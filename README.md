@@ -166,13 +166,16 @@ import nx_arangodb as nxadb
 
 G = nxadb.Graph(name="MyGraph")
 
+# Option 1: Use Global Config
 nx.config.backends.arangodb.use_gpu = False
-
 nx.pagerank(G)
 nx.betweenness_centrality(G)
 # ...
-
 nx.config.backends.arangodb.use_gpu = True
+
+# Option 2: Use Local Config
+nx.pagerank(G, use_gpu=False)
+nx.betweenness_centrality(G, use_gpu=False)
 ```
 
 <p align="center">

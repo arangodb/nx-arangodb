@@ -447,7 +447,12 @@ def test_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     assert gpu_cached_time < gpu_no_cache_time
     assert_pagerank(res_gpu_cached, res_gpu_no_cache, 10)
 
-    # 4. CPU
+    # 4. CPU (with use_gpu=False)
+    start_cpu_force_no_gpu = time.time()
+    res_cpu_force_no_gpu = nx.pagerank(graph, use_gpu=False)
+    cpu_force_no_gpu_time = time.time() - start_cpu_force_no_gpu
+
+    # 5. CPU
     assert graph.nxcg_graph is not None
     graph.clear_nxcg_cache()
     assert graph.nxcg_graph is None
@@ -456,12 +461,14 @@ def test_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     start_cpu = time.time()
     res_cpu = nx.pagerank(graph)
     cpu_time = time.time() - start_cpu
+    assert_pagerank(res_cpu, res_cpu_force_no_gpu, 10)
 
     assert graph.nxcg_graph is None
-
     m = "GPU execution should be faster than CPU execution"
     assert gpu_time < cpu_time, m
+    assert gpu_time < cpu_force_no_gpu_time, m
     assert gpu_no_cache_time < cpu_time, m
+    assert gpu_no_cache_time < cpu_force_no_gpu_time, m
     assert_pagerank(res_gpu_no_cache, res_cpu, 10)
 
 

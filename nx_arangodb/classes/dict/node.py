@@ -260,6 +260,12 @@ class NodeDict(UserDict[str, NodeAttrDict]):
     default_node_type : str
         The default node type for the graph.
 
+    read_parallelism : int
+        The number of parallel threads to use for reading data in _fetch_all.
+
+    read_batch_size : int
+        The number of documents to read in each batch in _fetch_all.
+
     Example
     -------
     >>> G = nxadb.Graph("MyGraph")

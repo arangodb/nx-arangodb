@@ -1458,6 +1458,12 @@ class AdjListOuterDict(UserDict[str, AdjListInnerDict]):
     symmetrize_edges_if_directed : bool
         Whether to add the reverse edge if the graph is directed.
 
+    read_parallelism : int
+        The number of parallel threads to use for reading data in _fetch_all.
+
+    read_batch_size : int
+        The number of documents to read in each batch in _fetch_all.
+
     Example
     -------
     >>> g = nxadb.Graph(name="MyGraph")

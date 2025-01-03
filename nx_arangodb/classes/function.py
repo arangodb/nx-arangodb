@@ -145,6 +145,7 @@ def get_arangodb_graph(
         metagraph["edgeCollections"] = {}
 
     hosts = adb_graph._conn._hosts
+    hosts = hosts.split(",") if type(hosts) is str else hosts
     db_name = adb_graph._conn._db_name
     username, password = adb_graph._conn._auth
 

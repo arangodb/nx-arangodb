@@ -63,7 +63,9 @@ def _auto_func(func_name: str, /, *args: Any, **kwargs: Any) -> Any:
     dfunc = _registered_algorithms[func_name]
 
     backend_priority: list[str] = []
-    if nxadb.convert.GPU_AVAILABLE and nx.config.backends.arangodb.use_gpu:
+
+    use_gpu = bool(kwargs.pop("use_gpu", nx.config.backends.arangodb.use_gpu))
+    if nxadb.convert.GPU_AVAILABLE and use_gpu:
         backend_priority.append("cugraph")
 
     for backend in backend_priority:

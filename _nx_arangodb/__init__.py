@@ -74,15 +74,7 @@ def get_info():
     for key in info_keys:
         del d[key]
 
-    d["default_config"] = {
-        "host": None,
-        "username": None,
-        "password": None,
-        "db_name": None,
-        "read_parallelism": None,
-        "read_batch_size": None,
-        "use_gpu": True,
-    }
+    d["default_config"] = {"use_gpu": True}
 
     return d
 

@@ -256,6 +256,8 @@ def nxadb_to_nx(G: nxadb.Graph) -> nx.Graph:
         is_directed=G.is_directed(),
         is_multigraph=G.is_multigraph(),
         symmetrize_edges_if_directed=G.symmetrize_edges if G.is_directed() else False,
+        read_parallelism=G.read_parallelism,
+        read_batch_size=G.read_batch_size,
     )
 
     logger.info(f"Graph '{G.adb_graph.name}' load took {time.time() - start_time}s")
@@ -337,6 +339,8 @@ if GPU_AVAILABLE:
             symmetrize_edges_if_directed=(
                 G.symmetrize_edges if G.is_directed() else False
             ),
+            read_parallelism=G.read_parallelism,
+            read_batch_size=G.read_batch_size,
         )
 
         logger.info(f"Graph '{G.adb_graph.name}' load took {time.time() - start_time}s")

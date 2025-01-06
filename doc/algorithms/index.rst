@@ -43,13 +43,16 @@ You can also force-run algorithms on CPU even if ``nx-cugraph`` is installed:
 
    G = nxadb.Graph(name="MyGraph")
 
+   # Option 1: Use Global Config
    nx.config.backends.arangodb.use_gpu = False
-
    nx.pagerank(G)
    nx.betweenness_centrality(G)
    # ...
-
    nx.config.backends.arangodb.use_gpu = True
+
+   # Option 2: Use Local Config
+   nx.pagerank(G, use_gpu=False)
+   nx.betweenness_centrality(G, use_gpu=False)
 
 
 .. image:: ../_static/dispatch.png

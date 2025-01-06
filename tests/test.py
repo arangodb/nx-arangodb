@@ -16,7 +16,7 @@ from nx_arangodb.classes.dict.adj import AdjListOuterDict, EdgeAttrDict, EdgeKey
 from nx_arangodb.classes.dict.graph import GRAPH_FIELD
 from nx_arangodb.classes.dict.node import NodeAttrDict, NodeDict
 
-from .conftest import create_grid_graph, create_line_graph, db, run_gpu_tests
+from .conftest import create_grid_graph, create_line_graph, db, get_db, run_gpu_tests
 
 G_NX: nx.Graph = nx.karate_club_graph()
 G_NX_digraph = nx.DiGraph(G_NX)
@@ -86,6 +86,39 @@ def test_adb_graph_init(graph_cls: type[nxadb.Graph]) -> None:
     # Rename of an adb graph is not allowed
     with pytest.raises(ValueError):
         G.name = "RenamedTestGraph"
+
+
+def test_multiple_graph_sessions():
+    db_1_name = "test_db_1"
+    db_2_name = "test_db_2"
+
+    db.delete_database(db_1_name, ignore_missing=True)
+    db.delete_database(db_2_name, ignore_missing=True)
+
+    db.create_database(db_1_name)
+    db.create_database(db_2_name)
+
+    db_1 = get_db(db_1_name)
+    db_2 = get_db(db_2_name)
+
+    G_1 = nxadb.Graph(name="TestGraph", db=db_1)
+    G_2 = nxadb.Graph(name="TestGraph", db=db_2)
+
+    G_1.add_node(1, foo="bar")
+    G_1.add_node(2)
+    G_1.add_edge(1, 2)
+
+    G_2.add_node(1)
+    G_2.add_node(2)
+    G_2.add_node(3)
+    G_2.add_edge(1, 2)
+    G_2.add_edge(2, 3)
+
+    res_1 = nx.pagerank(G_1)
+    res_2 = nx.pagerank(G_2)
+
+    assert len(res_1) == 2
+    assert len(res_2) == 3
 
 
 def test_load_graph_from_nxadb():
@@ -447,7 +480,12 @@ def test_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     assert gpu_cached_time < gpu_no_cache_time
     assert_pagerank(res_gpu_cached, res_gpu_no_cache, 10)
 
-    # 4. CPU
+    # 4. CPU (with use_gpu=False)
+    start_cpu_force_no_gpu = time.time()
+    res_cpu_force_no_gpu = nx.pagerank(graph, use_gpu=False)
+    cpu_force_no_gpu_time = time.time() - start_cpu_force_no_gpu
+
+    # 5. CPU
     assert graph.nxcg_graph is not None
     graph.clear_nxcg_cache()
     assert graph.nxcg_graph is None
@@ -456,12 +494,14 @@ def test_gpu_pagerank(graph_cls: type[nxadb.Graph]) -> None:
     start_cpu = time.time()
     res_cpu = nx.pagerank(graph)
     cpu_time = time.time() - start_cpu
+    assert_pagerank(res_cpu, res_cpu_force_no_gpu, 10)
 
     assert graph.nxcg_graph is None
-
     m = "GPU execution should be faster than CPU execution"
     assert gpu_time < cpu_time, m
+    assert gpu_time < cpu_force_no_gpu_time, m
     assert gpu_no_cache_time < cpu_time, m
+    assert gpu_no_cache_time < cpu_force_no_gpu_time, m
     assert_pagerank(res_gpu_no_cache, res_cpu, 10)
 
 

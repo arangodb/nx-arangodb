@@ -204,5 +204,3 @@ G_nxadb = nxadb.Graph(
 assert G_nxadb.number_of_nodes() == G_nx.number_of_nodes()
 assert G_nxadb.number_of_edges() == G_nx.number_of_edges()
 ```
-
-<img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=cef1f081-73e6-466e-b424-ba86a1a03eb0" />

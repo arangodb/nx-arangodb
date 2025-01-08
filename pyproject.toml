@@ -31,8 +31,8 @@ classifiers = [
 dependencies = [
     "networkx>=3.0,<=3.4",
     "phenolrs~=0.5",
-    "python-arango~=8",
-    "adbnx-adapter~=5"
+    "python-arango~=8.1",
+    "adbnx-adapter~=5.0"
 ]
 
 [project.optional-dependencies]

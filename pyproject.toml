@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3 :: Only",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -30,8 +31,8 @@ classifiers = [
 dependencies = [
     "networkx>=3.0,<=3.4",
     "phenolrs~=0.5",
-    "python-arango~=8.1",
-    "adbnx-adapter~=5.0.5"
+    "python-arango~=8",
+    "adbnx-adapter~=5"
 ]
 
 [project.optional-dependencies]

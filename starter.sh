@@ -13,5 +13,5 @@ docker run -d \
   $extra_ports \
   -v "$(pwd)/tests/static/":/tests/static \
   -v /tmp:/tmp \
-  "arangodb/$image_name:latest" \
+  "arangodb/$image_name:3.12.2" \
   /bin/sh -c "arangodb --configuration=/tests/static/$conf_file"

@@ -215,7 +215,7 @@ class Graph(nx.Graph):
 
         self.__set_db(db)
         if all([self.__db, name]):
-            self.__set_graph(name, default_node_type, edge_type_func)
+            self.__set_graph(name, overwrite_graph, default_node_type, edge_type_func)
             self.__set_edge_collections_attributes(edge_collections_attributes)
 
         # NOTE: Need to revisit these...
@@ -225,10 +225,12 @@ class Graph(nx.Graph):
         self.use_nxcg_cache = True
         self.nxcg_graph = None
 
+        self.edge_type_key = edge_type_key
+        self.read_parallelism = read_parallelism
+        self.read_batch_size = read_batch_size
+
         # Does not apply to undirected graphs
         self.symmetrize_edges = symmetrize_edges
-
-        self.edge_type_key = edge_type_key
 
         # TODO: Consider this
         # if not self.__graph_name:
@@ -238,25 +240,8 @@ class Graph(nx.Graph):
 
         self._loaded_incoming_graph_data = False
         if self.graph_exists_in_db:
-            self._set_factory_methods()
-            self.__set_arangodb_backend_config(read_parallelism, read_batch_size)
-
-            if overwrite_graph:
-                logger.info("Overwriting graph...")
-
-                properties = self.adb_graph.properties()
-                self.db.delete_graph(name, drop_collections=True)
-                self.db.create_graph(
-                    name=name,
-                    edge_definitions=properties["edge_definitions"],
-                    orphan_collections=properties["orphan_collections"],
-                    smart=properties.get("smart"),
-                    disjoint=properties.get("disjoint"),
-                    smart_field=properties.get("smart_field"),
-                    shard_count=properties.get("shard_count"),
-                    replication_factor=properties.get("replication_factor"),
-                    write_concern=properties.get("write_concern"),
-                )
+            self._set_factory_methods(read_parallelism, read_batch_size)
+            self.__set_arangodb_backend_config()
 
             if isinstance(incoming_graph_data, nx.Graph):
                 self._load_nx_graph(incoming_graph_data, write_batch_size, write_async)
@@ -303,7 +288,7 @@ class Graph(nx.Graph):
     # Init helper methods #
     #######################
 
-    def _set_factory_methods(self) -> None:
+    def _set_factory_methods(self, read_parallelism: int, read_batch_size: int) -> None:
         """Set the factory methods for the graph, _node, and _adj dictionaries.
 
         The ArangoDB CRUD operations are handled by the modified dictionaries.
@@ -318,39 +303,29 @@ class Graph(nx.Graph):
         """
 
         base_args = (self.db, self.adb_graph)
+
         node_args = (*base_args, self.default_node_type)
-        adj_args = (
-            *node_args,
-            self.edge_type_key,
-            self.edge_type_func,
-            self.__class__.__name__,
+        node_args_with_read = (*node_args, read_parallelism, read_batch_size)
+
+        adj_args = (self.edge_type_key, self.edge_type_func, self.__class__.__name__)
+        adj_inner_args = (*node_args, *adj_args)
+        adj_outer_args = (
+            *node_args_with_read,
+            *adj_args,
+            self.symmetrize_edges,
         )
 
         self.graph_attr_dict_factory = graph_dict_factory(*base_args)
 
-        self.node_dict_factory = node_dict_factory(*node_args)
+        self.node_dict_factory = node_dict_factory(*node_args_with_read)
         self.node_attr_dict_factory = node_attr_dict_factory(*base_args)
 
         self.edge_attr_dict_factory = edge_attr_dict_factory(*base_args)
-        self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(*adj_args)
-        self.adjlist_outer_dict_factory = adjlist_outer_dict_factory(
-            *adj_args, self.symmetrize_edges
-        )
+        self.adjlist_inner_dict_factory = adjlist_inner_dict_factory(*adj_inner_args)
+        self.adjlist_outer_dict_factory = adjlist_outer_dict_factory(*adj_outer_args)
 
-    def __set_arangodb_backend_config(
-        self, read_parallelism: int, read_batch_size: int
-    ) -> None:
-        if not all([self._host, self._username, self._password, self._db_name]):
-            m = "Must set all environment variables to use the ArangoDB Backend with an existing graph"  # noqa: E501
-            raise OSError(m)
-
+    def __set_arangodb_backend_config(self) -> None:
         config = nx.config.backends.arangodb
-        config.host = self._host
-        config.username = self._username
-        config.password = self._password
-        config.db_name = self._db_name
-        config.read_parallelism = read_parallelism
-        config.read_batch_size = read_batch_size
         config.use_gpu = True  # Only used by default if nx-cugraph is available
 
     def __set_edge_collections_attributes(self, attributes: set[str] | None) -> None:
@@ -364,7 +339,7 @@ class Graph(nx.Graph):
             self._edge_collections_attributes.add("_id")
 
     def __set_db(self, db: Any = None) -> None:
-        self._host = os.getenv("DATABASE_HOST")
+        self._hosts = os.getenv("DATABASE_HOST", "").split(",")
         self._username = os.getenv("DATABASE_USERNAME")
         self._password = os.getenv("DATABASE_PASSWORD")
         self._db_name = os.getenv("DATABASE_NAME")
@@ -374,30 +349,53 @@ class Graph(nx.Graph):
                 m = "arango.database.StandardDatabase"
                 raise TypeError(m)
 
-            db.version()
+            db.version()  # make sure the connection is valid
             self.__db = db
+            self._db_name = db.name
+            self._hosts = db._conn._hosts
+            self._username, self._password = db._conn._auth
             return
 
-        if not all([self._host, self._username, self._password, self._db_name]):
+        if not all([self._hosts, self._username, self._password, self._db_name]):
             m = "Database environment variables not set. Can't connect to the database"
             logger.warning(m)
             self.__db = None
             return
 
-        self.__db = ArangoClient(hosts=self._host, request_timeout=None).db(
+        self.__db = ArangoClient(hosts=self._hosts, request_timeout=None).db(
             self._db_name, self._username, self._password, verify=True
         )
 
     def __set_graph(
         self,
         name: Any,
+        overwrite_graph: bool,
         default_node_type: str | None = None,
         edge_type_func: Callable[[str, str], str] | None = None,
     ) -> None:
         if not isinstance(name, str):
             raise TypeError("**name** must be a string")
 
-        if self.db.has_graph(name):
+        graph_exists = self.db.has_graph(name)
+
+        if graph_exists and overwrite_graph:
+            logger.info(f"Overwriting graph '{name}'")
+
+            properties = self.db.graph(name).properties()
+            self.db.delete_graph(name, drop_collections=True)
+            self.db.create_graph(
+                name=name,
+                edge_definitions=properties["edge_definitions"],
+                orphan_collections=properties["orphan_collections"],
+                smart=properties.get("smart"),
+                disjoint=properties.get("disjoint"),
+                smart_field=properties.get("smart_field"),
+                shard_count=properties.get("shard_count"),
+                replication_factor=properties.get("replication_factor"),
+                write_concern=properties.get("write_concern"),
+            )
+
+        if graph_exists:
             logger.info(f"Graph '{name}' exists.")
 
             if edge_type_func is not None:
@@ -641,9 +639,14 @@ class Graph(nx.Graph):
         if llm is None:
             llm = ChatOpenAI(temperature=0, model_name="gpt-4")
 
+        graph = ArangoGraph(
+            self.db,
+            # graph_name=self.name # not yet supported
+        )
+
         chain = ArangoGraphQAChain.from_llm(
             llm=llm,
-            graph=ArangoGraph(self.db),
+            graph=graph,
             verbose=verbose,
         )
 

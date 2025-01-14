@@ -1,8 +1,6 @@
 import logging
 import os
-import sys
-from io import StringIO
-from typing import Any
+from typing import Any, Dict
 
 import networkx as nx
 import pytest
@@ -15,6 +13,8 @@ from nx_arangodb.logger import logger
 
 logger.setLevel(logging.INFO)
 
+con: Dict[str, Any]
+client: ArangoClient
 db: StandardDatabase
 run_gpu_tests: bool
 
@@ -30,6 +30,7 @@ def pytest_addoption(parser: Any) -> None:
 
 
 def pytest_configure(config: Any) -> None:
+    global con
     con = {
         "url": config.getoption("url"),
         "username": config.getoption("username"),
@@ -42,12 +43,15 @@ def pytest_configure(config: Any) -> None:
     print("Username: " + con["username"])
     print("Password: " + con["password"])
     print("Database: " + con["dbName"])
-    print("----------------------------------------")
+
+    global client
+    client = ArangoClient(hosts=con["url"])
 
     global db
-    db = ArangoClient(hosts=con["url"]).db(
-        con["dbName"], con["username"], con["password"], verify=True
-    )
+    db = client.db(con["dbName"], con["username"], con["password"], verify=True)
+
+    print("Version: " + db.version())
+    print("----------------------------------------")
 
     os.environ["DATABASE_HOST"] = con["url"]
     os.environ["DATABASE_USERNAME"] = con["username"]
@@ -95,6 +99,12 @@ def load_two_relation_graph() -> None:
     g.create_edge_definition(
         e2, from_vertex_collections=[v2], to_vertex_collections=[v1]
     )
+
+
+def get_db(db_name: str) -> StandardDatabase:
+    global con
+    global client
+    return client.db(db_name, con["username"], con["password"], verify=True)
 
 
 def create_line_graph(load_attributes: set[str]) -> nxadb.Graph:

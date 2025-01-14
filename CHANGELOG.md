@@ -1,3 +1,45 @@
+1.3.0 (2025-01-10)
+------------------
+
+New
+~~~
+- Fully support parameterized `db` object (#70) [Anthony Mahanna]
+
+  * new: fully support parameterized `db` object
+
+  * fix: `hosts`
+
+  * fix: docstring
+
+  * new: support `use_gpu` algorithm parameter
+
+  * new: `test_multiple_graph_sessions`
+
+Fix
+~~~
+- Readme img. [Anthony Mahanna]
+
+Other
+~~~~~
+- Bump: version. [Anthony Mahanna]
+- Rm: scarf. [Anthony Mahanna]
+- Cleanup: `overwrite_graph` and `chat` (#69) [Anthony Mahanna]
+
+  * cleanup: `overwrite_graph`
+
+  * fix: typo
+
+  * fix: `chat`
+
+  * temp: disable `chat`
+- Temp: lock adb. [Anthony Mahanna]
+
+  need to investigate issues with 3.12.3
+- Update README.md. [Anthony Mahanna]
+- Update README.md. [Anthony Mahanna]
+- !gitchangelog (#67) [aMahanna, github-actions[bot]]
+
+
 1.2.0 (2024-10-21)
 ------------------
 

@@ -89,7 +89,7 @@ Benefits of having ArangoDB as a backend to NetworkX include:
 
 Requirements
 ------------
-- Python 3.10+
+- Python 3.9+
 - NetworkX 3.0+
 - ArangoDB 3.10+
 

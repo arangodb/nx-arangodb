@@ -119,7 +119,7 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         Used for inserting node and edge data into the database if and only if
         **incoming_graph_data** is a NetworkX graph.
 
-    write_async : bool (optional, default: True)
+    write_async : bool (optional, default: False)
         Whether to insert data into ArangoDB asynchronously. Used for inserting
         node and edge data into the database if and only if **incoming_graph_data**
         is a NetworkX graph.
@@ -168,7 +168,7 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         read_parallelism: int = 10,
         read_batch_size: int = 100000,
         write_batch_size: int = 50000,
-        write_async: bool = True,
+        write_async: bool = False,
         symmetrize_edges: bool = False,
         use_arango_views: bool = False,
         overwrite_graph: bool = False,

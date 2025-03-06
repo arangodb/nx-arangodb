@@ -801,7 +801,7 @@ def separate_nodes_by_collections(
 
 
 def transform_local_documents_for_adb(
-    original_documents: dict[str, Any]
+    original_documents: dict[str, Any],
 ) -> list[dict[str, Any]]:
     """Transform original documents into a format suitable for UPSERT
     operations in ArangoDB. Returns a list of documents with '_key' attribute

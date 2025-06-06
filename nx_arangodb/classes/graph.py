@@ -37,8 +37,7 @@ networkx_api = nxadb.utils.decorators.networkx_class(nx.Graph)  # type: ignore
 __all__ = ["Graph"]
 
 try:
-    from langchain_community.chains.graph_qa.arangodb import ArangoGraphQAChain
-    from langchain_community.graphs import ArangoGraph
+    from langchain_arangodb import ArangoGraph, ArangoGraphQAChain
     from langchain_core.language_models import BaseLanguageModel
     from langchain_openai import ChatOpenAI
 
@@ -616,10 +615,7 @@ class Graph(nx.Graph):
         if llm is None:
             llm = ChatOpenAI(temperature=0, model_name="gpt-4")
 
-        graph = ArangoGraph(
-            self.db,
-            # graph_name=self.name # not yet supported
-        )
+        graph = ArangoGraph(self.db, schema_graph_name=self.name)
 
         chain = ArangoGraphQAChain.from_llm(
             llm=llm,

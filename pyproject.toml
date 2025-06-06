@@ -28,7 +28,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "networkx>=3.0,<=3.4",
+    "networkx>=3.0,<=3.5",
     "phenolrs~=0.5",
     "python-arango~=8.1",
     "adbnx-adapter~=5.0.5"
@@ -54,9 +54,8 @@ dev = [
     "sphinx_rtd_theme",
 ]
 llm = [
-    "langchain~=0.2.14",
-    "langchain-openai~=0.1.22",
-    "langchain-community~=0.2.12"
+    "langchain-arangodb",
+    "langchain_openai"
 ]
 
 [project.urls]

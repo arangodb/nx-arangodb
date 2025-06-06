@@ -108,7 +108,7 @@ extend_skip_glob = [
 
 [tool.flake8]
 max-line-length = 88
-extend-ignore = ["E203", "W503", "E251", "F401", "F403"]
+extend-ignore = ["E203", "W503", "E251", "F401", "F403", "F824"]
 exclude = [".git", ".idea", ".*_cache", "dist", "venv"]
 
 [tool.mypy]

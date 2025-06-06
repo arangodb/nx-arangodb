@@ -106,22 +106,30 @@ jobs:
             pyenv global << parameters.python_version >>
 
       - run:
+          name: Create virtual environment
+          command: python -m venv venv
+
+      - run:
+          name: Activate virtual environment
+          command: . venv/bin/activate
+
+      - run:
           name: Setup pip
-          command: python -m pip install --upgrade pip setuptools wheel
+          command: venv/bin/python -m pip install --upgrade pip setuptools wheel
 
       - run:
           name: Install packages
-          command: pip install .[dev]
+          command: venv/bin/pip install .[dev]
 
       - run:
           name: Install cuda related dependencies
           command: |
-            pip install pylibcugraph-cu12 --extra-index-url https://pypi.nvidia.com
-            pip install nx-cugraph-cu12 --extra-index-url https://pypi.nvidia.com
+            venv/bin/pip install pylibcugraph-cu12 --extra-index-url https://pypi.nvidia.com
+            venv/bin/pip install nx-cugraph-cu12 --extra-index-url https://pypi.nvidia.com
 
       - run:
           name: Run local gpu tests
-          command: pytest tests/test.py -k "test_gpu" --run-gpu-tests
+          command: venv/bin/pytest tests/test.py -k "test_gpu" --run-gpu-tests
 
 workflows:
   version: 2

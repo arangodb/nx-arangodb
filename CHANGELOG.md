@@ -1,3 +1,34 @@
+1.3.1 (2025-06-10)
+------------------
+
+Fix
+~~~
+- Support Py3.13 (#86) [Anthony Mahanna]
+
+  * fix: support Py3.13
+
+  * loosen: adbnx-adapter
+- Set `write_async` to False by default (#77) [Anthony Mahanna]
+
+  * fix: set `write_async` to False by default
+
+  * fix: lint
+- Config py version. [Anthony Mahanna]
+
+Other
+~~~~~
+- Bump: version. [Anthony Mahanna]
+- Update: test-gpu. [Anthony Mahanna]
+- Bump: `networkx`, `langchain` (#85) [Anthony Mahanna]
+
+  * bump: dependencies
+
+  * fix: langchain
+
+  * ignore: `F824`
+- !gitchangelog (#72) [aMahanna, github-actions[bot]]
+
+
 1.3.0 (2025-01-10)
 ------------------
 

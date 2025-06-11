@@ -6,6 +6,7 @@ Used across the nx_arangodb package to interact with ArangoDB.
 
 from __future__ import annotations
 
+from functools import wraps
 from typing import Any, Callable, Generator, Tuple
 
 import networkx as nx
@@ -933,3 +934,19 @@ def upsert_collection_edges(
         )
 
     return results
+
+
+def mirror_to_nxcg(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        result = func(self, *args, **kwargs)
+        if self.mirror_crud_to_nxcg and self.nxcg_graph is not None:
+            if "_override" not in func.__name__:
+                m = f"Function '{func.__name__}' is not an override function."
+                raise ValueError(m)
+
+            func_name = func.__name__.replace("_override", "")
+            getattr(self.nxcg_graph, func_name)(*args, **kwargs)
+        return result
+
+    return wrapper

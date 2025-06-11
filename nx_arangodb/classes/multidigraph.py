@@ -7,6 +7,9 @@ from arango.database import StandardDatabase
 import nx_arangodb as nxadb
 from nx_arangodb.classes.digraph import DiGraph
 from nx_arangodb.classes.multigraph import MultiGraph
+from nx_arangodb.logger import logger
+
+from .function import mirror_to_nxcg
 
 networkx_api = nxadb.utils.decorators.networkx_class(nx.MultiDiGraph)  # type: ignore
 
@@ -141,6 +144,15 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         this operation is irreversible and will result in the loss of all data in
         the graph. NOTE: If set to True, Collection Indexes will also be lost.
 
+    mirror_crud_to_nxcg : bool (optional, default: False)
+        Whether to mirror any CRUD operations performed on the NetworkX-ArangoDB Graph
+        to the cached NetworkX-cuGraph Graph (if available). This allows you to maintain
+        an up-to-date in-memory NetworkX-cuGraph graph while performing CRUD operations
+        on the NetworkX-ArangoDB Graph. NOTE: The first time you perform a CRUD
+        operation on the NetworkX-ArangoDB Graph with an existing NetworkX-cuGraph cache
+        will require downtime to copy the NetworkX-cuGraph Graph from GPU memory to CPU
+        memory. Subsequent CRUD operations will not require this downtime.
+
     args: positional arguments for nx.Graph
         Additional arguments passed to nx.Graph.
 
@@ -172,6 +184,7 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
         symmetrize_edges: bool = False,
         use_arango_views: bool = False,
         overwrite_graph: bool = False,
+        mirror_crud_to_nxcg: bool = False,
         *args: Any,
         **kwargs: Any,
     ):
@@ -191,6 +204,7 @@ class MultiDiGraph(MultiGraph, DiGraph, nx.MultiDiGraph):
             symmetrize_edges,
             use_arango_views,
             overwrite_graph,
+            mirror_crud_to_nxcg,
             *args,
             **kwargs,
         )

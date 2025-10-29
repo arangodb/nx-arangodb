@@ -204,3 +204,35 @@ G_nxadb = nxadb.Graph(
 assert G_nxadb.number_of_nodes() == G_nx.number_of_nodes()
 assert G_nxadb.number_of_edges() == G_nx.number_of_edges()
 ```
+
+## Direct Conversion Helpers
+
+Use the conversion helpers in `nx_arangodb.convert` to move between ecosystems while preserving directed/multi properties.
+
+```python
+import networkx as nx
+import nx_arangodb as nxadb
+
+# Start with a NetworkX graph
+G_nx = nx.karate_club_graph()
+
+# Convert to nx-arangodb (optionally force directed via as_directed=True)
+G_adb = nxadb.convert._to_nxadb_graph(G_nx)
+
+# Convert back to NetworkX
+G_nx2 = nxadb.convert._to_nx_graph(G_adb)
+
+# Convert to nx-cugraph (if installed)
+try:
+    G_cg = nxadb.convert._to_nxcg_graph(G_adb)
+except NotImplementedError:
+    # nx-cugraph/CuPy not available in this environment
+    pass
+```
+
+Notes:
+- Database-backed graphs: converting `nxadb.Graph` to NetworkX will fetch node and adjacency dictionaries from ArangoDB and build a plain NetworkX graph.
+- Local `nxadb.Graph` (not yet persisted) is already NetworkX-compatible and may be returned as-is.
+- `as_directed` forces directed variants without changing multiplicity.
+- GPU conversions require `nx-cugraph` and CuPy; otherwise `_to_nxcg_graph` raises `NotImplementedError`.
+- When converting to `nx-cugraph`, enabling `G_adb.use_nxcg_cache = True` caches the constructed GPU graph for reuse.

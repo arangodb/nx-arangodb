@@ -125,3 +125,4 @@ Expect documentation to grow over time:
    dict/index
    algorithms/index
    views/index
+   convert
